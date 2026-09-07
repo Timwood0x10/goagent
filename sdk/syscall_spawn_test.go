@@ -59,7 +59,7 @@ func TestSDKAgentExecutorTypeCapabilityOverride(t *testing.T) {
 }
 
 // TestSDKSpawnedPeerExecutesSubTask is the end-to-end regression for the
-// spawn capability fix (D1 closure): a coordinator whose LLM decides to
+// spawn capability fix: a coordinator whose LLM decides to
 // decompose must produce a spawned peer that the shared scheduler can match
 // to the sub-task's declared capability.
 //
@@ -81,7 +81,7 @@ func TestSDKSpawnedPeerExecutesSubTask(t *testing.T) {
 	defer rt.Close()
 	rt.llmSvc = &mockLLMSvc{responses: []*core.GenerateResponse{
 		// Coordinator iteration 0: decide to spawn a specialist peer.
-		// M4-D: only L2-routable capabilities spawn executable peers.
+		// only L2-routable capabilities spawn executable peers.
 		{Content: "", ToolCalls: []core.ToolCall{
 			mockToolCall("tc1", "spawn_agent", `{"capability":"tool/researcher"}`),
 		}},

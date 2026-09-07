@@ -119,7 +119,7 @@ func TestStrategyLifecycle_Submit_Blacklisted_CrossGeneration(t *testing.T) {
 
 	// Simulate a rollback at generation 0: the candidate is banned for
 	// BlacklistGenerations (2) → banUntil = 2. Submissions at generations 0
-	// and 1 must be rejected; the ban LIFTS at generation 2 (§9: an
+	// and 1 must be rejected; the ban LIFTS at generation 2 (an
 	// N-generation damping window, not a 0-generation no-op).
 	lc.mu.Lock()
 	lc.blacklist[candidate.ID] = 2
@@ -364,7 +364,7 @@ func TestStrategyLifecycle_Approve_NoOpWhenNotPending(t *testing.T) {
 	assert.NotPanics(t, func() { lc.Approve() })
 }
 
-// newTestLifecycleWithShadow builds a lifecycle whose G2 shadow gate is
+// newTestLifecycleWithShadow builds a lifecycle whose shadow gate is
 // registered (the production shape), backed by an empty ShadowEvaluator.
 func newTestLifecycleWithShadow(t *testing.T, cfg LifecycleConfig) (*StrategyLifecycle, *ActiveStrategyManager, *ShadowEvaluator, evidence.Store) {
 	t.Helper()
@@ -383,7 +383,7 @@ func newTestLifecycleWithShadow(t *testing.T, cfg LifecycleConfig) (*StrategyLif
 // TestStrategyLifecycle_Submit_SeedDeployWhenNoActive locks the seed-deploy
 // exception: with NO active strategy there is nothing to shadow-compare
 // against, so the first candidate is promoted without gates and becomes the
-// baseline that rollback relies on as "previous" (§9).
+// baseline that rollback relies on as "previous".
 func TestStrategyLifecycle_Submit_SeedDeployWhenNoActive(t *testing.T) {
 	lc, asm, _, _ := newTestLifecycleWithShadow(t, DefaultLifecycleConfig())
 
@@ -425,7 +425,7 @@ func TestStrategyLifecycle_Submit_SeedExemptionIsOneShot(t *testing.T) {
 	lc.Submit(context.Background(), cand, 1)
 	assert.Nil(t, asm.Current(), "seed exemption must be one-shot: no re-deploy after reset")
 
-	// C3.3: the rejected candidate now ALSO writes a decision record
+	// The rejected candidate now ALSO writes a decision record
 	// (gate=shadow reject), so the trail has 2 entries: 1 promote (seed)
 	// + 1 reject (the gate-rejected candidate). Previously only the
 	// promote was recorded, making gate rejections invisible in the
@@ -445,9 +445,9 @@ func TestStrategyLifecycle_Submit_SeedExemptionIsOneShot(t *testing.T) {
 	assert.True(t, hasPromote, "the seed promote evidence must be present")
 }
 
-// TestStrategyLifecycle_ShadowGate_FailClosedOnNoData locks review blocking
-// item 1: with zero shadow comparisons the G2 gate REJECTS (design doc §3.1
-// "fewer than MinSamples samples → the candidate stays in SHADOW and is NOT
+// TestStrategyLifecycle_ShadowGate_FailClosedOnNoData locks the fail-closed
+// semantics: with zero shadow comparisons the shadow gate REJECTS ("fewer than
+// MinSamples samples → the candidate stays in SHADOW and is NOT
 // deployed"), it does NOT pass through. The previous
 // pass-through made the whole verify pipeline a rubber stamp in default
 // configs where nothing feeds comparisons.
@@ -474,8 +474,8 @@ func TestStrategyLifecycle_ShadowGate_FailClosedOnNoData(t *testing.T) {
 }
 
 // TestStrategyLifecycle_Sampler_PrimedGatePromotesWinningCandidate locks the
-// P0-9 integration: when a ShadowSampler is wired (the default config path,
-// DreamCycle disabled), Submit primes it before the G2 gate so a candidate
+// sampler integration: when a ShadowSampler is wired (the default config path,
+// DreamCycle disabled), Submit primes it before the shadow gate so a candidate
 // that genuinely outperforms the active one earns promotion instead of being
 // stuck fail-closed in SHADOW.
 func TestStrategyLifecycle_Sampler_PrimedGatePromotesWinningCandidate(t *testing.T) {
@@ -508,8 +508,8 @@ func TestStrategyLifecycle_Sampler_PrimedGatePromotesWinningCandidate(t *testing
 }
 
 // TestStrategyLifecycle_Sampler_PrimedGateRejectsLosingCandidate locks the
-// other side of the P0-9 contract: a candidate the sampler judges as WORSE is
-// still rejected by the G2 gate (the sampler supplies evidence, it does not
+// other side of the sampler contract: a candidate the sampler judges as WORSE is
+// still rejected by the shadow gate (the sampler supplies evidence, it does not
 // rubber-stamp).
 func TestStrategyLifecycle_Sampler_PrimedGateRejectsLosingCandidate(t *testing.T) {
 	store := evidence.NewMemoryStore()
@@ -540,7 +540,8 @@ func TestStrategyLifecycle_Sampler_PrimedGateRejectsLosingCandidate(t *testing.T
 		"losing candidate must be rejected by the primed G2 shadow gate")
 }
 
-// TestStrategyLifecycle_Promote_ResetsRollbackWindow locks §8 item 5: a
+// TestStrategyLifecycle_Promote_ResetsRollbackWindow locks the window-reset
+// rule: a
 // promote resets the rollback score window so the new strategy is not judged
 // against the OLD strategy's low scores on its first watch tick.
 func TestStrategyLifecycle_Promote_ResetsRollbackWindow(t *testing.T) {
@@ -562,14 +563,15 @@ func TestStrategyLifecycle_Promote_ResetsRollbackWindow(t *testing.T) {
 		"rollback window must be empty right after promote")
 }
 
-// TestStrategyLifecycle_Watch_DecorrelatesRepeatedTicks locks §8 item 6:
+// TestStrategyLifecycle_Watch_DecorrelatesRepeatedTicks locks the
+// decorrelation rule:
 // evaluateAndMaybeRollback records a score only when the evidence window
 // ADVANCED — re-running with the same evidence batch must not feed the same
 // mean into RollbackPolicy again.
 func TestStrategyLifecycle_Watch_DecorrelatesRepeatedTicks(t *testing.T) {
 	cfg := DefaultLifecycleConfig()
 	// The test drives the rollback feed directly, so the net must be armed
-	// (E2: an explicitly disarmed rollback skips the watch loop entirely).
+	// (an explicitly disarmed rollback skips the watch loop entirely).
 	cfg.RollbackArmed = true
 	lc, asm, store := newTestLifecycle(t, cfg)
 	require.NoError(t, asm.Deploy(context.Background(),
@@ -601,7 +603,7 @@ func TestStrategyLifecycle_Watch_DecorrelatesRepeatedTicks(t *testing.T) {
 func TestStrategyLifecycle_Watch_SaturatedWindowStillAdvances(t *testing.T) {
 	cfg := DefaultLifecycleConfig()
 	// The test drives the rollback feed directly, so the net must be armed
-	// (E2: an explicitly disarmed rollback skips the watch loop entirely).
+	// (an explicitly disarmed rollback skips the watch loop entirely).
 	cfg.RollbackArmed = true
 	lc, asm, store := newTestLifecycle(t, cfg)
 	require.NoError(t, asm.Deploy(context.Background(),
@@ -710,7 +712,7 @@ func (g *mockGate) Check(_ context.Context, _, _ *mutation.Strategy) (bool, floa
 	return g.pass, g.score, g.reason
 }
 
-// --- E2: open promote path + promote throttle + rollback reachability ---
+// --- open promote path + promote throttle + rollback reachability ---
 
 // advanceResidency backs the activeSince clock up far enough that the
 // MinActiveDuration throttle is satisfied for the next Submit. It simulates
@@ -724,11 +726,12 @@ func advanceResidency(t *testing.T, lc *StrategyLifecycle) {
 }
 
 // TestStrategyLifecycle_Submit_ProgressivePromotion_E2 is the main closed-loop
-// acceptance for E2: in a no-scorer config (no shadow gate registered, no
+// acceptance for the open promote path: in a no-scorer config (no shadow gate
+// registered, no
 // gates wired) TWO candidates are now promoted in sequence, and asm.Previous()
 // points at the FIRST — i.e. a real second promote happens, not just the seed
-// exemption. Before E2 this second candidate was rejected forever by the
-// fail-closed G2 gate.
+// exemption. Before the promote path opened this second candidate was rejected
+// forever by the fail-closed shadow gate.
 func TestStrategyLifecycle_Submit_ProgressivePromotion_E2(t *testing.T) {
 	cfg := DefaultLifecycleConfig()
 	cfg.RollbackArmed = true
@@ -737,7 +740,7 @@ func TestStrategyLifecycle_Submit_ProgressivePromotion_E2(t *testing.T) {
 		&mutation.Strategy{ID: "seed", Version: 1, Score: 50.0},
 	))
 
-	// First candidate: a gated promote (startResidency true) — the §9 baseline
+	// First candidate: a gated promote (startResidency true) — the baseline
 	// was already deployed via asm.Deploy, so this is NOT the seed exemption.
 	lc.Submit(context.Background(), &mutation.Strategy{ID: "cand-1", Version: 2, Score: 75.0}, 1)
 	assert.Equal(t, "cand-1", asm.Current().ID, "first candidate must promote")
@@ -747,7 +750,7 @@ func TestStrategyLifecycle_Submit_ProgressivePromotion_E2(t *testing.T) {
 	// Satisfy the promote throttle so the second candidate is judged.
 	advanceResidency(t, lc)
 
-	// Second candidate: THIS is the case that was rejected before E2.
+	// Second candidate: THIS is the case that was previously rejected.
 	lc.Submit(context.Background(), &mutation.Strategy{ID: "cand-2", Version: 3, Score: 88.0}, 2)
 	assert.Equal(t, "cand-2", asm.Current().ID, "second candidate must promote (E2 regression)")
 	assert.Equal(t, "cand-1", asm.Previous().ID,
@@ -790,9 +793,10 @@ func TestStrategyLifecycle_Submit_ResidencyThrottle_E2(t *testing.T) {
 }
 
 // TestStrategyLifecycle_RollbackReachable_E2 is the single most valuable
-// assertion in the whole E2 plan: it proves the POST-deployment machinery
+// assertion in the suite: it proves the POST-deployment machinery
 // (RuntimeObserver → Window → RecordScore → Rollback → restore-previous) runs
-// for real. Before E2, the fail-closed G2 gate meant only the seed ever
+// for real. Before the promote path opened, the fail-closed shadow gate meant
+// only the seed ever
 // promoted, so asm.Previous() stayed nil and automatic rollback was
 // permanently unreachable. Here we build a two-promote chain then feed a
 // sustained degradation so the watch loop restores the previous strategy.
@@ -832,9 +836,9 @@ func TestStrategyLifecycle_RollbackReachable_E2(t *testing.T) {
 		"after rollback the degraded strategy becomes previous (re-rollback possible)")
 }
 
-// TestStrategyLifecycle_Snapshot_GateVisibility_E2 locks the E2 snapshot
+// TestStrategyLifecycle_Snapshot_GateVisibility_E2 locks the snapshot
 // contract: the lifecycle must report the gate pipeline and, when the wiring
-// layer folds the G2 gate (WithShadowGateDisabled), surface the skip reason so
+// layer folds the shadow gate (WithShadowGateDisabled), surface the skip reason so
 // the absence is visible to an operator instead of emergent.
 func TestStrategyLifecycle_Snapshot_GateVisibility_E2(t *testing.T) {
 	cfg := DefaultLifecycleConfig()
@@ -870,7 +874,7 @@ func TestStrategyLifecycle_Snapshot_GateVisibility_E2(t *testing.T) {
 }
 
 // TestStrategyLifecycle_ThrottleBoundedChurn_E2 is the jitter/oscillation
-// regression for E2: the GA ticker nominates a strictly better candidate on
+// regression: the GA ticker nominates a strictly better candidate on
 // every generation, but the promote throttle couples promote frequency to
 // MinActiveDuration. Without it the loop would rotate strategies every tick —
 // faster than the rollback window accumulates evidence, making degradation

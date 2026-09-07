@@ -30,11 +30,11 @@ const maxRawEvents = 500
 type Handler struct {
 	store *Store
 	// eventStore is the optional raw event source backing the
-	// /api/v1/introspect/eventstream endpoint (dashboard.md §9 Event Stream).
+	// /api/v1/introspect/eventstream endpoint.
 	// Nil disables that endpoint (503).
 	eventStore ares_events.EventStore
 	// systemRuntime is the optional provider for the System Runtime component
-	// graph (K5): when set, /api/v1/introspect/snapshot carries a
+	// graph: when set, /api/v1/introspect/snapshot carries a
 	// "system_runtime" section with every managed component's state and
 	// reason, so a kernel pillar that failed to reach Ready is visible on the
 	// read surface. Nil keeps the legacy snapshot shape.
@@ -55,7 +55,7 @@ func (h *Handler) WithEventStore(store ares_events.EventStore) *Handler {
 	return h
 }
 
-// WithSystemRuntime attaches the System Runtime snapshot provider (K5). The
+// WithSystemRuntime attaches the System Runtime snapshot provider. The
 // provider must be a read-only, JSON-marshalable value (typically a
 // kernel.Snapshot). Optional — without it the snapshot endpoint keeps
 // its legacy shape.
@@ -95,7 +95,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		// K5: embed the System Runtime component graph alongside the kernel
+		// embed the System Runtime component graph alongside the kernel
 		// snapshot. The embedded pointer inlines the legacy fields, so the
 		// panel keeps parsing the old shape and the new section is additive.
 		if h.systemRuntime != nil {
@@ -112,7 +112,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // serveEventStream returns the RAW event stream (original Event with full
-// payload — dashboard.md §9: "Event ≠ Log"). Supports ?stream_id= for the
+// payload — "Event ≠ Log"). Supports ?stream_id= for the
 // per-task Execution timeline and ?limit= (default 200, cap maxRawEvents).
 func (h *Handler) serveEventStream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")

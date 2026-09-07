@@ -1,15 +1,16 @@
-// replay_scorer.go provides the zero-LLM ReplayScorer — the G2 shadow gate's
+// replay_scorer.go provides the zero-LLM ReplayScorer — the shadow gate's
 // independent evidence source in the default (LLM scoring off) configuration.
 //
-// WHY THIS EXISTS (C3.2, depends on C2.6): bootstrap declares
-// DeterministicScorerEnabled so shadowGateMode registers the G2 gate as
+// WHY THIS EXISTS: bootstrap declares
+// DeterministicScorerEnabled so shadowGateMode registers the shadow gate as
 // "independent scorer wired". That promise is only real if a scorer actually
 // DISCRIMINATES between the candidate and the active strategy. A scorer that
 // returns one global number for every strategy makes every comparison an exact
-// tie, ShadowWon is never true, the win rate collapses to 0.0 and G2 rejects
-// every candidate forever — a gate that claims evidence while gathering none.
-// That failure mode is the very thing C3.2 forbids ("需确认 MinSamples 是被独立
-// 证据满足而非同分重复").
+// tie, ShadowWon is never true, the win rate collapses to 0.0 and the gate
+// rejects every candidate forever — a gate that claims evidence while
+// gathering none.
+// That failure mode — MinSamples satisfied by repeated identical scores
+// rather than independent evidence — is exactly what this scorer forbids.
 //
 // The honest evidence source under a zero-token budget is REPLAY: the runtime
 // already writes one KindFitness evidence record per finished task
@@ -88,27 +89,27 @@ type replayWindowKey struct{ since, until time.Time }
 // COLD START is the delicate part. A freshly generated candidate has no
 // history, so its own evidence set is empty. Returning a fixed constant would
 // resurrect the tie problem for the candidate side, and inventing a favourable
-// number would make G2 a rubber stamp. Instead the scorer falls back to the
-// caller-supplied prior — in production the attribution-derived deterministic
-// score (C2.2), i.e. the CURRENT fleet-wide execution quality. The resulting
+// number would make the shadow gate a rubber stamp. Instead the scorer falls
+// back to the caller-supplied prior — in production the attribution-derived
+// deterministic score, i.e. the CURRENT fleet-wide execution quality. The resulting
 // verdict has a defensible reading: an untried candidate is promoted only when
 // the fleet is currently performing better than the active strategy's own
 // measured history, that is, when the active strategy is the thing holding
 // quality back. Absent a live A/B execution path, that is the strongest honest
 // statement available at zero token cost.
 //
-// EVIDENCE-INDEPENDENCE (C3.2, review P1-1/P1-2): the scorer deliberately does
+// EVIDENCE-INDEPENDENCE: the scorer deliberately does
 // NOT widen a sparse window to the strategy's full history. A full-history
 // read is bounded by replayQueryLimit with no server-side strategy filter, so
 // under multi-strategy load it would silently truncate away the target
-// strategy's records and return the prior anyway (P1-1). Worse, returning one
+// strategy's records and return the prior anyway. Worse, returning one
 // shared full-history mean for every sparse window would make MinSamples
 // comparisons mutually REPEATED evidence — the same active value vs the same
-// candidate prior, replayed N times with the same direction (P1-2), which is
+// candidate prior, replayed N times with the same direction, which is
 // exactly the "single score comparison wearing MinSamples' clothes" failure
 // the windowed design exists to prevent. Each comparison therefore reads ONLY
 // its own window: a window where the active has no records scores the prior,
-// ties with the candidate, and is EXCLUDED from TotalComparisons (B-3) rather
+// ties with the candidate, and is EXCLUDED from TotalComparisons rather
 // than fabricating evidence.
 //
 // Thread-safe: all fields are read-only after construction and evidence.Store
@@ -130,11 +131,11 @@ type ReplayScorer struct {
 	// comparison inside the same ctx+window, and a volatile prior (e.g.
 	// attribution-derived) could return slightly different values on two
 	// successive reads — turning an intended prior-vs-prior tie into a fake
-	// "decisive" comparison (review P1-3). Memoizing makes both sides of one
+	// "decisive" comparison. Memoizing makes both sides of one
 	// comparison see the SAME prior, so a genuine no-evidence comparison stays
 	// an exact tie and is excluded.
 	//
-	// ONE SLOT, NOT A MAP (review P1): the memo only has to span the two Score
+	// ONE SLOT, NOT A MAP: the memo only has to span the two Score
 	// calls of a SINGLE comparison, which the sampler issues back-to-back for
 	// one window before moving to the next. A per-window map would therefore
 	// never serve a second hit — every Prime batch derives fresh windows from
@@ -195,13 +196,13 @@ func NewReplayScorer(store evidence.Store, prior func() float64, opts ...ReplayS
 // replay window carried by ctx, or the cold-start prior when the strategy has
 // no records in that window.
 //
-// EVIDENCE-INDEPENDENCE (C3.2): each comparison reads ONLY its own window.
+// EVIDENCE-INDEPENDENCE: each comparison reads ONLY its own window.
 // A strategy with no records in the window scores the prior. No full-history
-// fallback — that would reintroduce repeated evidence across comparisons
-// (review P1-1/P1-2). The prior-vs-prior tie that results when both sides
-// are cold is then excluded from TotalComparisons by the evaluator (B-3).
+// fallback — that would reintroduce repeated evidence across comparisons.
+// The prior-vs-prior tie that results when both sides
+// are cold is then excluded from TotalComparisons by the evaluator.
 //
-// COLD-START PRIOR MEMO (P1-3): when both strategies in a comparison have no
+// COLD-START PRIOR MEMO: when both strategies in a comparison have no
 // window records, both call this method with the same ctx (same window). The
 // prior is evaluated ONCE per window and cached (priorMemo), so the second
 // call returns the exact same value — an exact tie, not a near-equal score
@@ -234,7 +235,7 @@ func (r *ReplayScorer) Score(ctx context.Context, s *mutation.Strategy) float64 
 // valid records in range or the store errored (an error is missing
 // information, not evidence of quality — both sides must degrade identically).
 //
-// P1-4 (half-open vs inclusive stores): the window's upper bound is EXCLUSIVE
+// Half-open vs inclusive stores: the window's upper bound is EXCLUSIVE
 // ([since, until) — two abutting replay windows must not share a boundary
 // record, or the same task's evidence would be counted twice across
 // comparisons). Both production stores (MemoryStore, PostgresStore) treat
@@ -313,7 +314,7 @@ func (r *ReplayScorer) coldStart() float64 {
 // (active + shadow) with the same ctx → same window. When both strategies
 // cold-start, the memo ensures both calls return the EXACT same value,
 // producing an exact tie that the evaluator correctly excludes from
-// TotalComparisons (review P1-3).
+// TotalComparisons.
 //
 // The memo is a SINGLE slot keyed by the window, not a map: the two calls of
 // one comparison are back-to-back, and windows are never revisited (each Prime

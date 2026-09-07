@@ -392,15 +392,15 @@ L2 执行图是漂亮的远景，但 `Enabled=false` 意味着它现在没在生
 
 | 文件 | 核心职责 |
 |------|----------|
-| `internal/agentfabric/agent.go` | `Agent` 结构 + 状态 `IDLE/RUNNING/SUSPENDED/RETIRED` + `CognitiveState` + `Executable()` |
-| `internal/agentfabric/lifecycle.go` | `SpawnSpec` + `spawn/suspend/resume/retire/kill/recover` 生命周期原语 |
-| `internal/agentfabric/fabric.go` | `Fabric` 注册表、进程树（溯源）、资源配额、EventSink |
-| `internal/agentfabric/executor.go` | `Cognition` / `StepOutcome` / `CognitionFactory` / `CognitionFunc` |
-| `internal/agentfabric/l2graph.go` | `L2Graph` + router/tool/answer/root/plan 认知 + `DAGExecution` 门 |
-| `internal/agentfabric/snapshot.go` | `AgentSnapshot` + `snapshotStore` + `LastSnapshot/ClearSnapshot/FindRevivableSnapshot` |
+| `internal/fabric/agent/agent.go` | `Agent` 结构 + 状态 `IDLE/RUNNING/SUSPENDED/RETIRED` + `CognitiveState` + `Executable()` |
+| `internal/fabric/agent/lifecycle.go` | `SpawnSpec` + `spawn/suspend/resume/retire/kill/recover` 生命周期原语 |
+| `internal/fabric/agent/fabric.go` | `Fabric` 注册表、进程树（溯源）、资源配额、EventSink |
+| `internal/fabric/agent/executor.go` | `Cognition` / `StepOutcome` / `CognitionFactory` / `CognitionFunc` |
+| `internal/fabric/agent/l2graph.go` | `L2Graph` + router/tool/answer/root/plan 认知 + `DAGExecution` 门 |
+| `internal/fabric/agent/snapshot.go` | `AgentSnapshot` + `snapshotStore` + `LastSnapshot/ClearSnapshot/FindRevivableSnapshot` |
 | `internal/aresrecovery/recovery.go` | `Recovery` + `RestartPolicy` + 恢复链路（含 test/chaos-only 路径） |
 | `internal/aresrecovery/chaos.go` | `Chaos` 故障注入（kill/suspend）+ `VerifyRecovery` |
-| `internal/taskfabric/state.go` | Task 状态（`READY/RUNNING/SUSPENDED/FAILED`…）与迁移 |
+| `internal/fabric/task/state.go` | Task 状态（`READY/RUNNING/SUSPENDED/FAILED`…）与迁移 |
 | `cmd/ares` | `runKernelRecoveryLoop` —— 生产恢复环路 |
 
 ---

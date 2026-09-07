@@ -184,7 +184,7 @@ func TestStreamCancelContext(t *testing.T) {
 	}
 }
 
-// ---- E3: decision-trail consumer with double filtering ----
+// ---- decision-trail consumer with double filtering ----
 
 // mustMustNot... helper builds an evidence record with the given payload.
 func mustPayload(t *testing.T, v map[string]any) json.RawMessage {
@@ -196,7 +196,7 @@ func mustPayload(t *testing.T, v map[string]any) json.RawMessage {
 	return raw
 }
 
-// TestStreamWithEvidenceStoreLocksDoubleFilter drives the E3 decision-trail
+// TestStreamWithEvidenceStoreLocksDoubleFilter drives the decision-trail
 // consumer at the PROVIDER level: the evidence store carries BOTH decision
 // records (source="lifecycle", payload has an action) AND ordinary runtime
 // fitness samples (same source + KindFitness but NO action). The producer must
@@ -346,7 +346,7 @@ type boomErr struct{}
 
 func (boomErr) Error() string { return "boom" }
 
-// TestStream_LimitDistributionAcrossSegments_E3 locks the E3 limit contract:
+// TestStream_LimitDistributionAcrossSegments_E3 locks the limit contract:
 // MaxObjects is the TOTAL cap across the three stream segments (active →
 // history → decision trail). An earlier segment must consume from the same
 // budget, so a small MaxObjects degrades gracefully to lineage-only output and

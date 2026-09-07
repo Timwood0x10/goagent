@@ -4,7 +4,7 @@
 
 ## 一、为什么需要 Agent 通信
 
-多 Agent 系统里，Agent 与 Agent 之间需要交换消息——"我发现 X" / "帮我验证 Y" / "你的结论和我冲突"（`internal/agentipc/doc.go` 列出的典型协作短语）。这属于 ares-runtime 的 Kernel IPC pillar（P4），也是三层上下文中的第三层（Task Shared / Agent Private / IPC Messages）——前两级在 `internal/agentfabric` 存储，IPC 层由本包承载。
+多 Agent 系统里，Agent 与 Agent 之间需要交换消息——"我发现 X" / "帮我验证 Y" / "你的结论和我冲突"（`internal/agentipc/doc.go` 列出的典型协作短语）。这属于 ares-runtime 的 Kernel IPC pillar（P4），也是三层上下文中的第三层（Task Shared / Agent Private / IPC Messages）——前两级在 `internal/fabric/agent` 存储，IPC 层由本包承载。
 
 先厘清分工：**任务分发是 Scheduler（Task Fabric）的职责，Agent 通信是 IPC 的职责**。两者不是一回事：
 

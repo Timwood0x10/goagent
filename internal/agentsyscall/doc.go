@@ -1,7 +1,7 @@
 // Package agentsyscall provides the Kernel-validated spawn_agent and
 // create_task syscalls that are exposed to real LLM agents as tools.
 //
-// W2 design (aresos-plan.md §6): a real LLM executor (sub.Agent) decides
+// Design: a real LLM executor (sub.Agent) decides
 // whether to split a task. When it does, it calls the spawn_agent tool —
 // the Kernel validates capability/quota/resource, creates the Agent in
 // agentfabric, registers it as a scheduler executor, and optionally creates

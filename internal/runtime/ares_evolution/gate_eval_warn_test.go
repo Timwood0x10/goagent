@@ -1,7 +1,8 @@
 package evolution
 
-// gate_eval_warn_test.go locks E3: every skip emits one structured warn naming
-// the missing component and bumps SkippedCount, so a misconfigured G3 gate is
+// gate_eval_warn_test.go locks the skip-visibility contract: every skip emits
+// one structured warn naming the missing component and bumps SkippedCount, so
+// a misconfigured eval gate is
 // operator-visible.
 
 import (

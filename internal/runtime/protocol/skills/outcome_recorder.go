@@ -22,7 +22,7 @@ type outcomeRecord struct {
 	success bool
 }
 
-// SkillOutcomeRecorder closes the design §11 feedback loop on the record side:
+// SkillOutcomeRecorder closes the experience feedback loop on the record side:
 // it consumes EventSubTaskResult events and persists a {skill, task_pattern,
 // success} outcome into the catalog's Experience store. It is deliberately
 // decoupled from the agent code — no leader/sub/planner change is needed:

@@ -9,32 +9,32 @@ import (
 // schema. Bump when the CheckpointEnvelope fields change; DecodeCheckpoint
 // handles migration from prior versions.
 //
-// v1 → v2 (evolution loop closure E1): StrategyID added as an OPTIONAL field.
+// v1 → v2 (evolution loop closure): StrategyID added as an OPTIONAL field.
 // A v1 envelope decodes under v2 code with StrategyID == "" (reads as
 // "unattributed" — consumers fall back to the currently active strategy), so
 // no migration code is needed in the forward direction. The reverse is NOT
 // compatible: v1 code rejects a v2 envelope (ErrCheckpointSchemaVersion), so
 // rolling back a deployment requires draining in-flight tasks first.
 //
-// v2 → v3 (M2 SessionID): SessionID added as an OPTIONAL field. A v2
+// v2 → v3 (SessionID): SessionID added as an OPTIONAL field. A v2
 // envelope decodes under v3 code with SessionID == "" (reads as
 // "session-less"), so no migration code is needed in the forward direction.
 const CurrentCheckpointSchemaVersion = 3
 
-// CheckpointEnvelope is the durable, versioned checkpoint schema (W3). It
+// CheckpointEnvelope is the durable, versioned checkpoint schema. It
 // wraps the submission-time metadata (UserProfile, Payload, UsedExperienceID)
 // and the quantum's progress (StepCheckpoint) in a tagged, versioned envelope
 // so scheduler, recovery, and executor all decode it through the same path.
 //
-// The envelope is stored in Task.Checkpoint (any). Before W3, the checkpoint
+// The envelope is stored in Task.Checkpoint (any). Historically the checkpoint
 // was an unversioned fabricTaskMeta struct declared in cmd/ares/scheduler.go —
 // a consumer-package type. Moving it here as a versioned, shared schema makes
 // the cross-restart protocol stable and lets every consumer decode it through
 // DecodeCheckpoint instead of each one re-implementing the same type-switch.
 //
 // Schema version history:
-//   - v0 (pre-W3): unversioned fabricTaskMeta in cmd/ares/scheduler.go.
-//   - v1 (W3):     CheckpointEnvelope with SchemaVersion field.
+//   - v0: unversioned fabricTaskMeta in cmd/ares/scheduler.go.
+//   - v1:         CheckpointEnvelope with SchemaVersion field.
 type CheckpointEnvelope struct {
 	// SchemaVersion is the envelope's version. DecodeCheckpoint rejects a
 	// future version instead of silently misinterpreting it.
@@ -50,7 +50,7 @@ type CheckpointEnvelope struct {
 	// StepCheckpoint is the quantum's durable progress/output. nil before the
 	// first quantum runs. The scheduler wraps every quantum's returned
 	// checkpoint back into the envelope, so the submission metadata survives
-	// yield→resume cycles (v0.3.0 review Bug 3 fix).
+	// yield→resume cycles.
 	StepCheckpoint any `json:"step_checkpoint,omitempty"`
 	// StrategyID is the evolution strategy active when this task was
 	// SUBMITTED. It is stamped once at Create time and never re-read, so
@@ -63,7 +63,7 @@ type CheckpointEnvelope struct {
 	// granularity (a task spans multiple quanta; re-reading the active
 	// strategy per quantum would split one task's samples across strategies).
 	StrategyID string `json:"strategy_id,omitempty"`
-	// SessionID scopes this task to a conversational session (M2: SessionID
+	// SessionID scopes this task to a conversational session (SessionID
 	// 贯通). It is stamped once at Create time and rides the envelope through
 	// yield→resume cycles so the executor (plannerCognition) can read it to
 	// look up the per-session L2 graph registry. Empty means "session-less"
@@ -97,7 +97,7 @@ type DecodedCheckpoint struct {
 }
 
 // DecodeCheckpoint decodes a Task.Checkpoint value through the single shared
-// path (W3: 统一解码). It handles three forms:
+// path (统一解码). It handles three forms:
 //
 //   - *CheckpointEnvelope (v1+): the versioned schema. Fields are extracted
 //     directly. A future version (> CurrentCheckpointSchemaVersion) returns
@@ -235,7 +235,7 @@ func sessionIDFromCheckpoint(cp any) string {
 // *CheckpointEnvelope, it marshals directly. When it is any other type, it
 // wraps it in an envelope first (StepCheckpoint = the raw value) so the
 // serialized form always carries the schema version. This is the single
-// serialization path for persistence (W3: 固化协议).
+// serialization path for persistence (固化协议).
 //
 // Args:
 //   - cp: the checkpoint value (may be nil).

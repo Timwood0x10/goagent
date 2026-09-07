@@ -53,7 +53,7 @@ func newTestKnowledgeRuntime() *khruntime.KnowledgeRuntime {
 // TestWireMemory_Basic exercises the top-level wireMemory dispatcher across
 // the basic configurations that do NOT require live embedding/postgres deps.
 // The distill_with_deps path is skipped because we cannot stand up real
-// services in unit tests (code_rules.md §9 forbids fake implementations).
+// services in unit tests.
 func TestWireMemory_Basic(t *testing.T) {
 	tests := []struct {
 		name       string

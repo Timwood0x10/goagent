@@ -9,7 +9,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/agentipc"
 )
 
-// TestE2E_GrandLoop_CompleteAgentOS is the "大闭环" (aresos-plan.md 附件 E):
+// TestE2E_GrandLoop_CompleteAgentOS is the "大闭环":
 // one continuous story that proves the Agent-OS thesis end to end.
 //
 //	User → Agent A gets a large task
@@ -21,9 +21,9 @@ import (
 //	  → a replacement agent resumes from checkpoint and synthesises
 //	  → final result returned
 //
-// It ties together what the focused e2e tests cover separately (P3.4 spawn
-// synthesis, P5 recovery, P4 IPC) into ONE continuous scenario, as the plan
-// requires for the v0.3 release acceptance.
+// It ties together what the focused e2e tests cover separately (spawn
+// synthesis, recovery, IPC) into ONE continuous scenario, as the release
+// acceptance requires.
 func TestE2E_GrandLoop_CompleteAgentOS(t *testing.T) {
 	ctx := context.Background()
 	fabric := NewFabric()

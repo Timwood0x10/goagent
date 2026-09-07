@@ -38,7 +38,7 @@ type BatchScorer func(ctx context.Context, strategies []*mutation.Strategy) []fl
 type GenomePopulationAdapter struct {
 
 	// running reports whether Run() is mid-generation; probed by the
-	// live-chaos pause gate (#12). See GenerationActive.
+	// live-chaos pause gate. See GenerationActive.
 	running atomic.Bool
 	pop     *genome.Population
 	mutator genome.MutatorInterface
@@ -55,8 +55,8 @@ type GenomePopulationAdapter struct {
 	// batchScorer scores all agents in a single call (optional).
 	// When set together with tieredScorer and scoreCache, Run() pre-fills
 	// the cache with batch-scored values before EvolveAfterScoring, so
-	// Phase 1 finds cache hits for all agents — turning N per-agent LLM
-	// calls into ceil(N/batchSize) batched calls.
+	// the first scoring pass finds cache hits for all agents — turning N
+	// per-agent LLM calls into ceil(N/batchSize) batched calls.
 	batchScorer BatchScorer
 
 	// Guardrails for pre/post evolution safety checks (optional).
@@ -88,7 +88,7 @@ type GenomePopulationAdapter struct {
 	// Metrics records Prometheus counters for evolution events (optional).
 	metrics *observability.PrometheusMetrics
 
-	// lifecycle is the strategy orchestrator (B2 fix). When set, Run()
+	// lifecycle is the strategy orchestrator. When set, Run()
 	// submits the best strategy to the lifecycle instead of deploying
 	// directly. The lifecycle runs verify gates before promoting.
 	lifecycle *StrategyLifecycle
@@ -313,7 +313,8 @@ func WithAdapterCoordinator(coord *coordinator.EvolutionCoordinator, diffReg *di
 
 // WithAdapterBatchScoring sets a batch scorer that scores all unevaluated
 // strategies in a single call before the tiered scorer runs. This pre-fills
-// the score cache so the tiered scorer finds cache hits during Phase 1 of
+// the score cache so the tiered scorer finds cache hits during the first
+// scoring pass of
 // EvolveAfterScoring, reducing N per-agent LLM calls to ceil(N/batchSize)
 // batched calls.
 //
@@ -355,8 +356,8 @@ func (a *GenomePopulationAdapter) PopulationSize() int {
 // PopulationUnevaluated returns how many individuals still carry
 // genome.ScoreUnevaluated. It completes the populationInspector contract the
 // legacy EvolutionScheduler needs: PreEvolveCheck's only blocking condition is
-// an unevaluated majority, and before B2 the scheduler passed a hardcoded 0 —
-// so its guardrail could never block regardless of configuration.
+// an unevaluated majority, and historically the scheduler passed a hardcoded
+// 0 — so its guardrail could never block regardless of configuration.
 func (a *GenomePopulationAdapter) PopulationUnevaluated() int {
 	if a.pop == nil {
 		return 0

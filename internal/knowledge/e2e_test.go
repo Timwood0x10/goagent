@@ -244,8 +244,8 @@ func TestAKFE2E_CompileAllFormats(t *testing.T) {
 }
 
 // TestAKG_WriteReadLoop verifies the AKG write→read closed loop using only the
-// knowledge package + memstore (no adapter DistillBridge, which is owned by
-// the P2 agent and may not exist yet):
+// knowledge package + memstore (no adapter DistillBridge, which may not
+// exist yet in this deployment):
 //
 //  1. Save active KnowledgeObjects to the store (write side).
 //  2. HybridSearch recalls them by goal text (read side).
@@ -254,7 +254,7 @@ func TestAKFE2E_CompileAllFormats(t *testing.T) {
 //  4. A candidate-status object must NOT leak into an active-only search.
 //
 // When adapter.NewDistillBridgeWithGate lands this test should gain a
-// DistillBridge round-trip case (see AKG_DEV_PLAN_029.md §7.1).
+// DistillBridge round-trip case.
 func TestAKG_WriteReadLoop(t *testing.T) {
 	ctx := context.Background()
 	ms := memorystore.New()

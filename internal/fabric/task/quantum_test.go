@@ -29,7 +29,7 @@ func TestFabricRunQuantumCompletes(t *testing.T) {
 	}
 }
 
-// TestFabricRunQuantumYields verifies D1 + SUSPENDED semantics lock:
+// TestFabricRunQuantumYields verifies the quantum + SUSPENDED semantics lock:
 // unfinished work goes through SUSPENDED — the task's durable intent is not
 // yet complete (not "the agent was suspended") — with the checkpoint
 // preserved, recording both TaskYielded and TaskCheckpointed events.

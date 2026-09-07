@@ -125,7 +125,7 @@ func TestUpdateLiveDAG_NilLiveDAG(t *testing.T) {
 	assert.Contains(t, err.Error(), "must not be nil")
 }
 
-// TestUpdateLiveDAG_RepointsWorkflowGenome pins the Step 7.1 repair: UpdateLiveDAG
+// TestUpdateLiveDAG_RepointsWorkflowGenome pins the repair: UpdateLiveDAG
 // must repoint the evolving WorkflowGenome at the live DAG, so mutations and diffs
 // are computed against the topology patches will actually touch.
 //

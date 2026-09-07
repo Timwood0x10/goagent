@@ -52,7 +52,8 @@ func newToolSetAdapter(t *testing.T, tools string, opts ...GuardrailOption) (*Ge
 	return adapter, store
 }
 
-// TestGenomeWinnerToolSetGuardrail covers C6: the genome adapter promotes its own
+// TestGenomeWinnerToolSetGuardrail covers the tool-set guardrail on the genome
+// path: the genome adapter promotes its own
 // winner without going through the dream cycle's findWinner, so the tool-set
 // guardrail has to be applied on this path too. Otherwise an over-bound or
 // unregistered whitelist reaches the live agent from the genome path even though

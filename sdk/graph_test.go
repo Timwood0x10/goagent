@@ -974,7 +974,7 @@ func TestGraphNodeNoExecutableKind(t *testing.T) {
 	}
 }
 
-// TestRunGraphMaxRoundConcurrency locks the fusion-plan §B1 field: with
+// TestRunGraphMaxRoundConcurrency locks the concurrency cap: with
 // MaxRoundConcurrency=N and N+ ready nodes in one round, at most N execute
 // simultaneously (observed via a barrier that counts concurrent entrants).
 func TestRunGraphMaxRoundConcurrency(t *testing.T) {

@@ -37,7 +37,7 @@ func TestNewShadowSampler_ConstructionDefaults(t *testing.T) {
 
 // TestShadowSampler_PrimeFailClosedWithoutScorer locks the fail-closed
 // contract: without an independent scorer the sampler fabricates nothing —
-// Prime is a no-op and the G2 gate stays without comparisons.
+// Prime is a no-op and the shadow gate stays without comparisons.
 func TestShadowSampler_PrimeFailClosedWithoutScorer(t *testing.T) {
 	se := NewShadowEvaluator(ShadowEvaluationConfig{Enabled: true})
 	s := NewShadowSampler(se, 3)

@@ -292,7 +292,7 @@ func (dc *DreamCycle) Run(ctx context.Context, data CallbackData) error {
 	dc.runMu.Lock()
 	defer dc.runMu.Unlock()
 
-	// Mark the generation window for the live-chaos pause gate (#12 Phase 2).
+	// Mark the generation window for the live-chaos pause gate.
 	dc.generating.Store(true)
 	defer dc.generating.Store(false)
 
@@ -544,14 +544,14 @@ func (dc *DreamCycle) deployWinner(
 		}
 
 		shouldDeploy, report := dc.shadowEvaluator.ShouldDeployLoose()
-		// P2-1: keep the shadow win-rate gauge current on every comparison
-		// batch so /metrics reflects the live G2 gate state instead of a
+		// Keep the shadow win-rate gauge current on every comparison
+		// batch so /metrics reflects the live shadow gate state instead of a
 		// permanently zero gauge.
 		if dc.metrics != nil && report != nil {
 			dc.metrics.SetEvolutionShadowWinRate(report.WinRate)
 		}
-		// LOOSE contract (review: DreamCycle defers on insufficient data;
-		// the lifecycle G2 gate uses the STRICT ShouldDeploy): StartShadow
+		// LOOSE contract (DreamCycle defers on insufficient data;
+		// the lifecycle shadow gate uses the STRICT ShouldDeploy): StartShadow
 		// resets the results, so the first call here carries a single
 		// comparison (total < MinSamples), and a strict reading would veto
 		// every early deployment. ShouldDeployLoose therefore returns
@@ -560,7 +560,7 @@ func (dc *DreamCycle) deployWinner(
 		// deployment when enough samples actually show the shadow strategy
 		// underperforming.
 		//
-		// P0-3: the insufficiency bar is RAW comparisons (decisive + ties).
+		// The insufficiency bar is RAW comparisons (decisive + ties).
 		// TotalComparisons alone is decisive-only since B-3, so an all-tie
 		// wall would read as 0 < MinSamples and flip to "proceed" — the
 		// opposite of the pre-B-3 rejection it replaced. Counting ties in the
@@ -847,7 +847,7 @@ func (dc *DreamCycle) findWinner(
 		return nil, errors.New("dream cycle: no candidates to evaluate")
 	}
 
-	// C6 wiring: reject any candidate whose evolved tool whitelist exceeds the
+	// Tool-set guardrail: reject any candidate whose evolved tool whitelist exceeds the
 	// guardrail's upper bound (or enables zero tools, when required) BEFORE it
 	// is arena-tested. The toolset guard was previously dead code — the method
 	// existed but nothing called it, so a mutated Params["tools"] larger than
@@ -1060,7 +1060,7 @@ type MetricsRecorder interface {
 	RecordEvolutionShadow(result string)
 	SetEvolutionScore(strategyID string, score float64)
 	// SetEvolutionShadowWinRate publishes the current shadow win rate so
-	// the /metrics gauge tracks the live G2 gate state (P2-1).
+	// the /metrics gauge tracks the live shadow gate state.
 	SetEvolutionShadowWinRate(rate float64)
 }
 

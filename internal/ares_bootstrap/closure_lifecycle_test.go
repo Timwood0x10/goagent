@@ -1,4 +1,4 @@
-// Package ares_bootstrap — Runtime Closure Lifecycle Tests (Stage 0).
+// Package ares_bootstrap — Runtime Closure Lifecycle Tests.
 //
 // These tests verify the Bootstrap lifecycle: complete start, reverse-order
 // stop, failure rollback, and no orphan goroutines after shutdown.
@@ -110,7 +110,7 @@ func TestClosure_Lifecycle_RuntimeStartStop(t *testing.T) {
 
 // TestClosure_Lifecycle_MCPStop verifies that MCP manager can stop cleanly.
 //
-// Gap B03: ProvideMCP starts the MCP manager during construction, which
+// Known gap: ProvideMCP starts the MCP manager during construction, which
 // violates the "construct has no side effects" principle. The test verifies
 // that MCP can still be stopped cleanly despite starting during construction.
 func TestClosure_Lifecycle_MCPStop(t *testing.T) {
@@ -131,7 +131,7 @@ func TestClosure_Lifecycle_MCPStop(t *testing.T) {
 	require.NotNil(t, comp)
 	require.NotNil(t, comp.MCP)
 
-	// B03: MCP was already started during Bootstrap (ProvideMCP calls Start).
+	// MCP was already started during Bootstrap (ProvideMCP calls Start).
 	// This is the construct-has-side-effects gap.
 	// Verify it can stop cleanly.
 	err = comp.MCP.Stop(ctx)
@@ -159,7 +159,7 @@ func TestClosure_Lifecycle_DashboardStop(t *testing.T) {
 	comp, err := Bootstrap(ctx, cfg, nil)
 	require.NoError(t, err)
 	require.NotNil(t, comp)
-	// The M3/M4 observability providers are assembled (Phase 4: the standalone
+	// The observability providers are assembled (the standalone
 	// :8090 dashboard server was removed, so there is nothing to Stop).
 	require.NotNil(t, comp.Dashboard)
 
@@ -211,7 +211,7 @@ func TestClosure_Lifecycle_ConcurrentStop(t *testing.T) {
 // TestClosure_Lifecycle_RepeatedStartStop verifies that the Runtime can be
 // started and stopped multiple times without resource leaks.
 //
-// This is a simplified version of the "100x start/stop" soak test from §8.5.
+// This is a simplified version of the "100x start/stop" soak test.
 func TestClosure_Lifecycle_RepeatedStartStop(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

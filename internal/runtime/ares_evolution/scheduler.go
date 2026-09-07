@@ -127,7 +127,7 @@ func WithEnabled(enabled bool) SchedulerOption {
 	}
 }
 
-// WithScoreProvider wires the C2.4 zero-LLM score provider. When set, each
+// WithScoreProvider wires the zero-LLM score provider. When set, each
 // task.completed/failed event records the provider's aggregate score instead
 // of the constant 1.0/0.0, so degradation detection reflects real execution
 // quality (latency, retries, recovery) rather than just pass/fail.
@@ -154,9 +154,9 @@ const scoreWindowSize = 50
 // instead of requiring an external score feeder.
 //
 // Scores are normalized to [0,1] to be dimensionally consistent with
-// RollbackPolicy thresholds (B1 fix: the threshold 0.15 is on a [0,1] scale).
+// RollbackPolicy thresholds (the threshold 0.15 is on a [0,1] scale).
 //
-// C2.4: when a ScoreProvider is wired, the scheduler uses the provider's
+// When a ScoreProvider is wired, the scheduler uses the provider's
 // aggregate score instead of the constant 1.0/0.0. The provider reads
 // execution attribution (latency, retries, recovery) so the score window
 // reflects real execution quality, not just pass/fail. The constants remain
@@ -169,7 +169,7 @@ const (
 )
 
 // TaskScoreProvider supplies a deterministic [0,1] score for task outcomes.
-// When wired into the EvolutionScheduler (C2.4), each task.completed or
+// When wired into the EvolutionScheduler, each task.completed or
 // task.failed event records the provider's current aggregate score instead
 // of the constant 1.0/0.0, so degradation detection reflects real execution
 // quality (latency, retries, recovery) rather than just pass/fail.
@@ -184,7 +184,7 @@ type TaskScoreProvider interface {
 
 // degradationThreshold is the fraction of score drop that triggers evolution (15%).
 // On a [0,1] scale this is 0.15 — dimensionally consistent with
-// RollbackPolicy.DegradationThreshold (B1 fix).
+// RollbackPolicy.DegradationThreshold.
 const degradationThreshold = 0.15
 
 // minScoreCountForReliability is the minimum number of scores required before
@@ -227,7 +227,7 @@ type EvolutionScheduler struct {
 	scoreMu    sync.Mutex
 	guardrails *EvolutionGuardrails
 
-	// scoreProvider is the C2.4 zero-LLM score source. When wired, each
+	// scoreProvider is the zero-LLM score source. When wired, each
 	// task.completed/failed event records the provider's aggregate score
 	// instead of the constant 1.0/0.0. Nil falls back to the constants
 	// (backward compatible).
@@ -274,7 +274,7 @@ func NewEvolutionScheduler(subscriber EventStoreSubscriber, adapter AdapterRunne
 // The score is clamped to [0,1]: the window feeds degradation detection on
 // the same scale as RollbackPolicy.DegradationThreshold (0.15), so an
 // out-of-range score would silently corrupt every trend computation
-// (dimensional consistency contract, design doc §9).
+// (dimensional consistency contract).
 //
 // Args:
 //
@@ -427,11 +427,11 @@ func (s *EvolutionScheduler) Register() {
 			case ares_events.EventAgentStopped:
 				s.OnAgentEnd(contextFromEvent(evt), CallbackData{AgentID: evt.StreamID})
 			case ares_events.EventTaskCompleted:
-				// C2.4: use the deterministic score provider when wired;
+				// Use the deterministic score provider when wired;
 				// fall back to the constant 1.0 when not (backward compatible).
 				s.RecordScore(s.taskScore(true))
 			case ares_events.EventTaskFailed:
-				// C2.4: use the deterministic score provider when wired;
+				// Use the deterministic score provider when wired;
 				// fall back to the constant 0.0 when not (backward compatible).
 				s.RecordScore(s.taskScore(false))
 			}
@@ -590,8 +590,8 @@ type populationSizer interface {
 // It exists because size alone cannot drive PreEvolveCheck. That check's ONLY
 // ShouldStop condition is "more than half the population is unevaluated", and
 // checkGuardrails used to pass a hardcoded unevaluatedCount of 0 — so the
-// legacy scheduler's guardrail could never block anything, no matter how it was
-// configured (B2). Wiring guardrails without this was wiring a switch with no
+// legacy scheduler's guardrail could never block anything, no matter how it
+// was configured. Wiring guardrails without this was wiring a switch with no
 // wire behind it.
 //
 // Generation matters too: it is stamped on every emitted GuardrailEvent, and a
@@ -653,7 +653,7 @@ func (s *EvolutionScheduler) SetEnabled(enabled bool) {
 	s.enabled.Store(enabled)
 }
 
-// SetScoreProvider wires the C2.4 zero-LLM score provider at runtime. This
+// SetScoreProvider wires the zero-LLM score provider at runtime. This
 // is the post-construction wiring path: the EvolutionScheduler is built
 // before the peer kernel's ExecutionAttribution exists, so the provider
 // must be injected after both are constructed. Called from the serve
@@ -738,7 +738,7 @@ func (s *EvolutionScheduler) Shutdown() {
 	}
 }
 
-// taskScore returns the score for a task outcome event (C2.4). When a
+// taskScore returns the score for a task outcome event. When a
 // TaskScoreProvider is wired, it delegates to the provider so the score
 // reflects real execution quality (latency, retries, recovery). Without a
 // provider, it falls back to the constant 1.0/0.0 (backward compatible).
@@ -791,7 +791,7 @@ func (s *EvolutionScheduler) TriggerMode() EvolutionTrigger {
 // replaces the bootstrap ticker's unconditional popAdapter.Run(ctx) call so
 // evolution timing is unified: the same shouldEvolve + checkGuardrails +
 // MinInterval throttling that drives event-triggered evolution also drives
-// time-triggered evolution (B4 fix).
+// time-triggered evolution.
 //
 // Tick is safe to call from a time.Ticker goroutine. It runs the adapter
 // synchronously — the caller controls timing via the ticker interval.
@@ -805,7 +805,7 @@ func (s *EvolutionScheduler) Tick(ctx context.Context) {
 	}
 	// Use the same throttling logic as OnAgentEnd: minInterval protection
 	// + guardrails. This ensures the ticker cannot bypass degradation
-	// detection or guardrail checks (B4 fix).
+	// detection or guardrail checks.
 	if !s.shouldEvolve(ctx, CallbackData{AgentID: "ticker"}) {
 		return
 	}

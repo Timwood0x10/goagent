@@ -308,7 +308,7 @@ func (c *Client) decodeOpenAIChatResponse(ctx context.Context, req *http.Request
 			FinishReason string `json:"finish_reason"`
 		} `json:"choices"`
 		// Usage carries token counts so the caller's cost tracking is not
-		// stuck at zero (M7).
+		// stuck at zero.
 		Usage struct {
 			PromptTokens     int `json:"prompt_tokens"`
 			CompletionTokens int `json:"completion_tokens"`
@@ -433,7 +433,7 @@ func (c *Client) chatAnthropic(ctx context.Context, messages []*core.LLMMessage,
 		"max_tokens": maxTokens,
 	}
 	// Anthropic rejects top_k=0 with an API 400; only send it when a
-	// positive override is present (M9).
+	// positive override is present.
 	if topK := o.applyTopK(0); topK > 0 {
 		reqBody["top_k"] = topK
 	}
@@ -493,7 +493,7 @@ func (c *Client) decodeAnthropicChatResponse(ctx context.Context, req *http.Requ
 		} `json:"content"`
 		StopReason string `json:"stop_reason"`
 		// Usage carries token counts so the caller's cost tracking is not
-		// stuck at zero (M7).
+		// stuck at zero.
 		Usage struct {
 			InputTokens  int `json:"input_tokens"`
 			OutputTokens int `json:"output_tokens"`

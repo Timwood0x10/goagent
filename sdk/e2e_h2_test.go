@@ -15,7 +15,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/kernel"
 )
 
-// yieldExecutor is the H2 phase-1 execution body: the first ExecuteStep yields
+// yieldExecutor is the yield execution body: the first ExecuteStep yields
 // (Done=false + checkpoint), so the task enters SUSPENDED. It must be removed
 // or killed for the chain to continue (the chaos kill in the test).
 type yieldExecutor struct {
@@ -37,7 +37,7 @@ func (e *yieldExecutor) ExecuteStep(_ context.Context, task *models.Task) (*sub.
 	}, nil
 }
 
-// resumeExecutor is the H2 phase-2 replacement: it RESUMES from the preserved
+// resumeExecutor is the replacement: it RESUMES from the preserved
 // checkpoint (does not restart) and completes the task. Its resumedFrom field
 // captures the checkpoint so the test can verify continuity.
 type resumeExecutor struct {
@@ -67,7 +67,7 @@ func (e *resumeExecutor) resumed() any {
 	return e.resumedFrom
 }
 
-// TestSDKH2_ChaosRecoveryChain is the H2 acceptance (review: no
+// TestSDKH2_ChaosRecoveryChain is the chaos-recovery acceptance (no
 // SDK→scheduler→chaos→recovery whole-chain existed — only fabric-level tests
 // did). It exercises the full loop through the SDK runtime:
 //
@@ -112,7 +112,7 @@ func TestSDKH2_ChaosRecoveryChain(t *testing.T) {
 	rt.sdkFabric.WithClock(clock)
 
 	// Replace the default agent executor with a yield-checkpoint stub.
-	// P1-1: route through sched.RegisterExecutor so the write is
+	// Route through sched.RegisterExecutor so the write is
 	// execMu-guarded (no cross-lock race with the scheduler's reads).
 	rt.sched.RegisterExecutor("coder", &yieldExecutor{id: "coder", typ: "coder"})
 
@@ -154,7 +154,7 @@ func TestSDKH2_ChaosRecoveryChain(t *testing.T) {
 	}
 
 	// ── Chaos kill: remove the executor from the scheduler's static pool.
-	// P1-1: use sched.UnregisterExecutor so the write is execMu-guarded.
+	// use sched.UnregisterExecutor so the write is execMu-guarded.
 	rt.sched.UnregisterExecutor("coder")
 
 	// Age the lease past the kernel scheduler's 5-minute TTL.

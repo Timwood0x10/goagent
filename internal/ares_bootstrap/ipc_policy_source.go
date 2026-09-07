@@ -12,7 +12,7 @@ import (
 
 // IPC policy param keys read from the active evolution strategy's Params
 // map. The evolution system evolves these values; the Kernel enforces them
-// through aresrecovery.EvolutionAwareIPC (v0.3.0 M2-3).
+// through aresrecovery.EvolutionAwareIPC.
 const (
 	// ipcEncodingParam ("ipc.encoding") selects the wire encoding: "json"
 	// (default) or "json+gzip".

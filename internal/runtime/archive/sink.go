@@ -29,7 +29,7 @@ var (
 // and the serve wiring connects them.
 //
 // Failures are returned so the caller can log them; they never block
-// compaction (best effort, §4 of the strategy doc). The sink infers the
+// compaction (best effort). The sink infers the
 // round action from the task text (defaulting to "implement") so that
 // Validate always passes for well-formed events.
 //

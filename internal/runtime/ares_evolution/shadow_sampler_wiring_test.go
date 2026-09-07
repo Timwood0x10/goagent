@@ -9,12 +9,13 @@ import (
 	"github.com/Timwood0x10/ares/internal/runtime/ares_evolution/mutation"
 )
 
-// TestWiring_ShadowSampler_WiredInBootstrapShape locks the P0-9 wiring against
+// TestWiring_ShadowSampler_WiredInBootstrapShape locks the sampler wiring
+// against
 // the SHAPE bootstrap actually uses: EnableDreamCycle=false but
 // EnableScheduler=true. NewWiredEvolutionSystem builds a DreamCycle whenever
 // EITHER flag is set (needDreamCycle = EnableDreamCycle || EnableScheduler), so
 // a `system.DreamCycle == nil` guard would silently skip the sampler in every
-// production config — the exact path P0-9 exists to fix.
+// production config — the exact path the sampler exists to fix.
 func TestWiring_ShadowSampler_WiredInBootstrapShape(t *testing.T) {
 	defer discardLogs()()
 	base := &mutation.Strategy{

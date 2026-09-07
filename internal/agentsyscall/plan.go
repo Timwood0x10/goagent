@@ -118,7 +118,7 @@ func (k *Kernel) CreatePlan(ctx context.Context, args CreatePlanArgs) (*CreatePl
 		if s.Capability == "" {
 			return nil, fmt.Errorf("agentsyscall: plan step %q: capability is required", s.ID)
 		}
-		// M4-D: single execution path — a batch step with a non-routable
+		// single execution path — a batch step with a non-routable
 		// capability would starve with no candidate executor. Fail fast
 		// per step (validation precedes compilation, so nothing is
 		// created on error).

@@ -1,7 +1,7 @@
 // Package introspect — flight-recorder control-plane endpoints.
 //
-// After the old internal/dashboard package was deleted (monitoring.md Phase
-// 4), the /flight/* read endpoints were dropped with it even though the
+// After the old internal/dashboard package was deleted, the /flight/* read
+// endpoints were dropped with it even though the
 // flight data (timeline / summary / graph / decisions / diagnostics /
 // genealogy) is still recorded by ares_flight.FlightRecorder. This file
 // restores those read-only surfaces under /api/flight/* on the serve control
@@ -43,7 +43,7 @@ type FlightProvider interface {
 }
 
 // WithFlight attaches the flight-recorder provider to the control server
-// (migrated from dashboard /flight/*, monitoring.md Phase 4 follow-up).
+// (migrated from the retired dashboard /flight/* endpoints).
 func WithFlight(provider FlightProvider) ControlServerOption {
 	return func(s *ControlServer) {
 		s.flight = provider

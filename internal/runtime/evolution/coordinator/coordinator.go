@@ -171,8 +171,8 @@ type EvolutionCoordinator struct {
 	patchReg     *patch.Registry // registry for applying patches
 	deployer     PatchDeployer   // optional safe-promotion pipeline (nil = direct apply)
 
-	// maxDecisions / maxPatchHistory cap the two append-only history slices
-	// (#24): Evaluate runs on the bootstrap 15-minute ticker for the process
+	// maxDecisions / maxPatchHistory cap the two append-only history slices:
+	// Evaluate runs on the bootstrap 15-minute ticker for the process
 	// lifetime, and every proposal appends a decision unconditionally. The
 	// caps are generous — countRecentPatches only looks at a 1-minute window.
 	maxDecisions    int
@@ -205,7 +205,7 @@ func NewEvolutionCoordinator(policy PolicyGenome, patchReg *patch.Registry) *Evo
 	}
 }
 
-// History caps (#24): generous bounds — the decision budget logic only
+// History caps: generous bounds — the decision budget logic only
 // inspects a recent window, so older entries are pure archive.
 const (
 	defaultMaxDecisions    = 2048

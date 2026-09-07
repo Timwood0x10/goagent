@@ -71,7 +71,7 @@ func NewGraph(id string) (*Graph, error) {
 	}, nil
 }
 
-// D17: NewGraphWithTracer removed (dead code — use NewGraph + SetScheduler).
+// NewGraphWithTracer removed (dead code — use NewGraph + SetScheduler).
 
 // NewGraphWithLimiter creates a new graph with a custom rate limiter.
 //
@@ -187,7 +187,7 @@ func (g *Graph) Start(id string) (*Graph, error) {
 	return g, nil
 }
 
-// D17: Clear removed (dead code — only tests).
+// Clear removed (dead code — only tests).
 
 // RemoveEdge removes an edge from one node to another.
 // Retained: used by patcher.go applyRemoveEdge.
@@ -274,7 +274,8 @@ func (g *Graph) SetScheduler(scheduler Scheduler) (*Graph, error) {
 	return g, nil
 }
 
-// D17: SetTracer, SetPluginBus, SetExecutionCollector, SetLimiter, SetCheckpointStore removed (dead code).
+// SetTracer, SetPluginBus, SetExecutionCollector, SetLimiter, SetCheckpointStore
+// removed (dead code).
 // SetScheduler retained (used by patcher.go).
 
 // SetRouter sets a dynamic routing callback that is invoked after each
@@ -384,7 +385,7 @@ func (g *Graph) RuntimeScheduler() Scheduler {
 	return g.scheduler
 }
 
-// D17: RuntimePluginBus, RuntimeCollector, RuntimeCheckpointStore removed (dead code).
+// RuntimePluginBus, RuntimeCollector, RuntimeCheckpointStore removed (dead code).
 // RuntimeRouter retained for graph execution.
 
 // RuntimeNodes returns executable node bindings for unified compilation.

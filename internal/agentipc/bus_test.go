@@ -342,7 +342,7 @@ func TestDualTrackConcurrentShadowFlip(t *testing.T) {
 }
 
 // TestConcurrentRequestsAreSafe verifies concurrent Request/Reply is race-free
-// (code_rules §4.6: go test -race).
+// (verified with go test -race).
 func TestConcurrentRequestsAreSafe(t *testing.T) {
 	bus := NewBus()
 	recv := &recordingHandler{reply: &Message{Topic: "r"}}

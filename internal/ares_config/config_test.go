@@ -123,7 +123,7 @@ func TestLoadInvalidFile(t *testing.T) {
 }
 
 // TestLoad_ToolPoolAndGuardrails parses the evolution.tool_pool and
-// evolution.guardrails YAML blocks. These are the C6/KnownTools single-source
+// evolution.guardrails YAML blocks. These are the KnownTools single-source
 // configuration: the yaml enumerates the registered tool vocabulary and the
 // tool-whitelist pool, so the mutator and the guardrail agree on what a valid
 // whitelist looks like.
@@ -1099,7 +1099,7 @@ func TestValidateKernelLoopKnobs(t *testing.T) {
 }
 
 // TestValidateKernelDAGExecution covers the dag_execution knobs' validation
-// contract (M4-D: the L2 path is the only path — the `enabled` gate is gone;
+// contract (the L2 path is the only path — the `enabled` gate is gone;
 // what remains validated is the planner depth guard and the reaper/sweeper
 // windows): an absent section is legal, while negative values are rejected
 // rather than silently normalized.
@@ -1150,7 +1150,7 @@ func TestValidateKernelDAGExecution(t *testing.T) {
 }
 
 // TestLoad_DAGExecutionSection verifies the kernel.dag_execution yaml keys
-// parse into the planner/reaper config end to end (M4-D: no `enabled` gate;
+// parse into the planner/reaper config end to end (no `enabled` gate;
 // the L2 path is unconditional).
 func TestLoad_DAGExecutionSection(t *testing.T) {
 	skeleton := `

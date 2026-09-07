@@ -109,7 +109,7 @@ func (d *Diagnoser) Generate(ctx context.Context, req GenerateRequest) (*Candida
 	}
 
 	// Query failure-cluster evidence for the role. The dimension_eval kind is
-	// produced by the three-layer verifiers via the evidence bridge (P0-4).
+	// produced by the three-layer verifiers via the evidence bridge.
 	evidenceIDs, err := d.failureEvidenceIDs(ctx, req.Role)
 	if err != nil {
 		return nil, err
@@ -167,7 +167,7 @@ func (d *Diagnoser) GenerateGA(ctx context.Context, role string, n int) ([]*Cand
 
 // failureEvidenceIDs queries failure-cluster evidence for the role. The
 // dimension_eval kind is produced by the three-layer verifiers via the
-// evidence bridge (P0-4); the role is carried in the evidence metadata.
+// evidence bridge; the role is carried in the evidence metadata.
 func (d *Diagnoser) failureEvidenceIDs(ctx context.Context, role string) ([]string, error) {
 	if role == "" {
 		return nil, errors.New("evolution: diagnose role must not be empty")

@@ -219,7 +219,7 @@ type SSEServerTransport struct {
 	closing    atomic.Bool
 
 	// currentSession is set by Accept and used by Send to route the response
-	// to the correct SSE client (P0-3).
+	// to the correct SSE client.
 	currentSession string
 }
 
@@ -366,7 +366,7 @@ func (t *SSEServerTransport) handlePOSTRequest(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Extract session ID from query parameter for response routing (P0-3).
+	// Extract session ID from query parameter for response routing.
 	sessionID := r.URL.Query().Get("session_id")
 
 	select {
@@ -383,7 +383,7 @@ func (t *SSEServerTransport) Accept(ctx context.Context) (*JSONRPCMessage, error
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case sr := <-t.requestCh:
-		// Store the session ID so Send can route the response (P0-3).
+		// Store the session ID so Send can route the response.
 		t.sessionsMu.Lock()
 		t.currentSession = sr.sessionID
 		t.sessionsMu.Unlock()
@@ -393,7 +393,7 @@ func (t *SSEServerTransport) Accept(ctx context.Context) (*JSONRPCMessage, error
 
 // Send sends a response to the SSE client that originated the current request.
 // If the client has disconnected (session not found), the response is silently
-// dropped to avoid accidentally broadcasting to other clients (P0-3).
+// dropped to avoid accidentally broadcasting to other clients.
 func (t *SSEServerTransport) Send(ctx context.Context, msg *JSONRPCMessage) error {
 	if t.closing.Load() {
 		return errors.New("transport is closing")
@@ -403,14 +403,14 @@ func (t *SSEServerTransport) Send(ctx context.Context, msg *JSONRPCMessage) erro
 	sessionID := t.currentSession
 	sess, ok := t.sessions[sessionID]
 	if !ok || sess == nil {
-		// Client disconnected — drop silently instead of broadcasting (P0-3).
+		// Client disconnected — drop silently instead of broadcasting.
 		t.sessionsMu.Unlock()
 		return nil
 	}
 
 	// Send while holding the sessions lock so this is atomic with Close's
 	// channel close: a send racing a close panics with
-	// "send on closed channel" (H7). The non-blocking select keeps the
+	// "send on closed channel". The non-blocking select keeps the
 	// critical section short.
 	select {
 	case sess.msgCh <- msg:
@@ -420,7 +420,7 @@ func (t *SSEServerTransport) Send(ctx context.Context, msg *JSONRPCMessage) erro
 	default:
 		// Client buffer full: report the failure instead of silently
 		// dropping the response, which would leave the caller waiting
-		// forever for a reply that never arrives (M10).
+		// forever for a reply that never arrives.
 		t.sessionsMu.Unlock()
 		return fmt.Errorf("sse: client buffer full, response for session %q dropped", sessionID)
 	}
@@ -464,7 +464,7 @@ func (t *SSEServerTransport) Close() error {
 	// garbage collected once the transport is unreferenced. Accept() exits via
 	// its context cancellation, not channel close.
 
-	// Clean up any remaining sessions (P0-3).
+	// Clean up any remaining sessions.
 	t.sessionsMu.Lock()
 	for _, sess := range t.sessions {
 		close(sess.msgCh)

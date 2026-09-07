@@ -51,7 +51,7 @@ var (
 // agents compete for tasks via CAS ownership, never via a leader's dispatch.
 // Every ownership-carrying operation is fenced by the lease epoch (fencing
 // token) so a stale holder can never act on a task it no longer owns.
-// maxInMemoryEvents bounds the in-memory lifecycle log (N8: unbounded growth).
+// maxInMemoryEvents bounds the in-memory lifecycle log (preventing unbounded growth).
 // The log is compacted to this size only when it reaches 2× the bound, so the
 // amortized cost of the cap is O(1) per append and the resident log stays
 // within 2× the bound. The durable event store (when attached) keeps the FULL
@@ -62,18 +62,18 @@ type Fabric struct {
 	mu         sync.Mutex
 	tasks      map[string]*Task
 	events     []TaskEvent
-	store      ares_events.EventStore // optional persistent event sink (P2-C); guarded by mu
+	store      ares_events.EventStore // optional persistent event sink; guarded by mu
 	confidence ConfidenceSource       // experience-derived confidence (§8 Skill-first); guarded by mu
 	now        func() time.Time       // injectable clock for lease tests
 	epoch      uint64
-	// strategyStamp is the submission-time attribution source (E1): called
+	// strategyStamp is the submission-time attribution source: called
 	// once per Create to stamp the checkpoint envelope's StrategyID. Guarded
 	// by mu; nil means "no strategy deployed / wiring absent", which reads as
 	// the active-strategy fallback downstream.
 	strategyStamp func() string
 
-	// flushSeq/flushedSeq gate durable appends into strict causal order (N7:
-	// concurrent flushAppends must not land out of order in the store's
+	// flushSeq/flushedSeq gate durable appends into strict causal order
+	// (concurrent flushAppends must not land out of order in the store's
 	// version sequence). flushSeq is assigned under f.mu in recordLocked —
 	// the same lock that serializes every state transition — so the sequence
 	// order IS the causal order. flushCond waits until all earlier sequences
@@ -121,7 +121,7 @@ func (f *Fabric) WithConfidenceSource(src ConfidenceSource) *Fabric {
 }
 
 // WithStrategyStamp wires the submission-time attribution source (evolution
-// loop closure E1). The fabric calls it once per Create to stamp the task's
+// loop closure). The fabric calls it once per Create to stamp the task's
 // checkpoint envelope with the strategy that was active at submission, so
 // runtime fitness samples stay attributed to the strategy that actually
 // produced them — even when a promote happens mid-flight. It must be cheap
@@ -183,7 +183,7 @@ func stampStrategyAttribution(t *Task, strategyID string) {
 	}
 }
 
-// WithEventStore attaches a persistent event sink (ares-runtime P2-C): every
+// WithEventStore attaches a persistent event sink: every
 // task lifecycle transition is appended to the store on the task's stream, in
 // addition to the in-memory log, so scheduler/task/lease state can be rebuilt
 // across restarts. Nil detaches. Guarded by mu.
@@ -223,7 +223,7 @@ func (f *Fabric) Create(t *Task) error {
 	if _, exists := f.tasks[t.ID]; exists {
 		return ErrTaskExists
 	}
-	// P1-7: copy the caller's *Task so the fabric owns an isolated instance —
+	// Copy the caller's *Task so the fabric owns an isolated instance —
 	// the caller keeping (or reusing) its *t cannot then race the fabric's
 	// snapshot/state reads. `cp := *t` isolates every scalar field; the
 	// Dependencies slice is a reference type, so it is copied explicitly below
@@ -242,7 +242,7 @@ func (f *Fabric) Create(t *Task) error {
 	cp.Lease = nil
 	cp.CreatedAt = f.now()
 	cp.UpdatedAt = cp.CreatedAt
-	// E1: stamp the submission-time strategy attribution onto the task's
+	// Stamp the submission-time strategy attribution onto the task's
 	// checkpoint envelope (once per Create; a pre-stamped envelope wins).
 	stampStrategyAttribution(&cp, strategyID)
 	f.tasks[t.ID] = &cp
@@ -318,7 +318,7 @@ func (f *Fabric) Start(id, agentID string, epoch uint64) error {
 // Yield is the quantum-boundary primitive (design §4 correction 2): it
 // hands execution back to the Runtime at a checkpoint. The state after yield
 // is decided by the Scheduler (continue/suspend/preempt/handoff/complete);
-// P0's default transition is SUSPENDED with the checkpoint preserved.
+// The default transition is SUSPENDED with the checkpoint preserved.
 func (f *Fabric) Yield(id, agentID string, epoch uint64, checkpoint any) error {
 	pending := make([]*pendingAppend, 0, 1)
 	f.mu.Lock()
@@ -398,7 +398,7 @@ func (f *Fabric) Fail(id, agentID string, epoch uint64) error {
 		if err := t.transition(StateReady); err != nil {
 			return err
 		}
-		// N8: record the failure while the failing agent is still attached —
+		// Record the failure while the failing agent is still attached —
 		// the terminal/requeue event must not lose the actor. Ownership is
 		// cleared only after the event is captured, so the following
 		// task.ready event reflects the unowned task.
@@ -457,7 +457,7 @@ func (f *Fabric) Release(id, agentID string, epoch uint64) error {
 	if err := t.transition(StateReady); err != nil {
 		return err
 	}
-	// N8: record the released event while the releasing agent is still
+	// Record the released event while the releasing agent is still
 	// attached (provenance), then clear ownership so the task is unowned.
 	pending = append(pending, f.recordLocked(t, EventTaskReleased))
 	t.Owner = ""
@@ -492,7 +492,7 @@ func (f *Fabric) CheckExpiredLeases() []string {
 		if err := t.transition(StateReady); err != nil {
 			continue
 		}
-		// N8: record the expiry while the dead agent is still attached — the
+		// Record the expiry while the dead agent is still attached — the
 		// terminal event must identify whose lease expired. Ownership is
 		// cleared only after the event is captured.
 		pending = append(pending, f.recordLocked(t, EventTaskExpired))
@@ -505,7 +505,7 @@ func (f *Fabric) CheckExpiredLeases() []string {
 
 // Schedule picks the best capable candidate for a task and acquires it on its
 // behalf (design §8: capability-aware scheduling — "who is the best executor",
-// not merely "who is idle"). D2 (2026-08-16): the Scheduler orchestrates
+// not merely "who is idle"). The Scheduler orchestrates
 // uniformly — ReadyTasks → Schedule → execute; idle agents Steal → Acquire.
 // The scoring (capability overlap × (1-load) × confidence) comes from
 // scheduler.go; Experience supplies confidence.
@@ -600,7 +600,7 @@ type RunningTask struct {
 }
 
 // RunningTasks returns a snapshot of every currently-RUNNING task. It feeds
-// the scheduler's priority-preemption decision (v0.3.0 review: Preempt was
+// the scheduler's priority-preemption decision (Preempt was
 // production-unused); the caller must not hold any fabric lock while calling
 // Preempt with the returned epochs.
 func (f *Fabric) RunningTasks() []RunningTask {
@@ -690,7 +690,7 @@ type pendingAppend struct {
 	taskID string
 	event  *ares_events.Event
 	// seq is the fabric-wide monotonic sequence assigned under f.mu at record
-	// time (N7). flushAppends waits for seq contiguity so durable appends from
+	// time. flushAppends waits for seq contiguity so durable appends from
 	// concurrent fabric calls land in causal order.
 	seq uint64
 }
@@ -718,7 +718,7 @@ func (f *Fabric) recordLocked(t *Task, typ EventType) *pendingAppend {
 	// quantum. Matches the event's own timestamp so the two never drift.
 	t.UpdatedAt = ev.At
 	f.events = append(f.events, ev)
-	// Cap the in-memory event log (N8: unbounded growth). Only compact when
+	// Cap the in-memory event log so it cannot grow unboundedly. Only compact when
 	// the log exceeds 2×max so the amortized cost is O(1) per append.
 	if max := maxInMemoryEvents; max > 0 && len(f.events) > 2*max {
 		copy(f.events, f.events[len(f.events)-max:])
@@ -732,7 +732,7 @@ func (f *Fabric) recordLocked(t *Task, typ EventType) *pendingAppend {
 		return nil
 	}
 	f.flushSeq++
-	// Rebuild payload (release-readiness T2): must-persist events carry every
+	// Rebuild payload: must-persist events carry every
 	// field RestoreFromStore needs to fold the task back (capability,
 	// priority, dependencies, deadline, retry budget, creation time and the
 	// versioned checkpoint JSON). Observability-only events keep the minimal
@@ -750,7 +750,7 @@ func (f *Fabric) recordLocked(t *Task, typ EventType) *pendingAppend {
 		// and a stale pre-crash holder would pass ownerLocked's epoch check.
 		restoreKeyEpoch: f.epoch,
 	}
-	// E1: the strategy attribution key also rides on EVERY persisted event,
+	// The strategy attribution key also rides on EVERY persisted event,
 	// same reasoning as the epoch — the observability-only task.acquired/
 	// task.completed events are the ones RuntimeObserver subscribes to, so
 	// restricting the key to must-persist events would leave the observation
@@ -761,7 +761,7 @@ func (f *Fabric) recordLocked(t *Task, typ EventType) *pendingAppend {
 	if sid := strategyIDFromCheckpoint(t.Checkpoint); sid != "" {
 		payload[restoreKeyStrategyID] = sid
 	}
-	// M2: SessionID rides on every event too, same reasoning as StrategyID —
+	// SessionID rides on every event too, same reasoning as StrategyID —
 	// the session scope must be visible without decoding checkpoints.
 	if sid := sessionIDFromCheckpoint(t.Checkpoint); sid != "" {
 		payload[restoreKeySessionID] = sid
@@ -808,12 +808,12 @@ func (f *Fabric) recordLocked(t *Task, typ EventType) *pendingAppend {
 // flushAppends performs the deferred durable writes off-lock. It is registered
 // with `defer f.flushAppends(&pending)` BEFORE `defer f.mu.Unlock()` so, by
 // LIFO defer order, the unlock runs first and this flush runs immediately
-// after — still within the same call (so W3 divergence logging stays
+// after — still within the same call (so divergence logging stays
 // synchronous with the mutating method) but with f.mu already released (so the
 // store I/O never blocks other fabric operations). Takes a pointer so it reads
 // the slice's final value populated during the method body.
 //
-// W3 Durability: must-persist events (TaskCreated, TaskCheckpointed,
+// Durability: must-persist events (TaskCreated, TaskCheckpointed,
 // TaskCompleted, TaskFailed, TaskExpired) carry state the runtime relies on
 // for recovery and replay. A failed append for these events is not silently
 // swallowed — it is logged so a durable-state divergence (in-memory vs event
@@ -825,7 +825,7 @@ func (f *Fabric) flushAppends(pending *[]*pendingAppend) {
 		if p == nil {
 			continue
 		}
-		// N7: wait until every earlier-recorded durable event has been
+		// Wait until every earlier-recorded durable event has been
 		// appended, so concurrent fabric calls flush in causal (record) order
 		// and the store's per-stream version sequence never inverts.
 		f.flushCond.L.Lock()
@@ -848,7 +848,7 @@ func (f *Fabric) flushAppends(pending *[]*pendingAppend) {
 }
 
 // isMustPersistEvent reports whether a lifecycle event is a must-persist
-// transition (W3): the runtime's recovery/replay correctness depends on these
+// transition: the runtime's recovery/replay correctness depends on these
 // events being in the durable log. Other events (Ready, Acquired, Started,
 // Yielded, Preempted, Released, Stolen) are observability-only: they enrich
 // the trace but are not required for state rebuild.
@@ -978,7 +978,7 @@ func (f *Fabric) UpdatePayload(id string, payload map[string]any) error {
 	}
 	// Decode → replace → re-encode keeps every field the envelope already
 	// carried (notably StrategyID, the submission-time attribution) intact
-	// and keeps this the single decode path for checkpoints (W3).
+	// and keeps this the single decode path for checkpoints.
 	dc, err := DecodeCheckpoint(t.Checkpoint)
 	if err != nil {
 		return err
@@ -1015,7 +1015,7 @@ func (f *Fabric) Dependents(id string) []string {
 	return out
 }
 
-// Delete removes a task from the fabric entirely (fusion plan C4 review #2:
+// Delete removes a task from the fabric entirely (submitted
 // submitted collaboration graphs are EPHEMERAL — results are harvested by the
 // caller before deletion, so long-running kernels must not accumulate zombie
 // entries from failed/timed-out graphs).

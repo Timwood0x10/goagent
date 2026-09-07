@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// TestDeadLetter_RecordsUndeliverableSend verifies GAP-3: a send to an
+// TestDeadLetter_RecordsUnreachable verifies: a send to an
 // unregistered agent is recorded in the dead-letter store.
 func TestDeadLetter_RecordsUnreachable(t *testing.T) {
 	b := NewBus()
@@ -41,7 +41,7 @@ func TestDeadLetter_RecordsTimeout(t *testing.T) {
 }
 
 // TestDeadLetter_CapacityEviction verifies the ring bound: oldest entries are
-// evicted when capacity is exceeded (N8: unbounded-growth guard).
+// evicted when capacity is exceeded (unbounded-growth guard).
 func TestDeadLetter_CapacityEviction(t *testing.T) {
 	s := NewDeadLetterStore(3)
 	for i := 0; i < 5; i++ {

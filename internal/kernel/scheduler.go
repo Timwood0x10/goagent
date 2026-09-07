@@ -31,18 +31,18 @@ import (
 // Failure policy: a scheduling or execution failure for one task is logged and
 // the loop continues — one bad task must never take down the scheduler.
 //
-// Dynamic executor registration (W1): RegisterExecutor / UnregisterExecutor
+// Dynamic executor registration: RegisterExecutor / UnregisterExecutor
 // let the recovery loop inject a replacement agent at runtime so a recovered
 // task is executed by a real executor, not a phantom agent. execMu guards the
 // executor map for concurrent register/unregister/lookup from drain goroutines.
 type Scheduler struct {
 	fabric    *taskfabric.Fabric
 	executors map[string]CapabilityExecutor
-	// execMu guards the executors map for dynamic register/unregister (W1).
+	// execMu guards the executors map for dynamic register/unregister.
 	// A separate lock avoids reentrancy with the fabric mutex during drain.
 	execMu sync.RWMutex
 	// tracker supplies real per-agent Load/Confidence to Schedule
-	// (v0.3.0 GAP4: real load tracking instead of a static placeholder).
+	// (real load tracking instead of a static placeholder).
 	tracker *LoadTracker
 	// PollInterval is how often ReadyTasks is drained (default 500ms).
 	PollInterval time.Duration
@@ -52,7 +52,7 @@ type Scheduler struct {
 	// events to. When set, the scheduler subscribes to dependency-relevant
 	// task events (completed/failed/ready/… ) and drains immediately on each,
 	// so a task whose DAG dependencies have just completed runs without
-	// waiting for the next poll tick (GAP 6: event-driven DAG completion).
+	// waiting for the next poll tick (event-driven DAG completion).
 	// Nil keeps pure 500ms polling (backward compatible).
 	eventStore ares_events.EventStore
 	// maxConcurrent caps how many ready tasks run in parallel during one
@@ -66,26 +66,26 @@ type Scheduler struct {
 	// logs.
 	noCandidateMu      sync.Mutex
 	lastNoCandidateLog time.Time
-	// governance is the P3 cognitive-execution budget provider (agentfabric:
+	// governance is the cognitive-execution budget provider (agentfabric:
 	// token/tool budgets + deadline). Nil skips enforcement (backward
 	// compatible). When set, execute() checks the budget at each quantum
 	// boundary (before CheckResource / after ConsumeResource+Deadline) so a
 	// budget-exhausted agent yields the task back instead of burning tokens it
-	// cannot afford (aresos-plan.md P3: cooperative yield, not hard preempt).
+	// cannot afford (cooperative yield, not hard preempt).
 	governance *agentfabric.Fabric
-	// boundExecutors maps taskID → executorID for W1 recovery executors. A
+	// boundExecutors maps taskID → executorID for recovery executors. A
 	// recovery executor is bound to exactly one task: execute() only offers it
 	// as a candidate for that task, never for another READY task, so a
 	// replacement spawned for a recovered task cannot hijack new tasks.
 	// Guarded by execMu.
 	boundExecutors map[string]string
-	// attribution is the optional W4 execution-outcome source. When wired,
+	// attribution is the optional execution-outcome source. When wired,
 	// execute() records every finalized outcome (agent, capability, success)
 	// so the evolution feedback loop can read attribution and push derived
 	// confidence into the tracker. Nil skips recording (backward compatible).
 	attribution *aresrecovery.ExecutionAttribution
 	// agents is the optional agentfabric.Fabric whose live IDLE agents are
-	// schedulable candidates (aresos-agentos-plan B1: the scheduler's candidate
+	// schedulable candidates (the scheduler's candidate
 	// pool comes from the agentfabric dynamic population). Every drain re-queries the fabric, so a spawned
 	// agent becomes schedulable immediately and a killed one disappears — no
 	// explicit registry sync. Nil keeps the static executor registry only
@@ -102,25 +102,25 @@ type Scheduler struct {
 	// registration races with the drain loop stay safe.
 	quantumHook QuantumHook
 	// shadowHook is the optional real-execution shadow A/B capture point
-	// (closure plan Step 4 / N-1). When wired, every successfully finalized
+	// When wired, every successfully finalized
 	// task is handed to the hook so the evolution layer can buffer it and
 	// later execute a candidate strategy on it in isolation. The hook fires
 	// on the drain path and MUST NOT block (see shadow.go). Nil = no shadow
 	// capture (backward compatible).
 	shadowHook ShadowExecutionHook
-	// running reports whether the drain loop is actually running (K5: the
+	// running reports whether the drain loop is actually running (the
 	// System Runtime readiness gate must mean "drain loop alive", not
 	// "object exists"). Set at Run entry, cleared on exit.
 	running atomic.Bool
 	// recoveryHint, when wired, is invoked at the stale-winner boundary: the
 	// winner died between candidate build and executor lookup and no capable
 	// replacement exists yet, so waiting for the lease TTL is the only other
-	// way out. The hint asks the recovery loop to sweep NOW (B1).
+	// way out. The hint asks the recovery loop to sweep NOW.
 	//
 	// It must be non-blocking — the caller is a drain goroutine on the hot
 	// path. The wiring side (cmd/ares) satisfies this with a capacity-1
 	// channel and a drop-on-full send, matching the sweep semaphore's own
-	// drop semantics. Nil keeps the pre-B1 behavior for the leader/SDK paths
+	// drop semantics. Nil keeps the legacy behavior for the leader/SDK paths
 	// that have no recovery loop.
 	//
 	// Deliberately a callback rather than a recovery dependency: the
@@ -129,7 +129,7 @@ type Scheduler struct {
 	recoveryHint func(taskID string)
 }
 
-// WithRecoveryHint wires the stale-winner recovery trigger (B1). fn is called
+// WithRecoveryHint wires the stale-winner recovery trigger. fn is called
 // when a leased task's winner has died and no capable replacement executor
 // exists, so the task would otherwise stall for the full lease TTL. fn MUST
 // NOT block: it runs on a drain goroutine.
@@ -169,7 +169,7 @@ func (s *Scheduler) hasRecoveryHint() bool {
 }
 
 // Running reports whether the scheduler's drain loop is currently running.
-// K5 readiness semantics: a constructed-but-not-running scheduler must never
+// Readiness semantics: a constructed-but-not-running scheduler must never
 // report Ready — the System Runtime gate polls this before adoption.
 func (s *Scheduler) Running() bool { return s.running.Load() }
 
@@ -177,7 +177,7 @@ func (s *Scheduler) Running() bool { return s.running.Load() }
 // window — the condition is a waiting state, not an error worth per-poll noise.
 const noCandidateLogInterval = 5 * time.Second
 
-// WithGovernance attaches the P3 budget provider (agentfabric.Fabric). It is
+// WithGovernance attaches the budget provider (agentfabric.Fabric). It is
 // wired by the kernel lifecycle once the agent fabric exists; without it the
 // scheduler enforces nothing (backward compatible with tests and minimal
 // wiring). The provider is read-only here — the scheduler checks and consumes,
@@ -188,7 +188,7 @@ func (s *Scheduler) WithGovernance(g *agentfabric.Fabric) *Scheduler {
 }
 
 // budgetOK reports whether the winning agent may start a new quantum. It is
-// the P3 pre-quantum gate: deadline first (a deadline-expired agent is dead
+// the pre-quantum gate: deadline first (a deadline-expired agent is dead
 // weight), then the tool budget for this quantum's expected 1 tool round. A
 // denial is a cooperative yield — the scheduler returns the task to READY
 // instead of burning a quantum the agent cannot afford.
@@ -234,7 +234,7 @@ func New(fabric *taskfabric.Fabric, executors map[string]CapabilityExecutor, tra
 	if tracker == nil {
 		tracker = NewLoadTracker()
 	}
-	// P1-1: copy the initial executor map so the scheduler owns its own
+	// Copy the initial executor map so the scheduler owns its own
 	// map. The caller's map and the scheduler's map are now independent —
 	// the caller must use RegisterExecutor/UnregisterExecutor to mutate
 	// the live registry. Without this copy, both sides hold the same map
@@ -255,7 +255,7 @@ func New(fabric *taskfabric.Fabric, executors map[string]CapabilityExecutor, tra
 	}
 }
 
-// WithAttribution attaches the W4 execution-outcome source (aresrecovery.
+// WithAttribution attaches the execution-outcome source (aresrecovery.
 // ExecutionAttribution). When set, execute() records every finalized outcome
 // after the quantum. Returns the scheduler for chaining.
 func (s *Scheduler) WithAttribution(a *aresrecovery.ExecutionAttribution) *Scheduler {
@@ -264,7 +264,7 @@ func (s *Scheduler) WithAttribution(a *aresrecovery.ExecutionAttribution) *Sched
 }
 
 // WithAgentFabric attaches the agent lifecycle fabric so every live, IDLE,
-// executable fabric agent is a schedulable candidate (B1: single scheduling
+// executable fabric agent is a schedulable candidate (single scheduling
 // loop — the scheduler recognizes only the unified Agent). It is wired by the kernel lifecycle once the
 // fabric exists; nil keeps the static executor registry only. Returns the
 // scheduler for chaining.
@@ -299,7 +299,7 @@ func (s *Scheduler) WithTTL(ttl time.Duration) *Scheduler {
 // When an event store is wired (WithEventStore), the scheduler also drains
 // immediately on dependency-relevant task events (completed / failed /
 // ready / created), so a task whose DAG dependencies just finished runs
-// without waiting for the next poll tick (GAP 6). The periodic poll remains
+// without waiting for the next poll tick. The periodic poll remains
 // as a safety net for transitions that do not publish events.
 //
 // Args:
@@ -309,14 +309,14 @@ func (s *Scheduler) Run(ctx context.Context) {
 		log.Warn("kernel scheduler: fabric nil, scheduler disabled")
 		return
 	}
-	// K5: the readiness flag goes up before the loop blocks so an Adopt-time
+	// The readiness flag goes up before the loop blocks so an Adopt-time
 	// Ready gate observes "drain loop alive" as soon as Run begins, and goes
 	// down when the loop exits so a crashed scheduler never keeps reporting
 	// Ready.
 	s.running.Store(true)
 	defer s.running.Store(false)
 	// Guard against zero or negative PollInterval which would panic
-	// in time.NewTicker (B34). Fall back to preemptInterval which
+	// in time.NewTicker. Fall back to preemptInterval which
 	// applies the same safe default.
 	pollInterval := s.PollInterval
 	if pollInterval <= 0 {
@@ -329,7 +329,7 @@ func (s *Scheduler) Run(ctx context.Context) {
 	// wg.Wait() until every dispatched quantum finishes, so preemption
 	// checked only at drain entry could never observe a RUNNING task — the
 	// branch was unreachable through the production loop. This managed worker
-	// (deterministic exit on ctx.Done, per-sweep recover per code_rules)
+	// (deterministic exit on ctx.Done, per-sweep recover)
 	// scans independently of the blocking drain. Preemption stays
 	// cooperative: it only mutates durable state; the stale holder's late
 	// completion is rejected by the fencing token.
@@ -388,7 +388,7 @@ func (s *Scheduler) Run(ctx context.Context) {
 			// waiting up to one poll interval. When the subscription channel
 			// is closed, disable the case (nil channel blocks forever) so the
 			// loop falls back to pure polling instead of busy-spinning on a
-			// closed channel (N5: closed-events spin).
+			// closed channel.
 			if !ok {
 				log.Info("kernel scheduler: event subscription closed, polling only")
 				events = nil
@@ -409,7 +409,7 @@ func (s *Scheduler) preemptInterval() time.Duration {
 }
 
 // safeDrain recovers a panic from one drain so the scheduling loop survives a
-// single bad drain (M2: kernel loops must not crash the process). Per-task
+// single bad drain (kernel loops must not crash the process). Per-task
 // panics are already recovered inside drain; this guards the drain itself
 // (e.g. a panic inside ReadyTasks).
 func (s *Scheduler) safeDrain(ctx context.Context) {
@@ -422,7 +422,7 @@ func (s *Scheduler) safeDrain(ctx context.Context) {
 }
 
 // WithEventStore wires the shared EventStore so the scheduler drains on task
-// lifecycle events (GAP 6: event-driven DAG completion) instead of waiting
+// lifecycle events (event-driven DAG completion) instead of waiting
 // for the next poll tick. Returns the scheduler for chaining.
 func (s *Scheduler) WithEventStore(store ares_events.EventStore) *Scheduler {
 	s.eventStore = store
@@ -435,8 +435,7 @@ func (s *Scheduler) WithEventStore(store ares_events.EventStore) *Scheduler {
 // work-stealing substrate at the scheduler side. Panics from one task's
 // execution are recovered so a single bad step cannot kill the loop.
 // TODO(tech-debt): the per-agent local ready-queue design
-// (taskfabric.AgentQueue/Steal) was removed as unused
-// (v0.3.0 review P1: Steal idled unused — wire it or delete it); the shared ReadyTasks()
+// (taskfabric.AgentQueue/Steal) was removed as unused; the shared ReadyTasks()
 // queue drained concurrently by bounded goroutines IS the stealing substrate.
 // Re-introduce per-agent queues only if profiling shows contention.
 func (s *Scheduler) drain(ctx context.Context) {
@@ -457,7 +456,7 @@ func (s *Scheduler) drain(ctx context.Context) {
 	if len(tasks) == 0 {
 		return
 	}
-	// Priority preemption (v0.3.0 review: fabric.Preempt was production-
+	// Priority preemption (fabric.Preempt was production-
 	// unused): if a READY task outranks a task that is RUNNING from a
 	// previous drain, cooperatively preempt the lower one so a capable
 	// executor can pick up the higher-priority work. Preempt hands the task
@@ -510,7 +509,7 @@ func (s *Scheduler) drain(ctx context.Context) {
 // running task on a tie or on unset priorities. The preempted task keeps its
 // checkpoint and returns to READY for a later quantum.
 func (s *Scheduler) PreemptLowerPriority(ready []string) {
-	// B11: guard must also check fabric agents, not just static executors.
+	// The guard must also check fabric agents, not just static executors.
 	// In production mode (agent fabric wired), the static executor count may
 	// be 0 while fabric agents are the real candidate source.
 	hasCandidates := s.ExecutorCount() > 0
@@ -567,17 +566,17 @@ func (s *Scheduler) logFailure(taskID string, err error) {
 }
 
 // Submission-time metadata (UserProfile + Payload + UsedExperienceID) rides in
-// the task's Checkpoint slot inside a *taskfabric.CheckpointEnvelope (W3
-// schema, unversioned-v0 → versioned-v1 migration). Without the envelope the
+// the task's Checkpoint slot inside a *taskfabric.CheckpointEnvelope
+// (unversioned-v0 → versioned-v1 migration). Without the envelope the
 // executor saw profile==nil and degraded to an empty executeByType fallback —
 // a silent no-op that still reported success (the serve result-reflux bug
 // chain). The scheduler re-wraps EVERY quantum's returned checkpoint (yield
 // AND done) back into an envelope (EncodeCheckpoint), so the submission
 // metadata survives a yield: RunQuantum overwrites the task Checkpoint with
 // the step's checkpoint, and re-wrapping it inside the envelope means the next
-// quantum's toModelTask can still restore UserProfile/Payload (v0.3.0 review
-// Bug 3: yield→resume otherwise lost the profile and degraded to
-// executeByType). nil before the first quantum runs.
+// quantum's toModelTask can still restore UserProfile/Payload (yield→resume
+// otherwise lost the profile and degraded to executeByType). nil before the
+// first quantum runs.
 
 // execute runs the full fabric path for one task: Schedule → Acquire →
 // RunQuantum (delegating the actual work to the winning sub-agent) →
@@ -588,10 +587,10 @@ func (s *Scheduler) execute(ctx context.Context, taskID string) error {
 	// always consistent with what can actually run. Each candidate declares its
 	// OWN capabilities (from the agent's Type), NOT the task's — the scorer
 	// compares the task's required capability against what the agent can do.
-	// Load/Confidence come from the live tracker (v0.3.0 GAP4): real busy
+	// Load/Confidence come from the live tracker: real busy
 	// fraction and historical success rate, not static placeholders.
 	//
-	// W1 recovery binding: a recovery executor bound to THIS task is the only
+	// Recovery binding: a recovery executor bound to THIS task is the only
 	// candidate (the replacement must run the task it was spawned for). Bound
 	// executors of OTHER tasks are excluded so a replacement can never hijack
 	// a different READY task.
@@ -619,7 +618,7 @@ func (s *Scheduler) execute(ctx context.Context, taskID string) error {
 
 // executeUnbound runs the fabric path for a task with no recovery binding:
 // the candidate pool is every registered, unbound executor whose capability
-// overlaps the task, plus every live IDLE fabric agent (B1).
+// overlaps the task, plus every live IDLE fabric agent.
 func (s *Scheduler) executeUnbound(ctx context.Context, taskID string) error {
 	execs := s.allExecutors()
 	cands := make([]taskfabric.Candidate, 0, len(execs))
@@ -630,7 +629,7 @@ func (s *Scheduler) executeUnbound(ctx context.Context, taskID string) error {
 		if s.isBoundToAnyTask(agentID) {
 			continue
 		}
-		// C1: when the fabric is wired (peer mode), the fabric's live
+		// When the fabric is wired (peer mode), the fabric's live
 		// population is the SINGLE candidate source — the static registrations
 		// of the configured sub-agents have a managed copy in the fabric, so a
 		// chaos kill takes effect on the next drain. Only recovery-bound
@@ -647,7 +646,7 @@ func (s *Scheduler) executeUnbound(ctx context.Context, taskID string) error {
 			Priority:     s.tracker.Priority(agentID),
 		})
 	}
-	// B1: live fabric agents are candidates too. Every drain re-queries the
+	// Live fabric agents are candidates too. Every drain re-queries the
 	// fabric, so a freshly spawned IDLE agent becomes schedulable immediately
 	// and a killed one disappears (spawn/kill reflected in the candidate set immediately).
 	cands = s.appendFabricCandidates(cands, execs)
@@ -656,7 +655,7 @@ func (s *Scheduler) executeUnbound(ctx context.Context, taskID string) error {
 
 // executeWithCandidates runs the shared Schedule → Acquire → RunQuantum →
 // finalize path for a prebuilt candidate list. The task capability is read
-// for W4 attribution at the outcome boundary.
+// for attribution at the outcome boundary.
 func (s *Scheduler) executeWithCandidates(ctx context.Context, taskID string, cands []taskfabric.Candidate) error {
 	tk, err := s.fabric.Task(taskID)
 	if err != nil {
@@ -667,7 +666,7 @@ func (s *Scheduler) executeWithCandidates(ctx context.Context, taskID string, ca
 		// chain, so errors.Is(err, taskfabric.ErrNoCapableCandidate) still matches.
 		return apperrors.Kernel("schedule", "no_capable_candidate", taskID, "", taskfabric.ErrNoCapableCandidate)
 	}
-	// W4: capability-specific confidence. The candidate builders only know
+	// Capability-specific confidence: the candidate builders only know
 	// agentID; the task capability is available here, so re-resolve each
 	// candidate's confidence against (agentID, task capability) before
 	// Schedule scores them. Without a capability override this falls back to
@@ -697,7 +696,7 @@ func (s *Scheduler) executeWithCandidates(ctx context.Context, taskID string, ca
 	if err != nil {
 		return err
 	}
-	// C1: when the fabric is wired, resolve the winner through the fabric
+	// When the fabric is wired, resolve the winner through the fabric
 	// FIRST — the fabric copy is the live, lifecycle-managed agent (kill/
 	// recovery affect it), so a same-id static registration must not shadow
 	// it. Only when the fabric has no live agent for the winner (legacy
@@ -720,9 +719,9 @@ func (s *Scheduler) executeWithCandidates(ctx context.Context, taskID string, ca
 			// the TTL stall. Hence three cases, in order of preference:
 			//
 			//  1. Another capable executor exists → release; the next drain
-			//     re-schedules within one poll interval (EDGE-4).
+			//     re-schedules within one poll interval.
 			//  2. No capable executor, but a recovery loop is wired → release
-			//     AND nominate the task to it (B1). Recovery gives the task a
+			//     AND nominate the task to it. Recovery gives the task a
 			//     replacement execution body promptly, instead of the task
 			//     waiting out the full lease TTL. This is the production path
 			//     (cmd/ares peer mode).
@@ -732,7 +731,7 @@ func (s *Scheduler) executeWithCandidates(ctx context.Context, taskID string, ca
 			//     chaos-sandbox paths land here.
 			//
 			// Release is epoch-fenced (only the current holder can release)
-			// and PRESERVES the checkpoint, so E1's "resume, don't restart"
+			// and PRESERVES the checkpoint, so the "resume, don't restart"
 			// contract holds in cases 1 and 2.
 			if s.HasCapableExecutor(taskID) {
 				if releaseErr := s.fabric.Release(taskID, winner, epoch); releaseErr != nil {
@@ -754,7 +753,7 @@ func (s *Scheduler) executeWithCandidates(ctx context.Context, taskID string, ca
 		}
 	}
 	// Track the busy slot while the quantum runs so the next Schedule sees the
-	// real load (v0.3.0 GAP4); end records the outcome for confidence.
+	// real load; end records the outcome for confidence.
 	// Preserve the submission metadata across the quantum: the task's current
 	// checkpoint is the meta envelope written by submitFabricTask or by a
 	// previous quantum (yield/done re-wraps below). Capturing it here — before
@@ -764,11 +763,11 @@ func (s *Scheduler) executeWithCandidates(ctx context.Context, taskID string, ca
 	if decodeErr != nil {
 		log.Warn("kernel scheduler: decode checkpoint failed", "task_id", taskID, "error", decodeErr)
 	}
-	// P3 pre-quantum gate: if the winner's budget/deadline is exhausted, yield
+	// Pre-quantum gate: if the winner's budget/deadline is exhausted, yield
 	// the task back (release the lease) so another capable agent (or a later
-	// quantum after ResetResource) can pick it up. This closes the P3 loop at
+	// quantum after ResetResource) can pick it up. This closes the loop at
 	// the scheduler boundary — the fabric's state machine (Release→READY)
-	// drives the requeue, matching the plan's "budget.exceeded → yield()".
+	// drives the requeue ("budget.exceeded → yield()").
 	if !s.budgetOK(winner) {
 		if releaseErr := s.fabric.Release(taskID, winner, epoch); releaseErr != nil {
 			log.Error("kernel scheduler: release for budget-exhausted failed", "task_id", taskID, "winner", winner, "error", releaseErr)
@@ -782,7 +781,7 @@ func (s *Scheduler) executeWithCandidates(ctx context.Context, taskID string, ca
 	// Lease heartbeat: renew the winner's lease while the quantum runs so a
 	// long step (> TTL) is not requeued by lease expiry and executed a second
 	// time concurrently. The heartbeat goroutine is managed by an errgroup
-	// (code_rules #8) and stops when the quantum ends, the scheduler context
+	// and stops when the quantum ends, the scheduler context
 	// is cancelled, or renewal fails (ownership lost — preemption/expiry).
 	renewStop := make(chan struct{})
 	qg, qgCtx := errgroup.WithContext(ctx)
@@ -841,13 +840,13 @@ func (s *Scheduler) executeWithCandidates(ctx context.Context, taskID string, ca
 			}
 		}
 	}()
-	// C2.1: capture the quantum's wall-clock duration before RunQuantum so
-	// endQuantumOutcome can attribute real latency to the deterministic scorer
-	// (C2.2). The old Record() path passed 0,0,0, which made the
+	// Capture the quantum's wall-clock duration before RunQuantum so
+	// endQuantumOutcome can attribute real latency to the deterministic scorer.
+	// The old Record() path passed 0,0,0, which made the
 	// latency/retry/recover weights dead and collapsed every score to
 	// 0.70×successRate+0.30 (no added information).
 	//
-	// B-1 (review P0-2): the retry count is DERIVED from the RunQuantum error
+	// The retry count is DERIVED from the RunQuantum error
 	// via quantumRetries — never read from RetryPolicy.Attempts (cumulative,
 	// would over-attribute) and never re-read from the task (races another
 	// drain). See quantumRetries for the full rationale.
@@ -860,7 +859,7 @@ func (s *Scheduler) executeWithCandidates(ctx context.Context, taskID string, ca
 	s.afterQuantum(ctx, taskID, winner, err)
 	s.endQuantumOutcome(winner, tk.Capability, taskID, err, quantumLatency, retries)
 	slotReleased = true
-	// Step 4 (closure plan N-1): hand the finalized task to the shadow A/B
+	// Hand the finalized task to the shadow A/B
 	// executor so a candidate strategy can be executed on it in isolation.
 	// Contract: the hook buffers and returns — it never blocks the drain
 	// path. Only successful finalizations are sampled; a failed quantum says
@@ -868,7 +867,7 @@ func (s *Scheduler) executeWithCandidates(ctx context.Context, taskID string, ca
 	if s.shadowHook != nil && err == nil {
 		s.shadowHook.OnTaskFinalized(s.ToModelTask(tk))
 	}
-	// P3 post-quantum bookkeeping: record the quantum's consumption (1 tool
+	// Post-quantum bookkeeping: record the quantum's consumption (1 tool
 	// round) so the next gate sees the new balance. Runs even on step errors —
 	// the quantum did execute (or partially execute) and spent budget.
 	if s.governance != nil {
@@ -951,7 +950,7 @@ func (s *Scheduler) buildQuantumStep(
 			return nil, false, apperrors.Kernel("run_quantum", "step_error", tk.ID, executor.ID(), errors.New(out.Result.Error))
 		}
 		if !out.Done {
-			// Yield (P1.1 Execution Quantum): the quantum made progress but the
+			// Yield (Execution Quantum): the quantum made progress but the
 			// task is not complete. RunQuantum's not-done branch SUSPENDEDs the
 			// task with this checkpoint preserved; the next drain re-acquires
 			// it and the next quantum resumes from this PCB.
@@ -1011,7 +1010,7 @@ func (s *Scheduler) buildQuantumStep(
 // over-attributes later quanta and inflates the deterministic scorer's retry
 // component with retry depth) or re-reading the task after RunQuantum (races
 // another drain that may have re-acquired and re-failed our requeued task,
-// attributing ITS retry to US). See review P0-2.
+// attributing ITS retry to US).
 func quantumRetries(err error) int {
 	if err == nil {
 		return 0
@@ -1026,14 +1025,14 @@ func quantumRetries(err error) int {
 }
 
 // endQuantumOutcome releases the winner's busy slot and attributes the
-// quantum outcome to W4 feedback.
+// quantum outcome to the evolution feedback loop.
 //
 // A benign fencing rejection (cooperative preemption handed the task back
 // while the stale holder was still mid-step) is NOT the executor's failure:
 // recording it as one would poison the agent's success rate toward 0, and
 // Score's confidence factor would make the preempted task permanently
 // unschedulable. Such rejections end NEUTRAL — load is released but no
-// success/failure enters the history, and W4 attribution is skipped.
+// success/failure enters the history, and attribution is skipped.
 func (s *Scheduler) endQuantumOutcome(winner, capability, taskID string, err error, latency time.Duration, retries int) {
 	if errors.Is(err, taskfabric.ErrNotOwner) || errors.Is(err, taskfabric.ErrEpochMismatch) {
 		s.tracker.EndNeutral(winner)
@@ -1041,13 +1040,13 @@ func (s *Scheduler) endQuantumOutcome(winner, capability, taskID string, err err
 		return
 	}
 	s.tracker.End(winner, err == nil)
-	// W4 evolution feedback: record the outcome for the feedback loop. The
+	// Evolution feedback: record the outcome for the feedback loop. The
 	// attribution is read by the EvolutionFeedbackAdapter and pushed back into
 	// the tracker's confidence override (SetAgentConfidence) so the next
 	// Schedule sees the evolution-derived confidence.
 	//
-	// C2.1: RecordWithMetrics carries the real quantum latency and retry
-	// budget so the deterministic scorer (C2.2) has non-degenerate evidence.
+	// RecordWithMetrics carries the real quantum latency and retry
+	// budget so the deterministic scorer has non-degenerate evidence.
 	// Recovery count stays 0 (normal quantum: no replacement was needed).
 	if s.attribution != nil {
 		s.attribution.RecordWithMetrics(winner, capability, err == nil, latency, retries, 0)
@@ -1057,7 +1056,7 @@ func (s *Scheduler) endQuantumOutcome(winner, capability, taskID string, err err
 // toModelTask maps a fabric Task back to the models.Task shape the sub-agent
 // executor expects. The submission-time metadata (UserProfile + Payload +
 // UsedExperienceID) rides in the fabric Checkpoint slot inside a
-// *taskfabric.CheckpointEnvelope (W3 schema); restoring it here is what lets
+// *taskfabric.CheckpointEnvelope; restoring it here is what lets
 // the executor take the real LLM path instead of degrading to an empty
 // fallback result (profile==nil → executeByType). A genuine progress
 // checkpoint (plain map, written by RunQuantum) is preserved in the payload so
@@ -1078,15 +1077,15 @@ func (s *Scheduler) ToModelTask(tk *taskfabric.Task) *models.Task {
 	t.UserProfile = reifyUserProfile(dc.UserProfile)
 	t.Payload = dc.Payload
 	t.UsedExperienceID = dc.UsedExperienceID
-	// E1: the submission-time strategy attribution rides to the executor so
+	// The submission-time strategy attribution rides to the executor so
 	// the sub-agent's task.completed/failed events carry the same key the
 	// fabric's own events do — RuntimeObserver attributes fitness samples by
 	// it, and a promote mid-task must not re-credit the new strategy.
 	t.StrategyID = dc.StrategyID
-	// M2: SessionID rides to the executor so the plannerCognition can look
+	// SessionID rides to the executor so the plannerCognition can look
 	// up the per-session L2 graph registry.
 	t.SessionID = dc.SessionID
-	// A resumed quantum observes where the previous step left off (Bug 3):
+	// A resumed quantum observes where the previous step left off:
 	// the step checkpoint is surfaced to the executor as payload["checkpoint"].
 	if dc.StepCheckpoint != nil {
 		if t.Payload == nil {
@@ -1133,10 +1132,10 @@ type SchedulerSnapshot struct {
 	// MaxConcurrent is the per-drain parallelism cap (after defaulting).
 	MaxConcurrent int `json:"maxConcurrent"`
 	// EventDriven reports whether an event store subscription accelerates
-	// dependency completion (GAP 6) on top of polling.
+	// dependency completion on top of polling.
 	EventDriven bool `json:"eventDriven"`
 	// Executors is the static + spawned executor count; BoundExecutors the
-	// recovery-bound one-task-one-executor subset (W1).
+	// recovery-bound one-task-one-executor subset.
 	Executors      int `json:"executors"`
 	BoundExecutors int `json:"boundExecutors"`
 	// Scheduled is the total successfully executed task count.
@@ -1164,7 +1163,7 @@ func (s *Scheduler) DecisionsSnapshot() []ScheduleDecision {
 
 // Snapshot returns the read-only view. It acquires only reader locks
 // (execMu.RLock, tracker/fabric internal locks), never the drain write path,
-// and is safe to call concurrently with Run (monitoring.md Phase 0:
+// and is safe to call concurrently with Run (monitoring.md:
 // "纯只读、持读锁拷贝、返回不可变副本").
 func (s *Scheduler) Snapshot() SchedulerSnapshot {
 	s.execMu.RLock()

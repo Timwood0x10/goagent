@@ -11,7 +11,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/ares_events"
 )
 
-// The E1 contract: the evolution strategy active at SUBMISSION time is
+// The contract: the evolution strategy active at SUBMISSION time is
 // stamped once onto the task's checkpoint envelope, rides on every persisted
 // event, and survives quanta and restarts — so the RuntimeObserver can
 // attribute each sample to the strategy that actually produced it, even when
@@ -83,7 +83,7 @@ func TestCheckpointDecode_StrategyIDRoundTrip(t *testing.T) {
 	assert.Equal(t, "strategy-a", EncodeCheckpoint(dc2).StrategyID)
 }
 
-// TestFabric_StrategyStickyAcrossQuantums is THE core E1 assertion: the task
+// TestFabric_StrategyStickyAcrossQuantums is THE core assertion: the task
 // is stamped with strategy A at submission; a promote to B happens
 // mid-flight (the stamp source now returns B); the quantum re-wraps the
 // checkpoint the way the kernel scheduler does (preserving the stamped
@@ -210,7 +210,7 @@ func TestFabric_StrategyStampCallerEnvelopeWins(t *testing.T) {
 // TestFabric_NoStampRegression locks the no-wiring behavior: without
 // WithStrategyStamp, no payload key is written and checkpoints carry no
 // attribution — the observer's activeID fallback path is byte-identical to
-// the pre-E1 behavior.
+// the legacy behavior.
 func TestFabric_NoStampRegression(t *testing.T) {
 	f, store := newEventStoreFabric(t)
 	require.NoError(t, f.Create(&Task{ID: "t1", Capability: "code"}))

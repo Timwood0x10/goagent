@@ -15,7 +15,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/storage/postgres/repositories"
 )
 
-// TestTenantIsolationIDScopedMutators is the REVIEW #36 Phase 0 acceptance
+// TestTenantIsolationIDScopedMutators is the tenant-isolation acceptance
 // suite: for EVERY id-scoped mutator, tenant B must not be able to read or
 // mutate a row owned by tenant A, and the row must survive unchanged. Each
 // block also runs the same call under the owning tenant as a positive control,

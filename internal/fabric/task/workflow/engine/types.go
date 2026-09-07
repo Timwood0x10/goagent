@@ -175,7 +175,7 @@ type DAG struct {
 type DAGNode struct {
 	StepID string
 	// Metadata is a snapshot of the owning Step's map at the time the DAG was
-	// built/patched (Y1 方案C C4). It makes a metadata-only change VISIBLE to
+	// built/patched. It makes a metadata-only change VISIBLE to
 	// WorkflowDiffer: previously DAGNode carried only degrees, so a parent→child
 	// mutation that touched only Step.Metadata produced ZERO patches and the
 	// evolution saw "no topology change" — the metadata operator could not be
@@ -200,7 +200,7 @@ func NewDAG(steps []*Step) (*DAG, error) {
 			return nil, errors.New("step ID must not be empty after trimming")
 		}
 
-		// H4 fix: check for duplicate step IDs instead of silently overwriting.
+		// Check for duplicate step IDs instead of silently overwriting.
 		if _, exists := dag.Nodes[id]; exists {
 			return nil, fmt.Errorf("duplicate step ID %q: %w", id, ErrDuplicateID)
 		}

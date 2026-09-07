@@ -72,7 +72,7 @@ func waitFor(t *testing.T, timeout time.Duration, cond func() bool, msg string) 
 	t.Fatalf("condition not met within %s: %s", timeout, msg)
 }
 
-// TestRegisterExecutorMakesAgentSchedulable locks the W1 dynamic-registration
+// TestRegisterExecutorMakesAgentSchedulable locks the dynamic-registration
 // contract: an executor registered AFTER task creation becomes a candidate on
 // the next drain.
 //
@@ -114,14 +114,14 @@ func TestRegisterExecutorMakesAgentSchedulable(t *testing.T) {
 	}
 }
 
-// TestRecoveryBindingExclusiveAndAutoRelease locks the W1 anti-hijack
+// TestRecoveryBindingExclusiveAndAutoRelease locks the anti-hijack
 // contract: an executor bound to one task is the ONLY candidate for that task
 // and is NEVER offered to any other task; once the bound task reaches a
 // terminal state the binding and registration are released automatically.
 //
 // Bug scenarios:
 //  1. A recovery replacement hijacks a brand-new READY task (the original
-//     W1 review defect).
+//     review defect).
 //  2. Bindings leak, growing the executor map without bound.
 func TestRecoveryBindingExclusiveAndAutoRelease(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -212,7 +212,7 @@ func TestUnregisterExecutorRemovesCandidate(t *testing.T) {
 // ExecutorCountForTest exposes the registry size for assertions.
 func ExecutorCountForTest(s *Scheduler) int { return s.ExecutorCount() }
 
-// TestFabricAgentsAreTheSingleCandidateSource locks the B1 contract: with the
+// TestFabricAgentsAreTheSingleCandidateSource locks the contract: with the
 // Agent Fabric wired, a spawned EXECUTABLE fabric agent is schedulable even
 // with an empty static registry, and killing it removes it from the candidate
 // pool immediately.
@@ -266,7 +266,7 @@ func TestFabricAgentsAreTheSingleCandidateSource(t *testing.T) {
 	}
 }
 
-// TestPreemptLowerPriorityHandsBackRunningTask locks the P2.2 cooperative
+// TestPreemptLowerPriorityHandsBackRunningTask locks the cooperative
 // preemption contract: a higher-priority READY task causes the running
 // lower-priority task to be handed back to READY (checkpoint preserved,
 // fencing enforced), and the scheduler re-executes it afterwards.
@@ -423,7 +423,7 @@ func (c *eventTypeCollector) contains(t ares_events.EventType) bool {
 	return false
 }
 
-// TestToModelTaskEnvelopeRoundTrip locks the W3 submission-metadata contract:
+// TestToModelTaskEnvelopeRoundTrip locks the submission-metadata contract:
 // UserProfile / Payload / StepCheckpoint ride inside a CheckpointEnvelope and
 // are surfaced to the executor exactly where the execution bodies expect them
 // (Payload fields plus payload["checkpoint"]). Corrupt envelopes degrade to

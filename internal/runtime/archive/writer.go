@@ -160,11 +160,11 @@ func (w *fileArchiveWriter) streamDir(streamID string) string {
 // sanitizeStreamID maps a stream id to a single filesystem-safe path segment.
 // Every rune outside the allowlist [A-Za-z0-9_-] becomes '_', so the result
 // contains no path separators and cannot traverse outside the archive root.
-// The '.' character is NOT allowed (N11): a stream id of ".." must never
+// The '.' character is NOT allowed: a stream id of ".." must never
 // sanitize to the parent-directory segment and escape the archive root.
 //
 // When sanitisation actually changes the id, a short digest of the ORIGINAL
-// id is appended (N11) so two distinct ids that sanitize to the same segment
+// id is appended so two distinct ids that sanitize to the same segment
 // (e.g. "a/b" and "a_b") never collide on disk.
 func sanitizeStreamID(streamID string) string {
 	// Defense-in-depth: a fully-dot or empty id never maps to a traversal

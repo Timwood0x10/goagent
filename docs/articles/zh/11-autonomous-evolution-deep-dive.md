@@ -1,8 +1,8 @@
 # ares 架构深度解析（十一）：自主进化 — 当 Agent 学会自己变强（0.3.x）
 
 > 0.3.x 的真实局面要先说清楚：**两套进化引擎并存，且分工与直觉相反。**
-> 真正接在生产 bootstrap 里的是 v1 —— `internal/ares_evolution` 的 **StrategyLifecycle**（G1 守卫 → G2 影子 → G3 评测 → G4 部署），进化出的策略都过它这道闸。
-> v2 —— `internal/evolution` 的 **Candidate → Verify → Promote** 候选发布闭环，是这套被反复讲的新管线，它作为库和示例（`examples/`）完全可跑，但**目前没有任何生产调用方**，是"代码完备、等待接线"。
+> 真正接在生产 bootstrap 里的是 v1 —— `internal/runtime/ares_evolution` 的 **StrategyLifecycle**（G1 守卫 → G2 影子 → G3 评测 → G4 部署），进化出的策略都过它这道闸。
+> v2 —— `internal/runtime/evolution` 的 **Candidate → Verify → Promote** 候选发布闭环，是这套被反复讲的新管线，它作为库和示例（`examples/`）完全可跑，但**目前没有任何生产调用方**，是"代码完备、等待接线"。
 > GA（种群遗传算法）降为可选的零 token / 参数微调路径，但它的 `Crossover` / `Fitness` 已经从 v2 的 `Genome` 核心接口里删掉了（没有生产调用方）。
 
 > 你是不是也这么想过：Agent 为什么不能越用越聪明？
@@ -11,7 +11,7 @@
 > 以及——更关键的一句：**"能生成一个更好的策略"和"敢把这个策略上线"是两件完全不同的事。**
 > 本文讲的就是 ares 在这两件事上分别做到了哪一步、哪些还只是代码。
 
-> 说明：本文基于实际代码（重点阅读 `internal/evolution/`（v2 候选/门禁/GA 谱系）、`internal/ares_evolution/`（v1 生命周期/适应度/守卫/评测门）、`internal/evolution/genome/` 与 `genome/`（GA 与 DAG 基因组）、`internal/ares_bootstrap/provide_new_evolution.go`（L1 接线）、`internal/evolution/coordinator/` 与 `deployment/`、`internal/evolution/patch/`）。每个符号、每根走向我都在这份代码里实际读到过。凡是"只有注释/文档声称、代码没提供""仅是示例跑分""配置了但没接线"的，我标（待核实）或直接删掉，不替它吹。
+> 说明：本文基于实际代码（重点阅读 `internal/runtime/evolution/`（v2 候选/门禁/GA 谱系）、`internal/runtime/ares_evolution/`（v1 生命周期/适应度/守卫/评测门）、`internal/runtime/evolution/genome/` 与 `genome/`（GA 与 DAG 基因组）、`internal/ares_bootstrap/provide_new_evolution.go`（L1 接线）、`internal/runtime/evolution/coordinator/` 与 `deployment/`、`internal/runtime/evolution/patch/`）。每个符号、每根走向我都在这份代码里实际读到过。凡是"只有注释/文档声称、代码没提供""仅是示例跑分""配置了但没接线"的，我标（待核实）或直接删掉，不替它吹。
 
 ***
 
@@ -19,7 +19,7 @@
 
 这篇文章的标题是"自主进化"，但 ares 里其实有**两套**进化系统，谁也别装看不见：
 
-| | **v1：`internal/ares_evolution`** | **v2：`internal/evolution`** |
+| | **v1：`internal/runtime/ares_evolution`** | **v2：`internal/runtime/evolution`** |
 |---|---|---|
 | 主流程 | `StrategyLifecycle`：Strategy → G1 守卫 → G2 影子 → G3 评测 → G4 部署 | Candidate → Verify（门1/门2/门3）→ Release → Promote |
 | 状态机 | 策略状态：candidate / shadow / active / rollback | 候选状态：candidate → verified → rejected / promoted |
@@ -41,14 +41,14 @@ v2 的设计原则写在自己的包注释里，引自《AI Agents in Depth》�
 
 类比生物进化论，把 Agent 进化拆成对应关系。注意这里我刻意不把映射写死，因为 ares 的"变异"和"选择"在两条路径上有两套实现：
 
-| 生物进化 | Agent 进化 | v1 `ares_evolution` | v2 `internal/evolution` |
+| 生物进化 | Agent 进化 | v1 `ares_evolution` | v2 `internal/runtime/evolution` |
 |---|---|---|---|
 | **变异** (Mutation) | 改参数 / 换 prompt / 改 DAG 结构 | `mutation.Mutator`；`genome.Population.EvolveOnIdle` | `GAGenerator.Generate`（变异 stable 指令） |
 | **选择** (Selection) | 新旧策略对比，统计显著 | `RuntimeFitnessAggregator` 加权适应度 | 门3 `CandidateRegressionChecker`（保留案例 WinRate，显著性用 Welch's t-test） |
 | **遗传** (Heredity) | 记录策略谱系 | `PopulationGenealogyRecorder.Record` | `CandidateStore` 存候选生命周期 + `Genealogy` |
 | **发布门禁** (Release) | 决定"能不能上线" | `StrategyLifecycle` G2/G3/G4 + `RollbackPolicy` | `CandidatePipeline.Release` → 部署 canary → `SetStable` → `Promote` |
 
-下面这张 **GA 种群进化循环**是 v1 `genome` 包（`internal/ares_evolution/genome/`）的骨架——纯内存、零 token，是"拿来调参数"的那条路：
+下面这张 **GA 种群进化循环**是 v1 `genome` 包（`internal/runtime/ares_evolution/genome/`）的骨架——纯内存、零 token，是"拿来调参数"的那条路：
 
 ```mermaid
 graph TD
@@ -99,7 +99,7 @@ graph TD
 
 ### 3.1 候选是一等公民
 
-`internal/evolution/candidate.go`：
+`internal/runtime/evolution/candidate.go`：
 
 ```go
 type CandidateKind int
@@ -183,7 +183,7 @@ graph TD
 
 ### 3.4 发布管道：Release → manager → canary → SetStable → Promote
 
-`CandidatePipeline.Release(ctx, candidateID)` 的流程（`internal/evolution/candidate_pipeline.go`）：
+`CandidatePipeline.Release(ctx, candidateID)` 的流程（`internal/runtime/evolution/candidate_pipeline.go`）：
 
 1. 只接受 `StatusVerified` 的候选（否则返回 `ErrCandidateNotFound` / `ErrCandidateNotVerified`）。
 2. **发布前门3再确认**：`WithReleaseRegressionCheck` 注入的 `regressionCheck` 在任何 patch 构建/应用之前跑，失败则候选 `Reject("release regression gate: ...")`，**不触碰 runtime / stable**。
@@ -196,7 +196,7 @@ graph TD
 
 ### 3.5 候选从哪来：Diagnoser（人工）与 GAGenerator（GA 变异）
 
-`Diagnoser`（`internal/evolution/diagnoser.go`）回答"哪个 role 反复失败、怎么修"。它查 `evidence.Store` 里 `Source="result_verifier"` 且 `Kind=KindDimensionEval` 的失败记录，按 role 聚类：
+`Diagnoser`（`internal/runtime/evolution/diagnoser.go`）回答"哪个 role 反复失败、怎么修"。它查 `evidence.Store` 里 `Source="result_verifier"` 且 `Kind=KindDimensionEval` 的失败记录，按 role 聚类：
 
 ```go
 const MinFailureClusterSize = 2 // 同一 role 至少 2 条失败才产出候选，避免把一次性故障当系统短板
@@ -205,7 +205,7 @@ const MinFailureClusterSize = 2 // 同一 role 至少 2 条失败才产出候选
 - `Generate(req)`：候选内容（diff/reason）由**人**提供，诊断器只负责把失败证据打包——v1 明确**不做自动 LLM 生成候选内容**（必须在受限的 harness 内生成，第 8 章原则）。
 - `GenerateGA(role, n)`：当挂了 `WithGAGenerator` 时，用 GA 变异 stable 指令生成候选。
 
-`GAGenerator`（`internal/evolution/ga_generator.go`）把 stable 指令当作 parent，用 `mutation.Mutator` 变异出**与 stable 文本真正不同**的候选：
+`GAGenerator`（`internal/runtime/evolution/ga_generator.go`）把 stable 指令当作 parent，用 `mutation.Mutator` 变异出**与 stable 文本真正不同**的候选：
 
 ```go
 // 只保留 PromptTemplate 真不一样的子代（参数变异不改文本，是 no-op 候选）
@@ -218,22 +218,22 @@ if child.PromptTemplate == "" ||
 
 ### 3.6 门3 的 LLM 实现：LLMArenaScorer + gate3 装配
 
-门3 需要一个"给 指令×案例 打分"的 scorer。0.3.0 用 `LLMArenaScorer`（`internal/ares_evolution/service/llm_arena_scorer.go`，实现 `ares_arena.Scorer`）分两步调 LLM：**执行**（以 instructions 为行为、case 为任务产生输出）→ **评分**（让 LLM 按 0-1 给输出质量打分，解析并 clamp 到 [0,1]）。
+门3 需要一个"给 指令×案例 打分"的 scorer。0.3.0 用 `LLMArenaScorer`（`internal/runtime/ares_evolution/service/llm_arena_scorer.go`，实现 `ares_arena.Scorer`）分两步调 LLM：**执行**（以 instructions 为行为、case 为任务产生输出）→ **评分**（让 LLM 按 0-1 给输出质量打分，解析并 clamp 到 [0,1]）。
 
-`internal/evolution/gate3_orchestrator.go` 提供装配入口：
+`internal/runtime/evolution/gate3_orchestrator.go` 提供装配入口：
 
 - **`BuildRegressionGate3(profileStore, client, testCases, opts...)`**：纯装配 `LLMClient → LLMArenaScorer → CandidateRegressionChecker`，返回 `func(c *Candidate) error`，可同时注入 `CandidateVerifier.WithRegressionCheck` 和 `CandidatePipeline.WithReleaseRegressionCheck`。
 - **`LoadRegressionGate3(profileStore, configPath, testCases, opts...)`**：从 YAML（如 `configs/ares.local.yaml`）加载 `llm.Client` 再装配；`llm.fallbacks` 非空时用 `FailoverClient`（主 + 备供应商，被限流自动切换），避免单个供应商配额耗尽整场回归失败。门3 配套一个更宽松的熔断（8 次失败 / 15s），因为 scorer 自己已带指数退避重试。
 
 门3 用到了 `ares_arena` 的 `BatchScorer`（`ScoreBatch`）：把 count 次执行+评分**合并成更少的 LLM 调用**，绕开 rate limit。这里我只确认了接口和合并方向存在。
 
-> 诚实说明：示例跑分（"某供应商 p=0.0297 显著""一次回归从 60 次调用降到 4 次""整个闭环 ~8s"）这些是 `examples/` 里某轮真实日志的结果，**不是可静态核实的仓库属性**，我不复述具体数字（待核实）。要复现请自己跑 `examples/15-llm-evolution-suite`、`examples/16-llm-regression-demo`、`examples/17-gate3-e2e-demo`、`examples/18-release-closed-loop`。
+> 诚实说明：示例跑分（"某供应商 p=0.0297 显著""一次回归从 60 次调用降到 4 次""整个闭环 ~8s"）这些是 `examples/` 里某轮真实日志的结果，**不是可静态核实的仓库属性**，我不复述具体数字（待核实）。要复现请自己跑 `examples/_fixtures/15-llm-evolution-suite`、`examples/_fixtures/16-llm-regression-demo`、`examples/_fixtures/17-gate3-e2e-demo`、`examples/_fixtures/18-release-closed-loop`。
 
 ### 3.7 最重要的诚实点：这条管线目前**没接进生产**
 
 `plan/0.3.1plan/REVIEW_PROGRESS.md` 里明确写了：
 
-> `evolution`（旧包）：除 `LLMAdapter`（bootstrap 15min ticker 用）外，整个 Candidate→Verify→Promote pipeline（`NewCandidatePipeline` / `NewGAGenerator` / `NewDiagnoser` 等）仅 examples/tests 可达，已被 `internal/ares_evolution` 取代。
+> `evolution`（旧包）：除 `LLMAdapter`（bootstrap 15min ticker 用）外，整个 Candidate→Verify→Promote pipeline（`NewCandidatePipeline` / `NewGAGenerator` / `NewDiagnoser` 等）仅 examples/tests 可达，已被 `internal/runtime/ares_evolution` 取代。
 
 我在整个 `internal/` 生产目录里搜了 `NewCandidatePipeline` / `NewCandidateVerifier` / `BuildRegressionGate3`，调用方全部在 `_test.go` 和 `examples/`。**所以 3.x 这篇文章里最"新"的这套管线，是一个设计完整、被测试好好覆盖、但还没有生产调用方的候选发布系统。** 这不是贬低它——这是让你知道它的真实"出厂状态"。
 
@@ -241,7 +241,7 @@ if child.PromptTemplate == "" ||
 
 ## 四、v1 生产路径：StrategyLifecycle 的四道闸（真正在跑的那条）
 
-既然生产接的是 v1，就讲清楚它。`internal/ares_evolution/lifecycle.go` 里的 `StrategyLifecycle` 是策略晋升的**唯一入口**（B2/B3 fix：`deployBestStrategy` 改为 `Submit`，不再直接 `Deploy`，从此没有绕过 G2 影子闸的路）。策略状态机：
+既然生产接的是 v1，就讲清楚它。`internal/runtime/ares_evolution/lifecycle.go` 里的 `StrategyLifecycle` 是策略晋升的**唯一入口**（B2/B3 fix：`deployBestStrategy` 改为 `Submit`，不再直接 `Deploy`，从此没有绕过 G2 影子闸的路）。策略状态机：
 
 ```
 candidate → shadow → active ─(退化)→ rollback pending → active(旧版)
@@ -283,7 +283,7 @@ graph LR
 
 ### 4.1 适应度：RuntimeFitnessAggregator（加权多证据源）
 
-v1 的"评分后端"是 `RuntimeFitnessAggregator`（`internal/ares_evolution/fitness_aggregator.go`），把多个证据源合成单个 [0,1] 适应度，供生命周期决策和部署闸共用。
+v1 的"评分后端"是 `RuntimeFitnessAggregator`（`internal/runtime/ares_evolution/fitness_aggregator.go`），把多个证据源合成单个 [0,1] 适应度，供生命周期决策和部署闸共用。
 
 ```go
 func DefaultFitnessWeights() FitnessWeights {
@@ -318,7 +318,7 @@ func DefaultAggregatorConfig() AggregatorConfig {
 
 ### 4.2 守卫：ValidateToolSet（工具集白名单校验）
 
-`EvolutionGuardrails.ValidateToolSet(generation, tools) *GuardrailResult`（`internal/ares_evolution/guardrails.go`）在进化选择期校验候选的工具白名单，三道检查：
+`EvolutionGuardrails.ValidateToolSet(generation, tools) *GuardrailResult`（`internal/runtime/ares_evolution/guardrails.go`）在进化选择期校验候选的工具白名单，三道检查：
 
 1. **上限**：`len(tools) > MaxToolsEnabled` → `ShouldStop=true`（`tool_set_upper_bound`）。
 2. **至少一个工具**（`requireAnyTool` 开启时）：空集合 → 拒绝（`tool_set_empty`）。
@@ -328,7 +328,7 @@ func DefaultAggregatorConfig() AggregatorConfig {
 
 ### 4.3 评测门：EvalGate（G3）——注意它有一个被我标成 GAP 的坑
 
-`EvalGate`（`internal/ares_evolution/gate_eval.go`）包裹 `ares_eval.EvaluatorRegistry` 跑固定评测套件，默认 `MinScore=0.7`。`StrictMode` 存在，但默认 `false`：
+`EvalGate`（`internal/runtime/ares_evolution/gate_eval.go`）包裹 `eval.EvaluatorRegistry` 跑固定评测套件，默认 `MinScore=0.7`。`StrictMode` 存在，但默认 `false`：
 
 ```go
 func DefaultEvalGateConfig() EvalGateConfig {
@@ -347,7 +347,7 @@ func DefaultEvalGateConfig() EvalGateConfig {
 
 如果说 v2 候选管线和 v1 生命周期都依赖 LLM（门3、G3），那 `genome` 包的种群进化是唯一一条**纯内存、零 LLM 调用**的路——只基于已有的 `Score` 数据做 排序→选择→交叉→变异→组装，耗时在内存操作量级（具体每秒多少代见第八节，我标了待核实，不报虚假数字）。
 
-这个包就是第一节那张 GA 循环图的落地点。核心结构体 `Population`（`internal/ares_evolution/genome/population.go`）：
+这个包就是第一节那张 GA 循环图的落地点。核心结构体 `Population`（`internal/runtime/ares_evolution/genome/population.go`）：
 
 ```go
 type Population struct {
@@ -369,7 +369,7 @@ type Population struct {
 
 ### 5.1 三种交叉算子
 
-`internal/ares_evolution/genome/crossover.go`（`CrossoverInterface.Crossover(ctx, a, b)`）：
+`internal/runtime/ares_evolution/genome/crossover.go`（`CrossoverInterface.Crossover(ctx, a, b)`）：
 
 - **UniformCrossover（等概率独立继承）**：每个参数 50% 概率来自 A / B。签名是 `uniformCrossParams(paramsA, paramsB) (map[string]any, string)`——返回的第二个值是继承描述（`from_A=[...] from_B=[...]`），方便谱系追踪。
 - **MultiPointCrossover（k 点分段继承）**：在 k 个交叉点处切换父代来源，保持参数段内关联。交叉点用 Fisher-Yates 部分洗牌生成（不重复、均匀分布），k=1 退化为单点交叉，k=len-1 接近 uniform。
@@ -379,7 +379,7 @@ type Population struct {
 
 ### 5.2 三种选择算子
 
-`internal/ares_evolution/genome/selection.go`（`Selection.Select(ctx, pop, n)`）：
+`internal/runtime/ares_evolution/genome/selection.go`（`Selection.Select(ctx, pop, n)`）：
 
 - **TruncationSelection**：按 `SortByScore` 后取 top-N，纯确定。
 - **TournamentSelection**：默认 k=3，随机挑 k 个取最高分者，重复 n 次；k 越大选择压力越高。
@@ -407,15 +407,15 @@ func SortByScore(strategies []*mutation.Strategy) {
 - **稳态 GA**（`EvolveSteadyState`）：每代只替换 10–50%（`replaceRate` 默认 0.3），保留探索历史，在线学习更平滑。
 - **规范/选择分数分离**（`effectiveScore()`）：`Score` 绝不临时改，`SelectionScore` 每代从 0 开始被适应度共享调整，防污染 canonical fitness。
 
-> 诚实点：`internal/evolution/genome/genome.go`（v2 接口）明确注释——`Crossover` 和 `Fitness` **已于 2026-07 从核心 `Genome` 接口中移除**，因为"零生产调用方"，改为可选接口 `CrossoverGenome` / `FitnessGenome`（用类型断言判断）。所以"GA 有交叉"要谨慎表述：**种群包（v1）里有交叉算子，但 v2 的 `Genome` 插件接口不再把交叉当作必需能力。**
+> 诚实点：`internal/runtime/evolution/genome/genome.go`（v2 接口）明确注释——`Crossover` 和 `Fitness` **已于 2026-07 从核心 `Genome` 接口中移除**，因为"零生产调用方"，改为可选接口 `CrossoverGenome` / `FitnessGenome`（用类型断言判断）。所以"GA 有交叉"要谨慎表述：**种群包（v1）里有交叉算子，但 v2 的 `Genome` 插件接口不再把交叉当作必需能力。**
 
 ***
 
 ## 六、v2 基因组注册表与 WorkflowGenome：进化 DAG 拓扑
 
-除了调策略参数，v2 `internal/evolution/genome/` 还提供"进化 DAG 结构"的基因组。`Genome` 接口极简：`Name()` / `Mutate(n)` / `Snapshot()`（`Crossover` / `Fitness` 已是可选的扩展接口）。
+除了调策略参数，v2 `internal/runtime/evolution/genome/` 还提供"进化 DAG 结构"的基因组。`Genome` 接口极简：`Name()` / `Mutate(n)` / `Snapshot()`（`Crossover` / `Fitness` 已是可选的扩展接口）。
 
-`WorkflowGenome`（`internal/evolution/genome/workflow_genome.go`）操作一个 `engine.MutableDAG`，`Mutate` 随机挑 9 个算子里一个：
+`WorkflowGenome`（`internal/runtime/evolution/genome/workflow_genome.go`）操作一个 `engine.MutableDAG`，`Mutate` 随机挑 9 个算子里一个：
 
 ```
 InsertNode / RemoveNode / ReplaceNode / Parallelize / Serialize

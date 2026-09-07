@@ -204,7 +204,7 @@ func FindCapability(name string) *CapabilityDef {
 }
 
 // ToolCapabilityMap returns the mapping of tool names to their capabilities.
-// This is the single source of truth for Phase 6+.
+// This is the single source of truth for tool capabilities.
 func ToolCapabilityMap() map[string][]string {
 	return map[string][]string{
 		"calculator":       {"Arithmetic", "Summation", "ExpressionEvaluation"},

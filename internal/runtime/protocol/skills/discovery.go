@@ -7,7 +7,7 @@ import (
 
 // Discovery searches the metadata index by keyword matching and returns
 // top-K entries. It only ever sees Level-0 metadata: bodies are never loaded
-// here. The scoring is deliberately simple (design §5: keyword match, FTS5 is
+// here. The scoring is deliberately simple (keyword match; FTS5 is
 // a future extension point). When an FTS5 index is attached (SetFTS5),
 // Search prefers it and falls back to keyword matching on any FTS5 failure.
 type Discovery struct {

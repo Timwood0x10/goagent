@@ -1,6 +1,6 @@
 package main
 
-// K2/K3/K5 acceptance tests: the kernel pillars join the System Runtime
+// Kernel-adopt acceptance tests: the kernel pillars join the System Runtime
 // orchestrator with real stop/wait hooks, the background loops are managed
 // (no bare `go`), and the readiness snapshot reflects the drain loop.
 
@@ -18,10 +18,10 @@ import (
 	"github.com/Timwood0x10/ares/internal/kernel"
 )
 
-// TestKernelAdopt_SixPillarsAdoptedAndStopped is the K2 acceptance: a fully
+// TestKernelAdopt_SixPillarsAdoptedAndStopped is the adopt acceptance: a fully
 // assembled kernel handle adopts all six pillars into a live orchestrator,
 // every one reaches Ready (the scheduler via its Running gate), and Shutdown
-// stops them in an order consistent with the K2 dependency table
+// stops them in an order consistent with the dependency table
 // (pluginbus/recovery/scheduler → dispatcher → fabrics → eventstore).
 func TestKernelAdopt_SixPillarsAdoptedAndStopped(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -95,7 +95,7 @@ func TestKernelAdopt_SixPillarsAdoptedAndStopped(t *testing.T) {
 	}
 	dual2, _ := wireKernelDispatcher(nil)
 	k2.dual = dual2
-	// Real plugin bus so all six pillars are present (K2 full-kernel case).
+	// Real plugin bus so all six pillars are present (full-kernel case).
 	k2.pluginBus = startPluginBus(ctx, ares_events.NewMemoryEventStore(), sched, kernelLoopConfig{})
 	if k2.pluginBus == nil {
 		t.Fatal("plugin bus must start in the full-kernel fixture")
@@ -122,7 +122,7 @@ func TestKernelAdopt_SixPillarsAdoptedAndStopped(t *testing.T) {
 	}
 }
 
-// TestKernelAdopt_SchedulerNotRunningReportsDegraded is the K5 "false Ready"
+// TestKernelAdopt_SchedulerNotRunningReportsDegraded is the "false Ready"
 // guard: adopting with a scheduler whose drain loop never started must leave
 // the pillar Degraded (with a readable reason), not Ready.
 func TestKernelAdopt_SchedulerNotRunningReportsDegraded(t *testing.T) {
@@ -178,7 +178,7 @@ func TestKernelAdopt_NilOrchestratorNoop(t *testing.T) {
 	}
 }
 
-// TestRunBackground_UsesSystemRuntime verifies the K3 entry: with a wired
+// TestRunBackground_UsesSystemRuntime verifies the managed-loop entry: with a wired
 // System Runtime the loop is errgroup-managed (the orchestrator's Shutdown
 // joins it), and its component name maps to a registered component for
 // failure marking when one exists.

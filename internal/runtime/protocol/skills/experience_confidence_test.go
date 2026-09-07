@@ -4,8 +4,8 @@ import "testing"
 
 // TestExperienceConfidenceSourceWithMatch verifies the adapter returns the
 // best prior's success rate when Experience has a matching record, and that
-// the value feeds the taskfabric scheduler score unchanged (design §8:
-// Score's Confidence comes from Experience BestMatch SuccessRate).
+// the value feeds the taskfabric scheduler score unchanged (Score's
+// Confidence comes from Experience BestMatch SuccessRate).
 func TestExperienceConfidenceSourceWithMatch(t *testing.T) {
 	exp := NewExperience()
 	if err := exp.Record("pdf-gen", "document-to-pdf", 0.94); err != nil {
@@ -19,7 +19,7 @@ func TestExperienceConfidenceSourceWithMatch(t *testing.T) {
 
 // TestExperienceConfidenceSourceNoMatch verifies the adapter returns 0 when
 // no prior matches — the candidate keeps its declared confidence or stays
-// unscheduled (design §8: "0 means no experience yet").
+// unscheduled ("0 means no experience yet").
 func TestExperienceConfidenceSourceNoMatch(t *testing.T) {
 	exp := NewExperience()
 	if err := exp.Record("pdf-gen", "document-to-pdf", 0.94); err != nil {
@@ -33,7 +33,7 @@ func TestExperienceConfidenceSourceNoMatch(t *testing.T) {
 
 // TestExperienceConfidenceSourceNilSafe verifies the adapter is nil-safe on
 // both the source and the wrapped Experience — a nil receiver or nil
-// Experience yields 0 rather than panicking (code_rules §4.2: no panic on
+// Experience yields 0 rather than panicking (no panic on
 // business paths).
 func TestExperienceConfidenceSourceNilSafe(t *testing.T) {
 	var src *ExperienceConfidenceSource

@@ -8,7 +8,7 @@ import "context"
 // The file-based implementation (NewFileArchiveWriter) writes atomically and
 // rotates old rounds when MaxRounds is exceeded. Archive writes are best
 // effort with respect to compaction: a write failure is logged but never
-// blocks the compaction core (see plan/context_compression_strategy.md §4).
+// blocks the compaction core.
 type ArchiveWriter interface {
 	// RecordRound writes round_N.json atomically. The record must Validate.
 	// When MaxRounds is exceeded, the oldest rounds are deleted (rotation).

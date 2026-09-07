@@ -9,7 +9,7 @@ import (
 )
 
 // TestEngine_HealthEvolution verifies health scoring responds to observed
-// success/error events (migrated algorithm, monitoring.md Phase 4).
+// success/error events (migrated algorithm).
 func TestEngine_HealthEvolution(t *testing.T) {
 	e := NewEngine(nil)
 	if got := e.SystemHealth().Level; got != HealthUnknown {

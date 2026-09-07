@@ -48,7 +48,7 @@ func (p *MemoryPipeline) AddStage(stage PipelineStage) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.stages = append(p.stages, stage)
-	// P1-2: ring cap — keep the most recent stages.
+	// Ring cap — keep the most recent stages.
 	if len(p.stages) > maxPipelineStages {
 		p.stages = p.stages[len(p.stages)-maxPipelineStages:]
 	}
@@ -59,7 +59,7 @@ const maxPipelineStages = 50
 
 // lastActivity returns the timestamp of the most recent stage, or
 // the zero Time when the pipeline has no stages. Used by the Collector's
-// LRU eviction (P1-2).
+// LRU eviction.
 func (p *MemoryPipeline) lastActivity() time.Time {
 	p.mu.RLock()
 	defer p.mu.RUnlock()

@@ -10,7 +10,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/fabric/task"
 )
 
-// TestW4EvolutionFeedbackChangesSchedulerBehavior verifies the W4 feedback
+// TestW4EvolutionFeedbackChangesSchedulerBehavior verifies the evolution feedback
 // loop: execution results (success/failure) are collected, fed back to the
 // scheduler's confidence scoring, and the next scheduling decision changes
 // as a result.

@@ -52,8 +52,8 @@ type RoundOutcome struct {
 func (o RoundOutcome) Succeeded() bool { return len(o.Failed) == 0 }
 
 // PlanReplanFunc derives the steps for the next round from the previous
-// round's outcome. This is the "incremental replanning" hook (repair plan
-// GAP-2 / appendix C M4): a round may tighten, expand or re-payload the DAG
+// round's outcome. This is the "incremental replanning" hook: a round
+// may tighten, expand or re-payload the DAG
 // based on what the last round produced. Returning an empty batch is an
 // error — a round always runs at least one step.
 type PlanReplanFunc func(prev RoundOutcome) ([]PlanStep, error)
@@ -63,7 +63,7 @@ type PlanReplanFunc func(prev RoundOutcome) ([]PlanStep, error)
 // round-namespaced task IDs and executes through the normal kernel pipeline
 // (Schedule → Acquire → RunQuantum). Nothing here dispatches work to agents:
 // the loop only decides WHEN the next round of tasks is compiled, which is
-// task-level lifecycle, not leader-sub orchestration (repair plan §0.2).
+// task-level lifecycle, not leader-sub orchestration.
 type PlanLoopSpec struct {
 	// PlanID names the plan. It becomes the task-ID namespace
 	// "<planID>#r<round>#<stepID>", so it must be unique among live plans
@@ -278,7 +278,7 @@ func (l *PlanLoop) LastOutcome() (RoundOutcome, bool) {
 // run is the single driver goroutine: poll → round terminal → decide →
 // compile next round. Panics from user callbacks (UntilCondition/Replan) are
 // recovered and recorded as loop errors — a caller bug must not take down
-// the process (code_rules §4.2), it must only end the loop.
+// the process; it must only end the loop.
 func (l *PlanLoop) run(ctx context.Context) {
 	defer close(l.done)
 	ticker := time.NewTicker(l.interval)

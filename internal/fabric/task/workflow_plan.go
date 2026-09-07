@@ -10,8 +10,8 @@ import (
 // defined in taskfabric (not workflow/engine) so the kernel never imports the
 // planner package — the caller (cmd layer) projects engine.Step onto it.
 //
-// See ares-repair-plan-zh.md appendix C (W9 / option A: workflow as a
-// compile-time planning layer on top of the single execution kernel).
+// (Workflow is a
+// compile-time planning layer on top of the single execution kernel.)
 type PlanStep struct {
 	// ID is the unique step id; becomes the fabric Task ID.
 	ID string
@@ -30,7 +30,7 @@ type PlanStep struct {
 	// never supplied by the LLM (same contract as CreateTask). json:"-"
 	// keeps it out of every LLM-facing schema.
 	Origin string `json:"-"`
-	// SessionID scopes this step's task to a session (M2: SessionID 贯通).
+	// SessionID scopes this step's task to a session (SessionID 贯通).
 	// Stamped onto the checkpoint envelope so the executor can look up the
 	// per-session L2 graph registry. Empty = session-less (legacy behavior).
 	SessionID string `json:"-"`
@@ -86,7 +86,7 @@ func (f *Fabric) CompilePlan(ctx context.Context, steps []PlanStep) ([]string, e
 	if err := detectPlanCycle(steps, byID); err != nil {
 		return nil, err
 	}
-	// E1: sample the strategy attribution ONCE for the whole batch so every
+	// Sample the strategy attribution ONCE for the whole batch so every
 	// task of the batch carries the same strategy even if the active strategy
 	// changes mid-compilation. Create fills the stamp only when the envelope
 	// field is still empty, so this pre-stamp wins.

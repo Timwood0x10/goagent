@@ -91,7 +91,7 @@ func TestSchedulerSnapshotReadModel(t *testing.T) {
 	}
 }
 
-// TestSchedulerSnapshotConcurrentWithRun is the monitoring.md Phase 0 safety
+// TestSchedulerSnapshotConcurrentWithRun is the monitoring.md safety
 // gate: Snapshot must be safe to call concurrently with the running drain
 // loop and task churn (go test -race is the real judge).
 func TestSchedulerSnapshotConcurrentWithRun(t *testing.T) {

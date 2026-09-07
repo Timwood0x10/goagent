@@ -54,7 +54,7 @@ func SaveStateSnapshot(ctx context.Context, store CheckpointStore, key string, s
 
 // LoadStateSnapshot reads a snapshot from the store and validates its schema
 // version. A payload with an unknown/newer schema version is rejected rather
-// than blindly restored (code_rules: identity/version check before
+// than blindly restored (always check identity/version before
 // recovery). Returns ErrStateSnapshotNotFound when no snapshot exists under
 // key.
 func LoadStateSnapshot(ctx context.Context, store CheckpointStore, key string) (*StateSnapshot, error) {

@@ -52,7 +52,7 @@ const (
 	EventSubTaskResult    EventType = "sub_task.result"    // sub returns result (success or failure)
 	EventSubAgentFailed   EventType = "sub_agent.failed"   // sub crashed (panic captured)
 
-	// Task Fabric lifecycle events (ares-runtime P2-C, 2026-08-16): published
+	// Task Fabric lifecycle events (ares-runtime): published
 	// by internal/fabric/task on every task state transition so scheduler /
 	// task / lease state can be rebuilt from the stream. Pure addition —
 	// EventTaskCreated / EventTaskCompleted / EventTaskFailed already exist
@@ -70,7 +70,7 @@ const (
 	// EventMemoryFinalize requests async memory finalization (update task output,
 	// record assistant message, distill). Emitted by the leader after aggregating
 	// results; consumed by a dedicated memory worker so the leader loop does not
-	// perform memory writes itself (leader/sub decoupling, C phase).
+	// perform memory writes itself (leader/sub decoupling).
 	EventMemoryFinalize EventType = "memory.finalize"
 
 	// Service discovery events (REVIEW #10 closure): forwarded by the
@@ -86,10 +86,10 @@ const (
 
 	// EventComponentFailed reports a managed background component loop that
 	// panicked or died while the system was running (system_runtime
-	// GoBackground, K3). Stream ID is "system_runtime/<component>"; payload
+	// GoBackground). Stream ID is "system_runtime/<component>"; payload
 	// carries the component name and the failure reason. Consumed read-only
 	// by the flight recorder / introspection feed — nothing subscribes with
-	// a filter on it, so the G3 emitter contract is unaffected.
+	// a filter on it, so the emitter contract is unaffected.
 	EventComponentFailed EventType = "component.failed"
 )
 
@@ -108,7 +108,7 @@ const (
 	// (bandit feedback linkage), if any.
 	EventKeyUsedExperienceID = "used_experience_id"
 	// EventKeyStrategyID carries the evolution strategy that was active when
-	// the task was submitted (evolution loop closure E1). RuntimeObserver
+	// the task was submitted (evolution loop closure). RuntimeObserver
 	// attributes fitness samples by it, so a promote mid-flight cannot
 	// mis-credit the newly promoted strategy for samples produced by tasks
 	// that the previous strategy chose the prompt/params for.

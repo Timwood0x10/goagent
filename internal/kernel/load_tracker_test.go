@@ -10,7 +10,7 @@ import (
 // capCode is the test capability shared by the confidence/score fixtures.
 const capCode = "code"
 
-// TestLoadTracker_BeginEndRelease verifies the F1 core invariant: Begin
+// TestLoadTracker_BeginEndRelease verifies the core invariant: Begin
 // increments load, End decrements it, so after a quantum the agent is
 // schedulable again. Without the load-- in End, this test fails (the bug
 // that caused "later rounds get no capable candidate").
@@ -32,7 +32,7 @@ func TestLoadTracker_BeginEndRelease(t *testing.T) {
 
 	tr.End(agentID, true)
 
-	// After End: load == 0 (busy slot released — the F1 fix).
+	// After End: load == 0 (busy slot released).
 	if l := tr.Load(agentID); l != 0 {
 		t.Fatalf("after End: Load = %v, want 0", l)
 	}
@@ -40,7 +40,7 @@ func TestLoadTracker_BeginEndRelease(t *testing.T) {
 
 // TestLoadTracker_MultiRoundNoMonotonicClimb verifies that multiple Begin/End
 // rounds do NOT cause load to climb monotonically — the bug that starved
-// scheduling after the first round. This is the regression test for F1:
+// scheduling after the first round. This is the regression test:
 // if someone removes the load-- in End, this test must fail.
 func TestLoadTracker_MultiRoundNoMonotonicClimb(t *testing.T) {
 	tr := NewLoadTracker()
@@ -83,7 +83,7 @@ func TestLoadTracker_EndNoUnderflow(t *testing.T) {
 //   - SetAgentConfidence(id, -1) clears the override → Confidence falls back
 //     to historical success rate.
 //   - SetAgentConfidence(id, 0.0) is a VALID override (0% success rate keeps
-//     the agent at the bottom of the ranking — F1 GA contract).
+//     the agent at the bottom of the ranking — GA contract).
 func TestLoadTracker_SetAgentConfidenceClearAndZero(t *testing.T) {
 	tr := NewLoadTracker()
 	agentID := "agent-conf"
@@ -239,10 +239,10 @@ func TestLoadTracker_ConcurrentNoRace(t *testing.T) {
 	}
 }
 
-// TestLoadTracker_ScoreStaysPositiveAfterMultipleRounds is the H1.2
+// TestLoadTracker_ScoreStaysPositiveAfterMultipleRounds is the
 // integration assertion: after multiple Begin/End rounds, the agent's
 // taskfabric.Score must remain > 0 because load has been released. This
-// reproduces the F1 scenario end-to-end: "later rounds get no capable
+// reproduces the scenario end-to-end: "later rounds get no capable
 // candidate" must NOT happen.
 func TestLoadTracker_ScoreStaysPositiveAfterMultipleRounds(t *testing.T) {
 	tr := NewLoadTracker()

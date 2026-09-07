@@ -1,6 +1,6 @@
 # ares 架构深度解析（二十七）：上下文管理 — 三层上下文、可检查点认知状态与 prompt 门禁（0.3.x）
 
-> 说明：本文基于实际代码（`internal/agentfabric/context.go` + `agent.go` 的三层上下文与 `CognitiveState`、`internal/llm` 的 `maxPromptLength` prompt 长度门禁、`internal/ares_memory` 的会话记忆），是 docs 系列中上下文管理层的专门篇。
+> 说明：本文基于实际代码（`internal/fabric/agent/context.go` + `agent.go` 的三层上下文与 `CognitiveState`、`internal/llm` 的 `maxPromptLength` prompt 长度门禁、`internal/runtime/memory` 的会话记忆），是 docs 系列中上下文管理层的专门篇。
 
 ## 一、为什么上下文管理是 Agent 的命门
 
@@ -8,14 +8,14 @@ LLM 的 context window 是硬约束：Agent 每轮对话都会累积历史，工
 
 | 层次 | 真实机制 | 位置 | 管什么 |
 |------|----------|------|--------|
-| ① 认知状态层 | 三层上下文隔离（Task Shared / Agent Private / IPC） | `internal/agentfabric/context.go` | 谁能看到什么，私有不外泄 |
-| ② 持久化层 | 版本化 `CognitiveState` + 可检查点 | `internal/agentfabric/agent.go` / `context.go` | 只持久化可检查点状态，不依赖隐藏 CoT |
-| ③ 会话层 | 会话记忆（TTL / LRU / 结构化消息） | `internal/ares_memory` | 历史如何被组织、保留与清理 |
+| ① 认知状态层 | 三层上下文隔离（Task Shared / Agent Private / IPC） | `internal/fabric/agent/context.go` | 谁能看到什么，私有不外泄 |
+| ② 持久化层 | 版本化 `CognitiveState` + 可检查点 | `internal/fabric/agent/agent.go` / `context.go` | 只持久化可检查点状态，不依赖隐藏 CoT |
+| ③ 会话层 | 会话记忆（TTL / LRU / 结构化消息） | `internal/runtime/memory` | 历史如何被组织、保留与清理 |
 | ④ 调用层 | `maxPromptLength` 硬门禁 | `internal/llm` | 过长的 prompt 在 LLM 调用前直接拒绝 |
 
 ## 二、三层上下文：Task Shared / Agent Private / IPC
 
-`internal/agentfabric/context.go` 定义了对隔离的硬性要求（design §13：Context three layers，不要共用一个大脑）：`ContextLayer` 枚举三档：
+`internal/fabric/agent/context.go` 定义了对隔离的硬性要求（design §13：Context three layers，不要共用一个大脑）：`ContextLayer` 枚举三档：
 
 ```go
 type ContextLayer int
@@ -55,7 +55,7 @@ graph TD
 
 ## 三、CognitiveState：版本化、可检查点
 
-Agent 的"认知内容"被显式建模为 `internal/agentfabric/agent.go` 的 `CognitiveState`——它是**可独立持久化**的状态，Runtime **不依赖隐藏的 chain-of-thought**，只依赖这份持久状态（§13 不变量 #5）：
+Agent 的"认知内容"被显式建模为 `internal/fabric/agent/agent.go` 的 `CognitiveState`——它是**可独立持久化**的状态，Runtime **不依赖隐藏的 chain-of-thought**，只依赖这份持久状态（§13 不变量 #5）：
 
 ```go
 const CognitiveStateSchemaVersion = 1
@@ -87,7 +87,7 @@ graph LR
 
 ## 四、会话记忆：历史如何保留与回收
 
-LLM 输入要带上的历史来自 `internal/ares_memory` 的会话记忆。核心实现是 `internal/ares_memory/context/session.go` 的 `SessionMemory`：
+LLM 输入要带上的历史来自 `internal/runtime/memory` 的会话记忆。核心实现是 `internal/runtime/memory/context/session.go` 的 `SessionMemory`：
 
 - **有界 + TTL**：`NewSessionMemory(maxSize, ttl)`，超过 `maxSize` 时 `evictOldest`（按 `AccessedAt` LRU 驱逐最旧会话）；后台 `Cleanup` 任务按半个 TTL 周期扫描，把超过 `ttl` 未访问（`now - AccessedAt > ttl`）的会话清除。
 - **深拷贝返回**：`Get` / `GetMessages` 返回副本，调用方改不到内部 session 状态。

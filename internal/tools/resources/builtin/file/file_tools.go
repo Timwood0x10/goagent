@@ -94,7 +94,7 @@ func resolveSecurePath(path string) (string, error) {
 // filesystem operation. Using the returned path (instead of the caller's
 // original path) closes the TOCTOU window between validation and access: a
 // symlink swapped in after the check cannot redirect the operation outside
-// the allowed directory (M11).
+// the allowed directory.
 //
 // Both paths are resolved to their absolute, symlink-evaluated forms before
 // the check. A relative path that escapes the allowed directory (via ".." or
@@ -252,7 +252,7 @@ func (t *FileTools) readFile(ctx context.Context, params map[string]interface{})
 
 	// Security: validate path is within allowed directory BEFORE any filesystem access.
 	// Use the symlink-resolved secure path for the actual read so a symlink
-	// swapped in after validation cannot redirect the read (M11).
+	// swapped in after validation cannot redirect the read.
 	safePath, err := t.isPathAllowed(filePath)
 	if err != nil {
 		return core.NewErrorResult(err.Error()), nil
@@ -332,7 +332,7 @@ func (t *FileTools) writeFile(ctx context.Context, params map[string]interface{}
 
 	// Security: validate path is within allowed directory BEFORE any filesystem access.
 	// Use the symlink-resolved secure path for the actual write so a symlink
-	// swapped in after validation cannot redirect the write (M11).
+	// swapped in after validation cannot redirect the write.
 	safePath, err := t.isPathAllowed(filePath)
 	if err != nil {
 		return core.NewErrorResult(err.Error()), nil
@@ -408,7 +408,7 @@ func (t *FileTools) listFiles(ctx context.Context, params map[string]interface{}
 
 	// Security: validate path is within allowed directory BEFORE any filesystem access.
 	// Use the symlink-resolved secure path for the actual listing so a
-	// symlink swapped in after validation cannot redirect the walk (M11).
+	// symlink swapped in after validation cannot redirect the walk.
 	safePath, err := t.isPathAllowed(dirPath)
 	if err != nil {
 		return core.NewErrorResult(err.Error()), nil

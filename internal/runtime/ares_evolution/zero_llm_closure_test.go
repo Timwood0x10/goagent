@@ -8,10 +8,10 @@ import (
 	"github.com/Timwood0x10/ares/internal/runtime/ares_evolution/mutation"
 )
 
-// TestZeroLLMClosure_EndToEndPromotion verifies the P0-1 invariant: in a
+// TestZeroLLMClosure_EndToEndPromotion verifies the zero-LLM invariant: in a
 // zero-LLM config with a seeded evidence store, a candidate strategy can
-// complete the G2 shadow gate and be promoted to ACTIVE. This is the
-// end-to-end "Submit → G2 → Promote" chain the reviews demand.
+// complete the shadow gate and be promoted to ACTIVE. This is the
+// end-to-end "Submit → shadow gate → Promote" chain.
 //
 // Setup:
 //   - WiredEvolutionSystem with zero-LLM config (no cfg.Scorer, replay scorer
@@ -19,11 +19,11 @@ import (
 //   - Memory evidence store pre-seeded with KindFitness records for the active
 //     strategy across multiple 10-minute replay windows, scoring low (0.2).
 //   - The candidate (never executed) falls back to the prior (0.5) and wins
-//     every comparison → win rate 1.0 → G2 passes → promoted.
+//     every comparison → win rate 1.0 → the gate passes → promoted.
 //
 // Reverse case (empty store): both strategies score the prior → every
-// comparison is an exact tie → ties excluded from TotalComparisons (B-3) →
-// TotalComparisons == 0 → G2 fail-closed → candidate NOT promoted.
+// comparison is an exact tie → ties excluded from TotalComparisons →
+// TotalComparisons == 0 → gate fail-closed → candidate NOT promoted.
 func TestZeroLLMClosure_EndToEndPromotion(t *testing.T) {
 	defer discardLogs()()
 
@@ -102,7 +102,7 @@ func TestZeroLLMClosure_EndToEndPromotion(t *testing.T) {
 		}
 
 		// Verify the shadow gate had enough comparisons to judge.
-		// The sampler's Prime gathered MinSamples comparisons; the G2 gate
+		// The sampler's Prime gathered MinSamples comparisons; the shadow gate
 		// should have seen them all.
 		se := system.ShadowEvaluator
 		_, report := se.ShouldDeploy()
@@ -139,7 +139,7 @@ func TestZeroLLMClosure_EndToEndPromotion(t *testing.T) {
 
 		// Inject ReplayScorer over an EMPTY evidence store. Every comparison
 		// is cold-start prior-vs-prior → exact tie → excluded from
-		// TotalComparisons → TotalComparisons == 0 → G2 fail-closed.
+		// TotalComparisons → TotalComparisons == 0 → gate fail-closed.
 		replay := NewReplayScorer(emptyStore, func() float64 { return 0.5 })
 		if !replay.HasStore() {
 			t.Fatal("ReplayScorer must report a store when one is wired")
@@ -164,12 +164,12 @@ func TestZeroLLMClosure_EndToEndPromotion(t *testing.T) {
 			t.Fatalf("expected active strategy to remain seed %q, got %q (candidate was promoted despite empty evidence store)", seedID, snap.ActiveID)
 		}
 
-		// Lock the CONTRACT: the rejection must come from the G2 shadow gate's
+		// Lock the CONTRACT: the rejection must come from the shadow gate's
 		// fail-closed path, not from any arbitrary gate or a no-op Submit. The
-		// evaluator that backs G2 must itself report fail-closed with an
+		// evaluator that backs the gate must itself report fail-closed with an
 		// all-tie evidence set (TotalComparisons == 0, TieCount == MinSamples).
-		// (Review P2: ActiveID alone would pass if ANY gate rejected, hiding a
-		// regression where G2 stopped being the decisive judge.)
+		// (ActiveID alone would pass if ANY gate rejected, hiding a
+		// regression where the shadow gate stopped being the decisive judge.)
 		deploy, report := system.ShadowEvaluator.ShouldDeploy()
 		if deploy {
 			t.Fatal("shadow evaluator must fail-closed on an all-tie evidence set")

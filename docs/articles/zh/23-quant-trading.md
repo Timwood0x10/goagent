@@ -19,7 +19,7 @@
 | 任何 `market/`、`marketmaking/`、`portfolio/`、`research/`、`indicators/`、`dataflow/`、`store/`、`marketmaking_api/` 子包 | **不存在** |
 
 如果你搜 `quant`，命中的都是误导性弱相关：
-- `internal/taskfabric/quantum.go` / `internal/kernelscheduler/quantum_hook.go` —— 这是**调度量子（execution quantum）**，是 DAG 编排里"一个执行步"的概念，跟量化交易一毛钱关系都没有。
+- `internal/fabric/task/quantum.go` / `internal/kernel/quantum_hook.go` —— 这是**调度量子（execution quantum）**，是 DAG 编排里"一个执行步"的概念，跟量化交易一毛钱关系都没有。
 - `docs/25-config-yaml-guide` 里的 "quanta" 是同一个调度量子概念。
 - grep `position` / `trading` / `strategy` 命中的是 `regex position`（正则匹配位置）、`strategy_adapter.go`（进化策略）、`progress` 之类，全是无关代码。
 
@@ -40,7 +40,7 @@
 | 文档里引用的接口 | 包路径（文档写的） | 现实 |
 |-----------------|-------------------|------|
 | `dashboard.AgentRequest` / `orch.CreateAgent()` | `ares/internal/dashboard` | `internal/dashboard` **已被删除** |
-| `graph.NewGraph()` | `ares/internal/workflow/graph` | 实际是 `internal/taskfabric` 风格的 DAG，路径不对 |
+| `graph.NewGraph()` | `ares/internal/fabric/task/workflow/graph` | 实际是 `internal/fabric/task` 风格的 DAG，路径不对 |
 | `internal/quant/market/polymarket.go` 的 `FetchMarket` | — | 文件不存在 |
 | `internal/quant/market/yahoo.go` | — | 文件不存在 |
 
@@ -72,10 +72,10 @@
 | ares 能力 | 真实包 | 说明 |
 |-----------|--------|------|
 | 事件存储 `EventStore` | `internal/ares_events` | 真实存在，`Append/Read/Subscribe` |
-| Arena 混沌故障注入 | `internal/ares_arena` | 真实存在，与 Flight Recorder 通过 `FlightBridge` 打通 |
-| 记忆蒸馏 `Memory Distillation` | `internal/ares_memory` | 真实存在 |
-| MCP 工具注册 | `internal/ares_mcp` / `tools` | 真实存在 |
-| DAG 工作流 | `internal/taskfabric` | 真实存在，含 `quantum.go`（注意：是调度量子） |
+| Arena 混沌故障注入 | `internal/runtime/arena` | 真实存在，与 Flight Recorder 通过 `FlightBridge` 打通 |
+| 记忆蒸馏 `Memory Distillation` | `internal/runtime/memory` | 真实存在 |
+| MCP 工具注册 | `internal/runtime/protocol/mcp` / `tools` | 真实存在 |
+| DAG 工作流 | `internal/fabric/task` | 真实存在，含 `quantum.go`（注意：是调度量子） |
 
 也就是说：**"用 ares 去写一个量化研究系统"这件事在技术上没有障碍——框架的能力都在，但 ares 仓库本身并没有内置任何交易逻辑。** 想用，就得照着 `docs/en/development/quant-trading.md` 那份蓝图从零搭，而不是 import 一个现成的 `internal/ares_quant`。
 

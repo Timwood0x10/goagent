@@ -178,7 +178,7 @@ func (b *DistillBridge) DistillConversation(
 		return nil, errors.New("distill bridge: no messages to distill")
 	}
 
-	// Phase 1: run the existing Memory Distiller.
+	// Step 1: run the existing Memory Distiller.
 	memories, err := b.distiller.DistillConversation(ctx, conversationID, messages, tenantID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("distill bridge: distill conversation %q: %w", conversationID, err)
@@ -187,7 +187,7 @@ func (b *DistillBridge) DistillConversation(
 		return nil, nil
 	}
 
-	// Phase 2: convert Memory → KnowledgeObject.
+	// Step 2: convert Memory → KnowledgeObject.
 	pointers := make([]*distillation.Memory, len(memories))
 	for i := range memories {
 		pointers[i] = &memories[i]
@@ -197,7 +197,7 @@ func (b *DistillBridge) DistillConversation(
 		return nil, nil
 	}
 
-	// Phase 3: run through AKF KnowledgePipeline.
+	// Step 3: run through AKF KnowledgePipeline.
 	if b.pipeline != nil {
 		processed := make([]*knowledge.KnowledgeObject, 0, len(objects))
 		for _, obj := range objects {
@@ -217,25 +217,25 @@ func (b *DistillBridge) DistillConversation(
 		objects = objects[:b.gate.MaxFactsPerIngest]
 	}
 
-	// Phase 3.5: extract rule-based Relations from each object's text.
+	// extract rule-based Relations from each object's text.
 	// Relations feed the quality gate (ExtractionScore boost) and downstream
 	// graph construction.
 	b.extractRelations(objects)
 
-	// Phase 3.6: embedding + dedup. Requires both emb and store; dedup
+	// embedding + dedup. Requires both emb and store; dedup
 	// additionally requires gate.EnableDedup. Superseded objects skip the
-	// quality gate in phase 3.7.
+	// quality gate during scoring.
 	b.embedAndDedup(ctx, objects)
 
-	// Phase 3.7: quality gate. Score each non-superseded object; the
-	// resulting Quality and Confidence drive the promote decision in phase 4.
+	// quality gate. Score each non-superseded object; the
+	// resulting Quality and Confidence drive the promote decision at persist.
 	b.scoreQuality(objects)
 
-	// Phase 4: persist to KnowledgeStore and promote qualifying candidates.
+	// persist to KnowledgeStore and promote qualifying candidates.
 	return objects, b.persistAndPromote(ctx, objects)
 }
 
-// extractRelations runs Phase 3.5: it populates obj.Relations for each object
+// extractRelations populates obj.Relations for each object
 // using the rule-based RelationExtractor. Relations feed the quality gate
 // (ExtractionScore boost) and downstream graph construction.
 func (b *DistillBridge) extractRelations(objects []*knowledge.KnowledgeObject) {
@@ -244,10 +244,10 @@ func (b *DistillBridge) extractRelations(objects []*knowledge.KnowledgeObject) {
 	}
 }
 
-// embedAndDedup runs Phase 3.6: it embeds each object, stores the
+// embedAndDedup embeds each object, stores the
 // Representation, and marks superseded duplicates. Requires both emb and
 // store; dedup additionally requires gate.EnableDedup. Superseded objects
-// skip the quality gate in phase 3.7. Does nothing when emb or store is nil.
+// skip the quality gate. Does nothing when emb or store is nil.
 func (b *DistillBridge) embedAndDedup(ctx context.Context, objects []*knowledge.KnowledgeObject) {
 	if b.emb == nil || b.store == nil {
 		return
@@ -291,10 +291,10 @@ func (b *DistillBridge) embedAndDedup(ctx context.Context, objects []*knowledge.
 	}
 }
 
-// scoreQuality runs Phase 3.7: it scores each non-superseded object and sets
+// scoreQuality scores each non-superseded object and sets
 // its Status, Quality, Confidence, and EmbeddingModel. Superseded objects
 // skip the gate; the resulting Quality and Confidence drive the promote
-// decision in phase 4.
+// decision at persist.
 func (b *DistillBridge) scoreQuality(objects []*knowledge.KnowledgeObject) {
 	for _, obj := range objects {
 		if obj.Status == knowledge.StatusSuperseded {
@@ -310,7 +310,7 @@ func (b *DistillBridge) scoreQuality(objects []*knowledge.KnowledgeObject) {
 	}
 }
 
-// persistAndPromote runs Phase 4: it saves all objects to the Store and
+// persistAndPromote saves all objects to the Store and
 // promotes candidates whose Confidence >= MinFinalScore to StatusActive
 // (best-effort; promotion failures are logged but do not roll back the Save).
 // Returns a wrapped error if Save fails. Does nothing when store is nil.

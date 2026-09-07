@@ -1,6 +1,6 @@
 # ares 架构深度解析（八）：事件系统 — 追加式事件日志、压缩归档与任务生命周期（0.3.x）
 
-> 0.3.x 更新：`internal/taskfabric` 引入完整 Task 生命周期事件（created/ready/acquired/started/yielded/checkpointed/preempted/released/completed/failed/expired/stolen）。Task Fabric 把每次状态迁移追加到内存日志，并在挂了 `EventStore` 时写进持久层，方便跨重启重建 Scheduler / Task / Lease 状态。注意：所谓"事件直接驱动调度"是过度宣传——调度器是能力+优先级的 work-stealing 打分，不是"task.completed → 依赖变 Ready"的事件驱动 dispatch。
+> 0.3.x 更新：`internal/fabric/task` 引入完整 Task 生命周期事件（created/ready/acquired/started/yielded/checkpointed/preempted/released/completed/failed/expired/stolen）。Task Fabric 把每次状态迁移追加到内存日志，并在挂了 `EventStore` 时写进持久层，方便跨重启重建 Scheduler / Task / Lease 状态。注意：所谓"事件直接驱动调度"是过度宣传——调度器是能力+优先级的 work-stealing 打分，不是"task.completed → 依赖变 Ready"的事件驱动 dispatch。
 
 > Agent 启动是个事件、任务状态迁移是个事件、工具调用是个事件、LLM 返回是个事件、Agent 挂了也会留下一个事件。
 > 我当时的想法：如果我把每一种状态变更都记成一条只追加的记录，是不是就能在进程挂了之后，把发生过的事情重放回来？
@@ -49,10 +49,10 @@ graph LR
 | `internal/ares_events/trim_store.go` | `TrimAwareStore`：压缩后裁剪旧事件 |
 | `internal/ares_events/archive_hook.go` | `ArchiveSink`：round 归档钩子 |
 | `internal/ares_events/tool_events.go` | 工具完成事件统一载荷键 |
-| `internal/taskfabric/events.go` | Task 生命周期 EventType + TaskEvent |
-| `internal/taskfabric/fabric.go` | 事件记录 / 持久化 / 恢复逻辑 |
-| `internal/ares_flight/replay.go` | ReplaySession 逐步重放（见系列第 16 篇） |
-| `internal/ares_skills/outcome_recorder.go` | SkillOutcomeRecorder：只读订阅者 |
+| `internal/fabric/task/events.go` | Task 生命周期 EventType + TaskEvent |
+| `internal/fabric/task/fabric.go` | 事件记录 / 持久化 / 恢复逻辑 |
+| `internal/runtime/observability/flight/replay.go` | ReplaySession 逐步重放（见系列第 16 篇） |
+| `internal/runtime/protocol/skills/outcome_recorder.go` | SkillOutcomeRecorder：只读订阅者 |
 
 ---
 
@@ -261,7 +261,7 @@ Agent stream-1, ran 1 task(s) [task-42], called 2 tool(s) [search, calculator], 
 
 ## 五、Task Fabric：任务生命周期事件
 
-`internal/taskfabric/events.go` 定义了一个**独立于** `ares_events` 的 `EventType` 枚举：
+`internal/fabric/task/events.go` 定义了一个**独立于** `ares_events` 的 `EventType` 枚举：
 
 ```go
 const (
@@ -299,7 +299,7 @@ stateDiagram-v2
     Done --> [*]
 ```
 
-> 这张图是"状态迁移 → 事件"的**意图示意**，标注了每个事件是否落持久层。具体每个迁移跑在哪个函数里、准确的状态集合，请以 `internal/taskfabric` 的 state machine 为准，本文只陈述事件这一侧的事实（含持久与否），不展开全部状态机细节。
+> 这张图是"状态迁移 → 事件"的**意图示意**，标注了每个事件是否落持久层。具体每个迁移跑在哪个函数里、准确的状态集合，请以 `internal/fabric/task` 的 state machine 为准，本文只陈述事件这一侧的事实（含持久与否），不展开全部状态机细节。
 
 ### 5.2 哪些落盘，哪些不落盘
 
@@ -343,7 +343,7 @@ TaskPreempted, TaskReleased, TaskStolen
 
 ### 7.1 ReplaySession
 
-`internal/ares_flight/replay.go` 的 `NewReplaySession(ctx, eventStore, taskID)` 把某个任务的流升序读进来做逐步回放。详见系列第 16 篇（Flight Recorder），这里只提它的存在与依赖。
+`internal/runtime/observability/flight/replay.go` 的 `NewReplaySession(ctx, eventStore, taskID)` 把某个任务的流升序读进来做逐步回放。详见系列第 16 篇（Flight Recorder），这里只提它的存在与依赖。
 
 ### 7.2 Task Fabric 跨重启重建
 
@@ -366,7 +366,7 @@ sequenceDiagram
 
 ### 7.3 与"Agent 复活"的关系
 
-Agent 复活（两阶段恢复、快照优先、事件流回退降级）是**第 7 篇**（Runtime / Resurrection）的主题：`internal/ares_runtime/recovery.go` 的 `RecoverSnapshotOrEvents()` 先快照后事件流，`event_recovery.go` 从事件流重建 RecoveryState。事件系统在这里扮演的是"回退数据源"角色——**这属于 ares_runtime 对事件的消费**，不是事件系统自身的能力，别归错账。
+Agent 复活（两阶段恢复、快照优先、事件流回退降级）是**第 7 篇**（Runtime / Resurrection）的主题：`internal/runtime/recovery.go` 的 `RecoverSnapshotOrEvents()` 先快照后事件流，`event_recovery.go` 从事件流重建 RecoveryState。事件系统在这里扮演的是"回退数据源"角色——**这属于 ares_runtime 对事件的消费**，不是事件系统自身的能力，别归错账。
 
 ---
 

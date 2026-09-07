@@ -1,5 +1,5 @@
-// Package introspect implements the runtime introspection panel read-model
-// (monitoring.md): it periodically PULLS point-in-time snapshots from the
+// Package introspect implements the runtime introspection panel read-model:
+// it periodically PULLS point-in-time snapshots from the
 // kernel scheduler, task fabric and agent fabric, keeps only the LATEST one
 // (bounded memory), and serves both a JSON API (/api/v1/introspect/*) and an
 // embedded single-page UI. It is strictly read-only — sources expose snapshot
@@ -28,29 +28,29 @@ type Snapshot struct {
 	Fabric []taskfabric.LeaseEntry `json:"fabric"`
 	// Agents is the lifecycle Domain C view.
 	Agents []agentfabric.AgentView `json:"agents"`
-	// Chaos is the #12 Phase 3 chaos-subsystem status (shadow sandbox health
+	// Chaos is the chaos-subsystem status (shadow sandbox health
 	// + live-injection state). Omitted when the chaos source is nil.
 	Chaos *ChaosStatus `json:"chaos,omitempty"`
 	// Collab is the agent collaboration graph (who handed work to whom).
 	// Omitted when the collab source is nil.
 	Collab *CollabSnapshot `json:"collab,omitempty"`
 	// Tasks is the full task board (all states incl. terminal) + quantum
-	// counts for the Tasks page (dashboard.md §5). Omitted when the source
+	// counts for the Tasks page. Omitted when the source
 	// is nil.
 	Tasks []taskfabric.TaskView `json:"tasks,omitempty"`
 	// Decisions is the scheduling-decision trail (candidates + scores +
-	// winner) for the Scheduler page (dashboard.md §7). Omitted when the
+	// winner) for the Scheduler page. Omitted when the
 	// source is nil.
 	Decisions []kernel.ScheduleDecision `json:"decisions,omitempty"`
 }
 
 // Sources abstract the three subsystems so tests can fake them
-// (code_rules: interfaces defined at the consumer).
+// (interfaces defined at the consumer).
 type Sources struct {
 	Kernel func() kernel.SchedulerSnapshot
 	Fabric func() []taskfabric.LeaseEntry
 	Agents func() []agentfabric.AgentView
-	// Chaos reports the chaos-subsystem status (monitoring.md #12 Phase 3).
+	// Chaos reports the chaos-subsystem status.
 	// A nil Chaos source omits the field from the snapshot.
 	Chaos func() ChaosStatus
 	// Collab reports the agent collaboration graph. A nil Collab source omits
@@ -105,8 +105,8 @@ func (c *Collector) Collect() Snapshot {
 	return snap
 }
 
-// Store holds the latest snapshot. Memory stays O(1) by design (monitoring.md
-// §3.1 principle 3: bounded read-model) — history lives in the event log, not
+// Store holds the latest snapshot. Memory stays O(1) by design (bounded
+// read-model) — history lives in the event log, not
 // here.
 type Store struct {
 	latest atomic.Pointer[Snapshot]
@@ -141,7 +141,7 @@ type TimelineEntry struct {
 	TaskID  string `json:"task_id,omitempty"`
 }
 
-// maxTimelineEntries bounds the activity ring (monitoring.md: bounded
+// maxTimelineEntries bounds the activity ring (bounded
 // read-model — history beyond this lives in the event log/archive).
 const maxTimelineEntries = 300
 

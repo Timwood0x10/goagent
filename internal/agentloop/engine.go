@@ -200,10 +200,9 @@ type Request struct {
 	// passing no expander.
 	ToolExpander ToolExpander
 	// ToolWhitelist, when non-nil, restricts which of the active tools reach the
-	// LLM on every iteration (Y1 方案C C5 third-executor wiring). An empty or
-	// missing map means "all tools" (zero-value usable). This mirrors the
-	// Params["tools"] whitelist the two peer executors (chat_cognition.go,
-	// sub/executor.go) apply via agents.ToolWhitelistFromParams — the agentloop
+	// LLM on every iteration. An empty or missing map means "all tools"
+	// (zero-value usable). This mirrors the Params["tools"] whitelist the
+	// peer executors apply via agents.ToolWhitelistFromParams — the agentloop
 	// ReAct loop is the third production execution body, so without this it was
 	// the only path that ignored the tool-selection knob. Filtering happens
 	// before the LLM sees the tool list, not at execution time.
@@ -277,7 +276,7 @@ func (e *Engine) Run(ctx context.Context, req *Request) (*Result, error) {
 		// observer sees the full thread timeline, not just tool boundaries.
 		e.emitLLMCall(ctx, req.AgentName, iter, len(st.messages), len(st.activeTools))
 
-		// C5: the agentloop is the third execution body — respect the tool
+		// The agentloop is the third execution body — respect the tool
 		// whitelist before handing the tool set to the LLM. An empty whitelist
 		// means "all tools".
 		granted := st.activeTools
@@ -575,10 +574,10 @@ func (e *Engine) emitLLMCall(ctx context.Context, agentName string, iter, msgCou
 	}
 }
 
-// toolErrorMessage normalizes a tool execution error into the C1 event
-// contract's error field, matching the peer executors (chat_cognition.go,
-// sub/executor.go). nil -> "" so the unified payload is JSON-friendly and the
-// trajectory projection can distinguish "failed with message" from "no error".
+// toolErrorMessage normalizes a tool execution error into the unified event
+// contract's error field, matching the peer executors. nil -> "" so the
+// unified payload is JSON-friendly and the trajectory projection can
+// distinguish "failed with message" from "no error".
 func toolErrorMessage(err error) string {
 	if err == nil {
 		return ""

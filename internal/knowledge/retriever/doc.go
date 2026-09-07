@@ -1,4 +1,4 @@
-// Package retriever implements AKG.md §8 — Intent-driven knowledge retrieval.
+// Package retriever implements intent-driven knowledge retrieval.
 //
 // Unlike traditional TopK vector search, the Retriever uses the full AKF
 // pipeline (Plan → Load → Pipeline → Link → Reduce → Compile) to produce

@@ -10,7 +10,7 @@ import (
 
 // Loader implements SkillLoader: it loads the Level-1 SKILL.md body and the
 // Level-2 references for a skill by ID. Bodies are fetched on demand only —
-// the index never holds them (progressive disclosure §6).
+// the index never holds them (progressive disclosure).
 type Loader struct {
 	// index maps skill ID -> index entry (built by the catalog).
 	index map[string]SkillIndexEntry
@@ -46,7 +46,7 @@ func (l *Loader) Load(id string) (string, error) {
 	if !ok {
 		return "", ErrSkillNotFound
 	}
-	// P1-8: Remote skills (from HTTP manifest) have a Path that is a URL.
+	// Remote skills (from HTTP manifest) have a Path that is a URL.
 	// SKILL.md is not available locally; return a clear error instead of
 	// trying to read from CWD.
 	if strings.HasPrefix(entry.Path, "http://") || strings.HasPrefix(entry.Path, "https://") {

@@ -16,7 +16,7 @@ import (
 // the process running with", readable by any consumer and updated by the
 // file watcher.
 //
-// Design intent (code_rules: keep it simple):
+// Design intent (keep it simple):
 //   - Current() returns the last successfully loaded config (never a partial
 //     or failed reload);
 //   - Reload() re-reads the file, validates it, and only replaces the current

@@ -20,7 +20,7 @@ type Task struct {
 	Deadline         time.Time      `json:"deadline"`
 	UsedExperienceID string         `json:"used_experience_id,omitempty"` // Experience ID used for this task (bandit feedback).
 	// StrategyID is the evolution strategy active when the task was submitted
-	// (evolution loop closure E1). It is stamped once at submission and never
+	// (evolution loop closure). It is stamped once at submission and never
 	// re-read, so the executor's task.completed/failed events attribute the
 	// outcome to the strategy that actually chose the prompt/params.
 	StrategyID string    `json:"strategy_id,omitempty"`

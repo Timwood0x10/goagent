@@ -25,7 +25,7 @@ func indexOf(order []string, id string) int {
 	return -1
 }
 
-// stubBinder is a scripted ToolBinder for the M1 tests. Tools echo their args
+// stubBinder is a scripted ToolBinder for these tests. Tools echo their args
 // back so a test can assert data actually flowed into the tool call; a tool
 // named in toolErr instead returns an error so the failure path is exercised.
 type stubBinder struct {
@@ -81,7 +81,7 @@ func TestL2Graph_TopologyPinsDependencies(t *testing.T) {
 
 // TestL2Graph_ArgsRoundTripJSON verifies structured args survive the
 // string-only Metadata round-trip back into a usable map. Payload keys ride
-// the arg. namespace (D3); unprefixed envelope plumbing never becomes a tool
+// the arg. namespace; unprefixed envelope plumbing never becomes a tool
 // arg. A namespaced value that only looks like JSON stays a plain string
 // rather than failing the extraction.
 func TestL2Graph_ArgsRoundTripJSON(t *testing.T) {
@@ -172,7 +172,7 @@ func TestL2Cognition_RouterDispatchesAnswer(t *testing.T) {
 	require.Equal(t, "42 is the answer", out.Result.Items[0].Content)
 }
 
-// TestL2Cognition_AnswerWithoutContentSaysSo pins code_rules_v2 §0.2 on the
+// TestL2Cognition_AnswerWithoutContentSaysSo pins the rule on the
 // terminal node: with no supplied content and no summarizer wired, the body
 // states the absence and the gap is logged — it must NOT return a
 // success-sounding constant that reads like a real answer.
@@ -290,7 +290,7 @@ func taskFor(id, capability string, payload map[string]any) *models.Task {
 	return task
 }
 
-// TestL2Cognition_AnswerReleasesSession pins M4-B2 teardown: when a router
+// TestL2Cognition_AnswerReleasesSession pins the session teardown: when a router
 // with session wiring executes the terminal node, the session is released —
 // the graph handle drops and the compile subscription stops, so no new nodes
 // can grow into a finished session. A second execution still emits the answer

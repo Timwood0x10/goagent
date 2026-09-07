@@ -7,7 +7,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/agentsyscall"
 )
 
-// TestSDKSyscallsRegistered is the D1 acceptance (P1 review: BindTools was
+// TestSDKSyscallsRegistered is the acceptance (BindTools was
 // registered only in peer mode, so an SDK user's agent never saw
 // spawn_agent/create_task): after the shared scheduler is started (first
 // Submit path), the runtime's tool registry carries both kernel syscalls and
@@ -33,7 +33,8 @@ func TestSDKSyscallsRegistered(t *testing.T) {
 	}
 }
 
-// TestSDKAgentSeesSyscallTools verifies the LLM-facing side of D1: an SDK
+// TestSDKAgentSeesSyscallTools verifies the LLM-facing side of the syscall
+// wiring: an SDK
 // agent's tool list (resolveTools, discovery OFF — the default) includes
 // spawn_agent/create_task even when the agent registered no tools of its own,
 // so it can autonomously decompose a task.

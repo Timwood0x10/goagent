@@ -8,14 +8,14 @@ import (
 	"time"
 )
 
-// ExecutionAttribution is the W4 feedback loop's data source: it collects
+// ExecutionAttribution is the feedback loop's data source: it collects
 // per-agent, per-capability execution outcomes (success/failure) so the
 // Evolution system can attribute results to capabilities and feed them back
 // into scheduler scoring. The loadTracker in cmd/ares/scheduler.go tracks
 // per-agent outcomes; this struct adds the capability dimension and the
 // query interface the Evolution system uses.
 //
-// The attribution is the first half of the W4 feedback loop:
+// The attribution is the first half of the feedback loop:
 //
 //	Agent executes task (capability C) → outcome (success/fail) →
 //	ExecutionAttribution.Record(agentID, C, success) →
@@ -34,8 +34,8 @@ type ExecutionAttribution struct {
 // capabilityOutcome tracks success/failure counts for one (agent, capability)
 // pair (or one agent's aggregate).
 //
-// C2.1 extended fields: latency (nanoseconds), retries, and recovery
-// count — these feed the deterministic scorer (C2.2) so the evolution
+// Extended fields: latency (nanoseconds), retries, and recovery
+// count — these feed the deterministic scorer so the evolution
 // system can score strategies without calling an LLM.
 type capabilityOutcome struct {
 	success       int
@@ -71,9 +71,9 @@ func (a *ExecutionAttribution) Record(agentID, capability string, success bool) 
 	a.RecordWithMetrics(agentID, capability, success, 0, 0, 0)
 }
 
-// RecordWithMetrics is the C2.1 extended Record that accepts latency,
+// RecordWithMetrics is the extended Record that accepts latency,
 // retry count, and recovery count alongside the success/failure outcome.
-// These feed the deterministic scorer (C2.2) so attribution → strategy
+// These feed the deterministic scorer so attribution → strategy
 // score works without any LLM call.
 //
 // Args:
@@ -173,7 +173,7 @@ type AttributionSnapshot struct {
 }
 
 // CapabilityResult is one (agent, capability) pair's outcome summary.
-// C2.1: extended with AvgLatency, AvgRetries, AvgRecovers for the
+// Extended with AvgLatency, AvgRetries, AvgRecovers for the
 // deterministic scorer.
 type CapabilityResult struct {
 	AgentID     string
@@ -187,7 +187,7 @@ type CapabilityResult struct {
 }
 
 // AgentResult is one agent's aggregate outcome summary.
-// C2.1: extended with AvgLatency, AvgRetries, AvgRecovers.
+// Extended with AvgLatency, AvgRetries, AvgRecovers.
 type AgentResult struct {
 	AgentID     string
 	Success     int
@@ -271,7 +271,7 @@ func splitAttributionKey(key string) (string, string) {
 }
 
 // ExecutionResultSource is the interface the Evolution system uses to read
-// execution attribution (W4 §8.3.1: 采集真实执行结果). The scheduler's
+// execution attribution (采集真实执行结果). The scheduler's
 // ExecutionAttribution implements this; the Evolution system reads the
 // snapshot and updates its strategy based on the results.
 type ExecutionResultSource interface {
@@ -283,7 +283,7 @@ type ExecutionResultSource interface {
 var _ ExecutionResultSource = (*ExecutionAttribution)(nil)
 
 // ConfidenceInjector is the interface for feeding evolution-derived
-// confidence back into the scheduler's scoring (W4 §8.3.2). The loadTracker
+// confidence back into the scheduler's scoring. The loadTracker
 // implements this, so the Evolution system can update the scheduler's
 // confidence without importing the scheduler package — the adapter is wired
 // at the Kernel level.
@@ -303,7 +303,7 @@ type ConfidenceInjector interface {
 }
 
 // EvolutionFeedbackAdapter wires the ExecutionAttribution to the scheduler's
-// ConfidenceInjector (W4 §8.3.2). It is the second half of the feedback loop:
+// ConfidenceInjector. It is the second half of the feedback loop:
 //
 //	ExecutionAttribution.Snapshot() → EvolutionFeedbackAdapter.Apply() →
 //	ConfidenceInjector.SetAgentConfidence() → next Schedule sees the new
@@ -329,7 +329,7 @@ func NewEvolutionFeedbackAdapter(source ExecutionResultSource, injector Confiden
 // failure-heavy agent is downweighted, a success-heavy agent is preferred.
 // The per-capability pushes (SetCapabilityConfidence) let the scheduler score
 // an agent against the task's exact capability instead of a single aggregate
-// value (design-fix: per-capability attribution is consumed, not collected only).
+// value (per-capability attribution is consumed, not collected only).
 //
 // Args:
 //   - ctx: unused (kept for signature symmetry with other Apply methods).
@@ -363,7 +363,7 @@ func (a *EvolutionFeedbackAdapter) Apply(_ context.Context) int {
 }
 
 // RunEvolutionFeedbackLoop periodically reads execution attribution and
-// pushes the per-agent confidence into the scheduler (W4). It applies once at
+// pushes the per-agent confidence into the scheduler. It applies once at
 // startup so already-collected results are effective immediately, then
 // re-applies on a fixed interval. Apply is idempotent.
 //
@@ -381,9 +381,9 @@ func RunEvolutionFeedbackLoop(ctx context.Context, adapter *EvolutionFeedbackAda
 	apply := func(phase string) int {
 		defer func() {
 			if r := recover(); r != nil {
-				// A panic must not kill the loop (M2: kernel loops must
+				// A panic must not kill the loop (kernel loops must
 				// not crash the process), but it must be logged for
-				// observability (B29).
+				// observability.
 				slog.Error("feedback loop panic recovered",
 					"phase", phase, "panic", r)
 			}

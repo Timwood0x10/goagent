@@ -579,7 +579,7 @@ func (r *SecretRepository) Import(ctx context.Context, tenantID string, data []b
 		}
 
 		// Check for duplicate keys within same tenant (per design standard).
-		// A real query error must abort (#48): treating it as "not exists"
+		// A real query error must abort: treating it as "not exists"
 		// silently degraded the failure into an insert attempt.
 		var existingKeyVersion int
 		checkQuery := `SELECT key_version FROM secrets WHERE key = $1 AND tenant_id = $2`
@@ -631,7 +631,7 @@ func (r *SecretRepository) Import(ctx context.Context, tenantID string, data []b
 		log.Debug("Secret imported successfully", "tenant_id", tenantID, "secret_id", id)
 	}
 
-	// Atomicity contract (#48): if NOTHING was imported the transaction is
+	// Atomicity contract: if NOTHING was imported the transaction is
 	// rolled back and the collected reasons are returned as the error.
 	if importedCount == 0 {
 		return 0, fmt.Errorf("no secrets imported, errors: %v", importErrors)
@@ -643,7 +643,7 @@ func (r *SecretRepository) Import(ctx context.Context, tenantID string, data []b
 	}
 	committed = true
 
-	// Partial failures are surfaced to the caller (#48): previously they were
+	// Partial failures are surfaced to the caller: previously they were
 	// only logged and the call returned a clean nil, hiding data loss.
 	var importErr error
 	if len(importErrors) > 0 {

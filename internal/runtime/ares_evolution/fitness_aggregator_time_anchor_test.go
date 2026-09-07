@@ -1,6 +1,7 @@
 package evolution
 
-// fitness_aggregator_time_anchor_test.go locks E1: WindowAt scopes every
+// fitness_aggregator_time_anchor_test.go locks the time-anchor contract:
+// WindowAt scopes every
 // source query to the same [since, until], and Window (zero bounds) keeps
 // the legacy unscoped behavior.
 

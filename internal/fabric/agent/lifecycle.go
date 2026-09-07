@@ -20,9 +20,9 @@ type SpawnSpec struct {
 	// snapshot or selected projection — never the parent's private state).
 	TaskContext map[string]any
 	// Resources are resource hints (quota/capability/policy validation
-	// surface; P3 stores them opaquely, full enforcement is P5).
+	// surface; stored opaquely here, fully enforced at admission).
 	Resources map[string]any
-	// Governance is the P3 cognitive-execution budget (token/tool/deadline).
+	// Governance is the cognitive-execution budget (token/tool/deadline).
 	// Zero values mean unlimited. Set here so the Kernel admits the agent with
 	// its budgets from birth.
 	Governance Governance
@@ -35,11 +35,9 @@ type SpawnSpec struct {
 	// capability and cannot run a quantum (it can still be managed by
 	// lifecycle operations). The factory is called once at spawn time, under
 	// the fabric lock, and the result is stored in Agent.cognition.
-	// (A1: Unified Injection of Execution Capabilities Agent.)
 	CognitionFactory CognitionFactory
-	// ExperiencePrior is the distilled prior experience (aresos-agentos-plan
-	// G1: Memory Distill Hook into the agent lifecycle) loaded as the agent's initial
-	// cognitive context at spawn time. It is written into
+	// ExperiencePrior is the distilled prior experience loaded as the
+	// agent's initial cognitive context at spawn time. It is written into
 	// CognitiveState.Context so the agent starts with relevant distilled
 	// experience instead of a blank slate. Nil = no prior (zero-value usable).
 	ExperiencePrior any
@@ -53,7 +51,7 @@ type SpawnSpec struct {
 // does NOT form a permission hierarchy.
 //
 // The Kernel validates the spec (non-empty capabilities when a parent is
-// present; non-duplicate id) and the resource quota (P5: a spawn whose
+// present; non-duplicate id) and the resource quota (a spawn whose
 // requested resources exceed the remaining budget is rejected with
 // ErrResourceQuotaExceeded — the claim is recorded and released on
 // kill/retire) before creating the agent. Spawn does NOT schedule the new
@@ -80,8 +78,8 @@ func (f *Fabric) Spawn(ctx context.Context, spec SpawnSpec) (*Agent, error) {
 		f.mu.Unlock()
 		return nil, ErrAgentExists
 	}
-	// P5 resource admission: reject before mutating any state so a failed
-	// spawn leaves the fabric untouched (code_rules: validate first,
+	// Resource admission: reject before mutating any state so a failed
+	// spawn leaves the fabric untouched (validate first,
 	// then mutate).
 	if !f.canAllocateLocked(claim) {
 		f.mu.Unlock()
@@ -98,12 +96,12 @@ func (f *Fabric) Spawn(ctx context.Context, spec SpawnSpec) (*Agent, error) {
 		taskContext:    cloneMap(spec.TaskContext),
 		privateContext: make(map[string]any),
 	}
-	// A1: inject the execution body from the declared capabilities. The
+	// Inject the execution body from the declared capabilities. The
 	// factory is called under the fabric lock; a nil factory leaves the agent
 	// without execution capability (managed but not schedulable). A NON-nil
 	// factory that produces nil is a programming error: it would silently
 	// spawn a permanently non-executable agent, so it is rejected before any
-	// fabric state is mutated (N10: nil cognition was swallowed).
+	// fabric state is mutated (a nil cognition must not be swallowed).
 	if spec.CognitionFactory != nil {
 		a.cognition = spec.CognitionFactory(spec.Capabilities)
 		if a.cognition == nil {
@@ -111,7 +109,7 @@ func (f *Fabric) Spawn(ctx context.Context, spec SpawnSpec) (*Agent, error) {
 			return nil, fmt.Errorf("%w: CognitionFactory returned nil for agent %q", ErrInvalidSpawnSpec, id)
 		}
 	}
-	// G1: load the distilled prior experience as the agent's initial cognitive
+	// Load the distilled prior experience as the agent's initial cognitive
 	// context so a spawned agent starts with reusable experience instead of a
 	// blank slate. Nil (zero value) leaves the agent with an empty cognitive
 	// state.
@@ -121,7 +119,7 @@ func (f *Fabric) Spawn(ctx context.Context, spec SpawnSpec) (*Agent, error) {
 			Context:       spec.ExperiencePrior,
 		}
 	}
-	// P3 governance: every agent carries a budget state from birth. A
+	// Governance: every agent carries a budget state from birth. A
 	// zero-value Governance means "unlimited" for all dimensions (the default
 	// for legacy agents), so ConsumeResource never fails with
 	// ErrAgentNotGoverned — it only fails when a non-zero budget is exceeded.
@@ -226,7 +224,7 @@ func (f *Fabric) Resume(ctx context.Context, agentID string) error {
 
 // Retire permanently decommissions an agent (graceful). The agent must NOT be
 // RUNNING — suspend it first. A retired agent cannot be resumed; its in-flight
-// tasks (if any) are reclaimed by the Runtime (P5 Recovery). Retiring a parent
+// tasks (if any) are reclaimed by the Runtime's recovery. Retiring a parent
 // does NOT kill its children (§13 invariant #1: parent death ≠ child death).
 // The agent's resource claim is released back to the quota.
 //
@@ -256,7 +254,7 @@ func (f *Fabric) Retire(ctx context.Context, agentID string) error {
 	a.mu.Lock()
 	a.State = StateRetired
 	a.mu.Unlock()
-	// A1: Retire is terminal — any death snapshot from an earlier kill/revive
+	// Retire is terminal — any death snapshot from an earlier kill/revive
 	// cycle of this identity must not resurrect later.
 	f.snapshots.clear(agentID)
 	f.mu.Unlock()
@@ -268,7 +266,7 @@ func (f *Fabric) Retire(ctx context.Context, agentID string) error {
 // Retire, Kill works on any state and is the crash path. The agent entry is
 // removed from the registry, but its children survive (§13: Parent 死 ≠
 // Child 死). Children's Parent field is NOT cleared — it stays as
-// provenance. Task reclaim is P5 Recovery. The agent's resource claim is
+// provenance. Task reclaim is the recovery subsystem's job. The agent's resource claim is
 // released back to the quota.
 //
 // Args:
@@ -284,7 +282,7 @@ func (f *Fabric) Kill(ctx context.Context, agentID string) error {
 		f.mu.Unlock()
 		return ErrAgentNotFound
 	}
-	// A1: capture the revival record BEFORE the registry entry disappears —
+	// Capture the revival record BEFORE the registry entry disappears —
 	// after this delete the agent is unreadable, so the recovery subsystem's
 	// in-place-revival decision depends on this snapshot existing.
 	snap := captureFromAgent(a, f.now())

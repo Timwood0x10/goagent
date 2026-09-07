@@ -12,7 +12,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
 )
 
-// TestC4_StructuralPatchTriggersRecompile verifies C4.1/C4.3/C4.5:
+// TestC4_StructuralPatchTriggersRecompile verifies:
 // a structural patch (AddNode) on the live MutableDAG triggers
 // recompilation via the GraphEvent subscription, so the next
 // scheduler drain sees the updated task set — without restart.
@@ -36,13 +36,13 @@ func TestC4_StructuralPatchTriggersRecompile(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, coord.LastCompile().StepCount)
 
-	// Subscribe to graph events (C4.3: the recompile path).
+	// Subscribe to graph events (the recompile path).
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	unsub := coord.SubscribeGraphEvents(ctx, dag)
 	defer unsub()
 
-	// C4.5: structural patch — add a node.
+	// Structural patch — add a node.
 	addErr := dag.AddNode(ctx, &engine.Step{
 		ID:        "c",
 		AgentType: "z",
@@ -56,13 +56,13 @@ func TestC4_StructuralPatchTriggersRecompile(t *testing.T) {
 	})
 	require.True(t, ok, "recompile must fire after AddNode, step count must be 3")
 
-	// C4.2: DAG version must be reflected in the compile record.
+	// DAG version must be reflected in the compile record.
 	last := coord.LastCompile()
 	assert.Equal(t, uint64(1), last.DAGVersion, "DAG version must be 1 after AddNode")
 	assert.Len(t, last.PlanIDs, 3, "3 tasks compiled from 3 steps")
 }
 
-// TestC4_RemoveNodeTriggersRecompile verifies C4.5: a RemoveNode
+// TestC4_RemoveNodeTriggersRecompile verifies: a RemoveNode
 // structural patch also triggers recompilation.
 func TestC4_RemoveNodeTriggersRecompile(t *testing.T) {
 	dag, err := engine.NewMutableDAG([]*engine.Step{
@@ -94,7 +94,7 @@ func TestC4_RemoveNodeTriggersRecompile(t *testing.T) {
 	require.True(t, ok, "recompile must fire after RemoveNode, step count must be 2")
 }
 
-// TestC4_IdempotentRecompile verifies C4.4: compiling the same DAG
+// TestC4_IdempotentRecompile verifies: compiling the same DAG
 // twice does not produce duplicate tasks (the coordinator cleans up
 // old tasks before recompiling).
 func TestC4_IdempotentRecompile(t *testing.T) {
@@ -119,7 +119,7 @@ func TestC4_IdempotentRecompile(t *testing.T) {
 	assert.Len(t, rec2.PlanIDs, 2, "same DAG must produce same task count")
 }
 
-// TestC4_CompileRecordCarriesDAGVersion verifies C4.2: the compile
+// TestC4_CompileRecordCarriesDAGVersion verifies: the compile
 // record carries the DAG version from MutableDAG.Version().
 func TestC4_CompileRecordCarriesDAGVersion(t *testing.T) {
 	dag, err := engine.NewMutableDAG([]*engine.Step{

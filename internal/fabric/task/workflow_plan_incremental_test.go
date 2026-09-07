@@ -19,7 +19,7 @@ func TestCompileNode_DependencyResolvesAgainstExistingFabricTask(t *testing.T) {
 	f := NewFabric()
 	require.NoError(t, f.Create(&Task{ID: "plan", Capability: "ares/plan"}))
 
-	// "grep" depends on a task that is NOT in the batch. Before M0 this was
+	// "grep" depends on a task that is NOT in the batch. Previously this was
 	// rejected as "depends on unknown step", which is what made runtime graph
 	// growth impossible.
 	id, err := f.CompileNode(context.Background(), PlanStep{
@@ -147,7 +147,7 @@ func TestUpdatePayload_PreservesEnvelopeFields(t *testing.T) {
 	dc, err := DecodeCheckpoint(mustTask(t, f, "a").Checkpoint)
 	require.NoError(t, err)
 	assert.Equal(t, "1", dc.Payload["budget"])
-	// A metadata patch must not re-stamp attribution (E1) nor lose progress.
+	// A metadata patch must not re-stamp attribution nor lose progress.
 	assert.Equal(t, "strategy-7", dc.StrategyID)
 	assert.Equal(t, "exp-3", dc.UsedExperienceID)
 	assert.Equal(t, "quantum-progress", dc.StepCheckpoint)

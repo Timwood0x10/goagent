@@ -4,7 +4,7 @@ import (
 	"sync"
 )
 
-// Evolution trajectory recording (v0.3.0 M3-1): captures a per-generation
+// Evolution trajectory recording: captures a per-generation
 // snapshot of the evolution system — generation number, best score, top
 // strategies and the changes that produced them — so the Dashboard can render
 // the optimization path (best-strategy trajectory / breakthrough changes /
@@ -18,7 +18,7 @@ type GenerationChange struct {
 	// Description is the mutation description (e.g. "param temperature 0.7→0.4").
 	Description string `json:"description"`
 	// Impact is the estimated score impact of this change (attribution; may
-	// be filled by M3-3).
+	// be filled by attribution).
 	Impact float64 `json:"impact"`
 }
 
@@ -39,7 +39,7 @@ type GenerationSnapshot struct {
 }
 
 // EvolutionTracer records generation snapshots and serves them to the
-// Dashboard (v0.3.0 M3-1). Thread-safe; unbounded history is capped by
+// Dashboard. Thread-safe; unbounded history is capped by
 // WithMaxGenerations (default keeps all).
 type EvolutionTracer struct {
 	mu        sync.Mutex
@@ -139,8 +139,8 @@ func (t *EvolutionTracer) GenerationCount() int {
 }
 
 // TrajectoryViews returns the recorded generations as JSON-friendly values
-// (oldest first), ready for the Dashboard's /evolution/trajectory endpoint
-// (v0.3.0 M3-1). Each entry mirrors GenerationSnapshot. Returns nil when
+// (oldest first), ready for the Dashboard's /evolution/trajectory endpoint.
+// Each entry mirrors GenerationSnapshot. Returns nil when
 // nothing is recorded.
 func (t *EvolutionTracer) TrajectoryViews() []map[string]any {
 	snaps := t.Snapshot()

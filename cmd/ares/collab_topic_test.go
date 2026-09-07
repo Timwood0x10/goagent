@@ -55,7 +55,7 @@ func (e *errChat) Chat(context.Context, []*core.LLMMessage, []core.Tool, map[str
 }
 
 // newL2TopicKernel builds a kernelHandle whose scheduler drains a scripted
-// planner/router L2 stack (M4-D: the only execution path). Sessions admitted
+// planner/router L2 stack (the only execution path). Sessions admitted
 // through submitPeerTask terminate without any real LLM.
 func newL2TopicKernel(t *testing.T, ctx context.Context, chat agentfabric.ChatClient) *kernelHandle {
 	t.Helper()
@@ -89,7 +89,7 @@ func newL2TopicKernel(t *testing.T, ctx context.Context, chat agentfabric.ChatCl
 	return &kernelHandle{fabric: fabric, scheduler: sched, sessionReg: reg, compileCoord: coord}
 }
 
-// TestCollabTopicAnsweredByL2Session locks the M4-D IPC contract: with the
+// TestCollabTopicAnsweredByL2Session locks the IPC contract: with the
 // peer kernel wired, an IPC collaboration topic message executes as an L2
 // SESSION and the reply preserves the TaskResult shape — protocol unchanged,
 // engine unified on the single path.
@@ -135,7 +135,7 @@ func TestCollabTopicAnsweredByL2Session(t *testing.T) {
 }
 
 // TestCollabTopicSessionsUniquePerInvocation locks the IPC-path session
-// uniqueness (M4-D successor of the run-id fix): two collaboration requests
+// uniqueness (successor of the run-id fix): two collaboration requests
 // sharing a task id must still produce DISTINCT sessions — otherwise the
 // second request's plan task would hit ErrTaskExists. Sequential invocations
 // with the SAME task id are enough: a deterministic id would repeat.
@@ -169,7 +169,7 @@ func TestCollabTopicSessionsUniquePerInvocation(t *testing.T) {
 	}
 
 	sessions := kh.sessionReg.SessionIDs()
-	// M4-D successor of the run-id uniqueness property: session ids carry a
+	// Successor of the run-id uniqueness property: session ids carry a
 	// process-wide atomic sequence (ipc-sess-<taskID>-<n>), so two requests
 	// sharing a task id can neither collide on task creation (both replies
 	// above succeeded) nor leak sessions afterwards.

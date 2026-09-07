@@ -11,7 +11,7 @@ import (
 // Fabric owns the Agent registry, Process Tree, and lifecycle primitives.
 // It is the Kernel's Lifecycle pillar: spawn / suspend /
 // resume / retire / kill / recover. It does NOT schedule (that is
-// taskfabric's job) and does NOT do IPC (that is P4).
+// taskfabric's job) and does NOT do IPC (a separate pillar).
 //
 // All state transitions are serialized under mu. Lifecycle events are emitted
 // via the optional EventSink so the Runtime can rebuild agent state from the
@@ -24,7 +24,7 @@ type Fabric struct {
 	now      func() time.Time // injectable clock for deterministic tests
 	sink     EventSink        // optional lifecycle event sink (nil = in-memory only)
 
-	// resourceBudget is the P5 resource quota (name → max total across live
+	// resourceBudget is the resource quota (name → max total across live
 	// agents); nil/empty disables admission control. allocated tracks the
 	// currently claimed amounts. Both are guarded by mu.
 	resourceBudget map[string]float64
@@ -33,7 +33,7 @@ type Fabric struct {
 	// snapshots keeps the last cognitive snapshot of agents that died via
 	// Kill, captured BEFORE the registry entry is removed (after which the
 	// agent is unreadable). Guarded by its own lock inside snapshotStore.
-	// Fusion plan Phase A1: agent-level cognitive resurrection.
+	// Agent-level cognitive resurrection.
 	snapshots *snapshotStore
 }
 
@@ -131,7 +131,7 @@ func (f *Fabric) Agents() []string {
 // IsIdle reports whether agentID is currently IDLE (schedulable). It is the
 // thread-safe scheduling view of Agent.State: the scheduler reads it from
 // drain goroutines without holding the agent's internal lock. Unknown or
-// non-IDLE agents report false (B1: 候选 = StateIdle 且 capability 匹配).
+// non-IDLE agents report false (候选 = StateIdle 且 capability 匹配).
 func (f *Fabric) IsIdle(agentID string) bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()

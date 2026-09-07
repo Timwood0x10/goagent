@@ -6,7 +6,7 @@
 >
 > 0.3.x 更新：故障注入与恢复验证分成了两套独立的表面。
 > - **`internal/aresrecovery`**：面向新的 Kernel 模型（agentfabric + taskfabric）。core 源码注释里写得很直白：**"Chaos breaks, Recovery fixes."**（Chaos 负责破坏，Recovery 负责修复）。这才是真正被接进生产 serve 路径、并带失效保护(fail-safe)的那套。
-> - **`internal/ares_arena`**：面向旧的"leader / sub agent + DAG"模型，是独立的 `ares arena serve` 混沌演练进程。它的 `Injector` 注释同样直白：**"它不实现恢复，恢复交给已有的 resurrection 插件和 failover。"**
+> - **`internal/runtime/arena`**：面向旧的"leader / sub agent + DAG"模型，是独立的 `ares arena serve` 混沌演练进程。它的 `Injector` 注释同样直白：**"它不实现恢复，恢复交给已有的 resurrection 插件和 failover。"**
 
 > 先说明本文的边界：下面讲到的每个符号、每条流程都是我在这份代码里实际读到的。凡是"配置了但代码里明确还没做成"或"需要额外接线才能生效"的部分，我会标出（待核实），不替它吹。
 
@@ -27,7 +27,7 @@
 | 表面 | 位置 | 目标模型 | 生产接线 | 恢复责任 |
 |------|------|----------|----------|----------|
 | Kernel 混沌 | `internal/aresrecovery` | agentfabric + taskfabric（新） | `cmd/ares` 的 `wireChaos`（live 模式多重门槛，默认 shadow） | `Recovery` 自己实现完整恢复链 |
-| Arena 演练 | `internal/ares_arena` | 旧 leader/sub agent + DAG | 独立进程 `ares arena serve` | `Injector` 明确**不**实现恢复，交给 ares_runtime 的 resurrection/failover |
+| Arena 演练 | `internal/runtime/arena` | 旧 leader/sub agent + DAG | 独立进程 `ares arena serve` | `Injector` 明确**不**实现恢复，交给 ares_runtime 的 resurrection/failover |
 
 两者都叫"混沌"，但一个是**被接进生产、带失效保护的恢复验证**，另一个是**独立于生产之外的演练进程**。下文分别讲。
 
@@ -113,7 +113,7 @@ flowchart LR
 
 ---
 
-## 四、Arena 演练进程：`internal/ares_arena`
+## 四、Arena 演练进程：`internal/runtime/arena`
 
 这是旧的、独立于生产的混沌演练层，由 `ares arena serve` 启动。它自己起一个 demo Agent 池（`arena-worker-1..3`，type=coder）和一棵可变 DAG，专门用来演示"打进故障 → 看系统反应"。
 
@@ -121,16 +121,16 @@ flowchart LR
 
 | 文件 | 用途 |
 |------|------|
-| `internal/ares_arena/types.go` | ActionType（13 种）、Action、Result、Stats |
-| `internal/ares_arena/injector.go` | Injector — 包装 `ares_runtime` + `MutableDAG`，**不实现恢复** |
-| `internal/ares_arena/service.go` | Service — Execute 动作、记录指标、发事件/失败证据 |
-| `internal/ares_arena/scenario.go` | 场景编排：YAML → 串行动作 → 报告 |
-| `internal/ares_arena/survival.go` | 生存模式：按间隔随机注入 |
-| `internal/ares_arena/metrics.go` | MetricsCollector — 每动作类型聚合 |
-| `internal/ares_arena/score.go` | 三维弹性评分 |
-| `internal/ares_arena/http.go` | REST + SSE + API key 认证 |
-| `internal/ares_arena/integration.go` | FlightBridge — arena 动作 → 飞行记录器 |
-| `internal/ares_arena/evolution_bridge.go` | EvolutionBridge → evolution Coordinator（待核实） |
+| `internal/runtime/arena/types.go` | ActionType（13 种）、Action、Result、Stats |
+| `internal/runtime/arena/injector.go` | Injector — 包装 `ares_runtime` + `MutableDAG`，**不实现恢复** |
+| `internal/runtime/arena/service.go` | Service — Execute 动作、记录指标、发事件/失败证据 |
+| `internal/runtime/arena/scenario.go` | 场景编排：YAML → 串行动作 → 报告 |
+| `internal/runtime/arena/survival.go` | 生存模式：按间隔随机注入 |
+| `internal/runtime/arena/metrics.go` | MetricsCollector — 每动作类型聚合 |
+| `internal/runtime/arena/score.go` | 三维弹性评分 |
+| `internal/runtime/arena/http.go` | REST + SSE + API key 认证 |
+| `internal/runtime/arena/integration.go` | FlightBridge — arena 动作 → 飞行记录器 |
+| `internal/runtime/arena/evolution_bridge.go` | EvolutionBridge → evolution Coordinator（待核实） |
 | `cmd/ares/arena.go` | `ares arena` CLI：run / validate / list / serve / survival / inspect |
 | `cmd/ares/serve_chaos.go` | 生产 kernel 混沌接线（上一节的 wireChaos） |
 
@@ -141,7 +141,7 @@ flowchart LR
 `Injector` 依赖两个**接口子集**：`RuntimeProvider`（ares_runtime 的能力子集）和 `DAGProvider`（可变 DAG 的增删能力子集）。基于接口的设计让 arena 不需要引入具体 Runtime/DAG 包，也容易 mock。
 
 ```go
-// internal/ares_arena/injector.go
+// internal/runtime/arena/injector.go
 // Injector wraps existing ares_runtime/DAG APIs to inject chaos.
 // It does NOT implement recovery; the existing resurrection plugin and
 // failover handle that automatically.
@@ -152,11 +152,11 @@ type Injector struct {
 
 func (in *Injector) KillLeader(ctx context.Context) (string, error) {
 	leaderID := ""
-	for _, info := range in.ares_runtime.ListAgents() {
+	for _, info := range in.runtime.ListAgents() {
 		if info.Type == "leader" { leaderID = info.ID; break }
 	}
 	if leaderID == "" { return "", ErrLeaderNotFound }
-	if err := in.ares_runtime.StopAgent(ctx, leaderID); err != nil {
+	if err := in.runtime.StopAgent(ctx, leaderID); err != nil {
 		return "", fmt.Errorf("arena: kill leader %s: %w", leaderID, err)
 	}
 	return leaderID, nil
@@ -165,7 +165,7 @@ func (in *Injector) KillLeader(ctx context.Context) (string, error) {
 
 它没有自己实现任何恢复。恢复被**期望**来自 ares_runtime 的 resurrection/failover。`KillLeader` 就是查一个 type=="leader" 的 Agent，然后 `StopAgent` 而已——"新 Leader 由 failover 自动推举"这一步并不在这个进程内实现。
 
-`internal/ares_arena/e2e_chaos_recovery_test.go` 里有一个真正的端到端验证：它驱动真正的 `ares_runtime.Manager`，注册带重建 factory 的 worker 池，调用 `Manager.NotifyAgentDead(...)` 模拟批量崩溃，然后轮询 factory 调用次数，断言复活异步发生、Manager 仍跟踪着一个存活的池。规模测到 16/64/128。
+`internal/runtime/arena/e2e_chaos_recovery_test.go` 里有一个真正的端到端验证：它驱动真正的 `runtime.Manager`，注册带重建 factory 的 worker 池，调用 `Manager.NotifyAgentDead(...)` 模拟批量崩溃，然后轮询 factory 调用次数，断言复活异步发生、Manager 仍跟踪着一个存活的池。规模测到 16/64/128。
 
 ### 4.2 十三种动作
 
@@ -302,7 +302,7 @@ flowchart LR
 把这套东西讲透之后，我希望你能记住的不是某个分数，而是两条**写进注释的边界**：
 
 1. 在 `internal/aresrecovery`：**"Chaos breaks, Recovery fixes."** 破坏和修复是两个独立职责，中间靠一个显式的 `VerifyRecovery()` 验证把两半焊起来。生产里 live 混沌被六重护栏锁得死死的，默认姿态是连生产 Agent 都不碰的 shadow sandbox。
-2. 在 `internal/ares_arena`：**"It does NOT implement recovery."** 它只负责把故障打进去，恢复是 ares_runtime 里既有机制的事，独立于生产之外当演练场。
+2. 在 `internal/runtime/arena`：**"It does NOT implement recovery."** 它只负责把故障打进去，恢复是 ares_runtime 里既有机制的事，独立于生产之外当演练场。
 
 我没有在这个仓库里看到旧文那种"Score 100.0 (A+)"、"1.4 秒内复活"、"97.3% 恢复率"的数字证据，所以上面一个都没写；一致性维度默认是启发式，`parallel_actions`/`depends_on` 尚未真正实现，`EvolutionBridge` 的回灌效果也标注待核实。
 

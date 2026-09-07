@@ -384,7 +384,7 @@ tools:
 // TestCatalogSeedsEnvcapAggregation verifies the envcap integration point:
 // after SeedRegistry, the catalog's index becomes the skills source of an
 // envcap.Searcher, so a unified tools/skills/commands query can hit catalog
-// skills (design §12: envcap is the ToolResolver query front-end).
+// skills (envcap is the ToolResolver query front-end).
 func TestCatalogSeedsEnvcapAggregation(t *testing.T) {
 	root := t.TempDir()
 	makeSkillDir(t, root, "audit", "Security Audit", "audit code for OWASP", "")
@@ -416,7 +416,7 @@ func TestCatalogSeedsEnvcapAggregation(t *testing.T) {
 	}
 }
 
-// TestCatalogActivateConnectsMCP verifies lazy MCP connection (acceptance #3):
+// TestCatalogActivateConnectsMCP verifies lazy MCP connection:
 // an MCP tool's declared server is connected only when the skill is
 // activated, and never before.
 func TestCatalogActivateConnectsMCP(t *testing.T) {

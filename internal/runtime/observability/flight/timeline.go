@@ -117,7 +117,7 @@ func (t *Timeline) Add(event TimelineEvent) {
 		}
 	}
 	t.events = append(t.events, event)
-	// P1-2: ring cap — drop the oldest event when the cap is exceeded.
+	// Ring cap — drop the oldest event when the cap is exceeded.
 	if t.cap > 0 && len(t.events) > t.cap {
 		t.events = t.events[len(t.events)-t.cap:]
 	}

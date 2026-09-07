@@ -80,7 +80,7 @@ func TestFromMemoryTruncation(t *testing.T) {
 
 // TestFromMemoryTruncation_RespectsConfiguredLength verifies that the
 // truncation length is driven by the adapter's configured maxContentLen,
-// not the hardcoded 200. This is the regression test for R16.
+// not the hardcoded 200. This is the regression test for that truncation.
 func TestFromMemoryTruncation_RespectsConfiguredLength(t *testing.T) {
 	const configuredLen = 50
 	longContent := strings.Repeat("abcdefghij", 20) // 200 chars, well above configuredLen

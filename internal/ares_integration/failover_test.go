@@ -18,7 +18,7 @@ import (
 
 // createTestAgentCheckpoint upserts a row into the agent_checkpoints table
 // via raw SQL. The leader state package (state.CheckpointRepository) was
-// removed with the leader runtime (aresos-agentos-plan C1); the table remains
+// removed with the leader runtime; the table remains
 // because the memory manager's GetLatestSessionForAgent reads it directly.
 func createTestAgentCheckpoint(
 	ctx context.Context,

@@ -382,7 +382,7 @@ func TestSetTaskContextDoesNotMutateCaller(t *testing.T) {
 }
 
 // TestConcurrentSpawnIsSafe verifies concurrent spawn is race-free
-// (code_rules §4.6: go test -race).
+// (go test -race).
 func TestConcurrentSpawnIsSafe(t *testing.T) {
 	f := NewFabric()
 	var wg sync.WaitGroup
@@ -402,7 +402,7 @@ func TestConcurrentSpawnIsSafe(t *testing.T) {
 }
 
 // TestSpawnCarriesPriority verifies the scheduling priority requested at
-// spawn is carried onto the Agent (B2: OS-thread-style thread priority) and
+// spawn is carried onto the Agent (OS-thread-style thread priority) and
 // that the default 0 stays 0.
 func TestSpawnCarriesPriority(t *testing.T) {
 	ctx := context.Background()

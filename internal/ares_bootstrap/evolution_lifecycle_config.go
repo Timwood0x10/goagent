@@ -1,7 +1,7 @@
-// evolution_lifecycle_config.go maps the evolution YAML blocks (design doc
-// ga-runtime-evolution-design-zh.md §7) onto the ares_evolution control-plane
+// evolution_lifecycle_config.go maps the evolution YAML blocks onto the
+// ares_evolution control-plane
 // config structs. Keeping the mapping in one place makes the YAML contract
-// auditable against the design doc in a single file.
+// auditable against the design in a single file.
 package ares_bootstrap
 
 import (
@@ -29,7 +29,7 @@ func defaultInt(v, def int) int {
 }
 
 // lifecycleConfigFromYAML builds the evolution.LifecycleConfig from the
-// evolution.{lifecycle,gates} YAML blocks (design doc §7). Zero-value YAML
+// evolution.{lifecycle,gates} YAML blocks. Zero-value YAML
 // fields fall back to DefaultLifecycleConfig so an absent YAML section
 // preserves the code defaults.
 func lifecycleConfigFromYAML(lc ares_config.EvolutionLifecycleConfig, gc ares_config.EvolutionGateConfig, cf ares_config.ChannelFeedbackConfig) *evolution.LifecycleConfig {
@@ -46,7 +46,7 @@ func lifecycleConfigFromYAML(lc ares_config.EvolutionLifecycleConfig, gc ares_co
 		// a broken YAML knob must never stop the watch loop entirely.
 	}
 	cfg.BlacklistGenerations = defaultInt(lc.BlacklistGenerations, cfg.BlacklistGenerations)
-	// E2: promote throttle. Invalid or non-positive values fall back to the
+	// Promote throttle. Invalid or non-positive values fall back to the
 	// default (3 × watch_interval) — a broken knob must never disable the
 	// throttle, it is a correctness precondition of the open promote path.
 	if lc.MinActiveDuration != "" {
@@ -65,7 +65,7 @@ func lifecycleConfigFromYAML(lc ares_config.EvolutionLifecycleConfig, gc ares_co
 // normalizes by the weight sum at query time) — silently mixing partial
 // specs with defaults would produce a blend the operator did not specify.
 //
-// The Step Y channel weights come from a DIFFERENT YAML block
+// The channel weights come from a DIFFERENT YAML block
 // (evolution.channel_feedback) and are applied on top either way: they are not
 // part of the "did the operator specify any weights" question, because a
 // channel weight without the channel's `enabled` switch records nothing to

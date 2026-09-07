@@ -6,7 +6,7 @@ import (
 )
 
 // TestClampUnit validates that ClampUnit bounds values to [0, 1] including the
-// NaN and boundary edge cases required by code_rules §9 (defensive programming).
+// NaN and boundary edge cases (defensive programming).
 func TestClampUnit(t *testing.T) {
 	tests := []struct {
 		name string

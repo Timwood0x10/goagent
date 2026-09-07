@@ -75,7 +75,7 @@ var coreMigrationStatements = []string{
 	`CREATE INDEX IF NOT EXISTS idx_embeddings_table_name ON embeddings(table_name)`,
 
 	// agent_checkpoints - session checkpoints for agent recovery. Renamed from
-	// leader_checkpoints (aresos-hardening-plan H3.3). The DO block migrates
+	// leader_checkpoints. The DO block migrates
 	// existing databases without data loss; on fresh databases all IF EXISTS
 	// checks are no-ops. Rename only when the target table is absent — if
 	// agent_checkpoints already exists (idempotent re-run), the old table's

@@ -234,7 +234,7 @@ func TestGraphPatchExecutor_CanApply_NilGraph(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// TestGraphPatchExecutor_PlaceholderNode_IsHonestNotSilent verifies the R6 fix:
+// TestGraphPatchExecutor_PlaceholderNode_IsHonestNotSilent verifies the fix:
 // when an InsertNode/ReplaceNode patch carries no real Node implementation, the
 // executor does NOT silently return success doing nothing. Instead the inserted
 // node writes a distinguishable PlaceholderResult into state so callers can tell

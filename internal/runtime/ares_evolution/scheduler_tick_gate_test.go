@@ -2,8 +2,7 @@
 
 package evolution
 
-// scheduler_tick_gate_test.go locks design-doc §8 acceptance assertions 5–6
-// (ga-runtime-evolution-design-zh.md):
+// scheduler_tick_gate_test.go locks two scheduler invariants:
 //
 //	5. single-trigger — repeated Tick calls inside MinInterval run at most
 //	   one evolution cycle (throttling applies to the time-triggered path
@@ -20,7 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestClosure_Tick_MinIntervalThrottlesRepeatTicks (§8 assertion 5).
+// TestClosure_Tick_MinIntervalThrottlesRepeatTicks (single-trigger).
 func TestClosure_Tick_MinIntervalThrottlesRepeatTicks(t *testing.T) {
 	adapter := newMockAdapterForScheduler()
 	s := NewEvolutionScheduler(nil, adapter, WithMinInterval(time.Hour))
@@ -49,7 +48,7 @@ func TestClosure_Tick_MinIntervalThrottlesRepeatTicks(t *testing.T) {
 		"Tick inside MinInterval must not start a second generation")
 }
 
-// TestClosure_RecordScore_ClampsToUnitInterval (§8 assertion 6).
+// TestClosure_RecordScore_ClampsToUnitInterval (unit-interval clamping).
 func TestClosure_RecordScore_ClampsToUnitInterval(t *testing.T) {
 	s := NewEvolutionScheduler(nil, newMockAdapterForScheduler())
 

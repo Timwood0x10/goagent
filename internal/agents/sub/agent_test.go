@@ -22,7 +22,7 @@ const (
 )
 
 // stubExecutor is a scripted TaskExecutor for subAgent lifecycle tests
-// (M4-D: replaces the deleted ReAct tool loop in test setups). It reports
+// (replaces the deleted ReAct tool loop in test setups). It reports
 // one scripted successful result; failure paths use failingExecutor.
 type stubExecutor struct {
 	result *models.TaskResult
@@ -756,7 +756,7 @@ func TestSubAgent_ProcessStream_EmitsTaskEvents(t *testing.T) {
 	}
 
 	// Events: EventAgentStarted (from Start), EventTaskCreated, EventTaskCompleted.
-	// (M4-D: the executor-defer EventSubTaskResult died with the tool loop.
+	// (The executor-defer EventSubTaskResult died with the tool loop.
 	// No production consumer matched its shape — the skills recorder reads
 	// Payload["task"]/["success"], which that event never carried.)
 	evts, err := store.Read(context.Background(), "sub1", ares_events.ReadOptions{})

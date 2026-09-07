@@ -196,7 +196,7 @@ func (w *FileWatcher) Close() {
 }
 
 // scanAndLoad scans and loads workflows from directory.
-// M6 fix: hold Lock across the entire compare-and-swap cycle to prevent
+// Hold Lock across the entire compare-and-swap cycle to prevent
 // TOCTOU race where concurrent scanAndLoad calls interleave read and write.
 func (w *FileWatcher) scanAndLoad(ctx context.Context, dir string) error {
 	entries, err := os.ReadDir(dir)
@@ -262,7 +262,7 @@ func (w *FileWatcher) scanAndLoad(ctx context.Context, dir string) error {
 }
 
 // notifyCallbacks notifies all registered callbacks.
-// M7 fix: deep-copy the workflows map before passing to callbacks so that
+// Deep-copy the workflows map before passing to callbacks so that
 // callbacks cannot mutate the shared map or see inconsistent state.
 func (w *FileWatcher) notifyCallbacks() {
 	w.mu.RLock()
@@ -392,7 +392,7 @@ func (r *WorkflowReloader) onReload(workflows map[string]*Workflow) {
 }
 
 // notifyCallbacks notifies all registered callbacks.
-// M7 fix: deep-copy the workflows map before passing to callbacks so that
+// Deep-copy the workflows map before passing to callbacks so that
 // callbacks cannot mutate the shared map or see inconsistent state.
 func (r *WorkflowReloader) notifyCallbacks() {
 	r.mu.RLock()

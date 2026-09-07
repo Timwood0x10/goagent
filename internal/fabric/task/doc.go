@@ -1,5 +1,5 @@
-// Package taskfabric is the ARES task projection layer (convergence
-// Phase 2b: relocated from internal/taskfabric, package identity kept).
+// Package taskfabric is the ARES task projection layer
+// (relocated from internal/taskfabric, package identity kept).
 //
 // It projects plan graphs into executable fabric tasks and tracks their
 // lifecycle: the READY/RUNNING/COMPLETED/FAILED state machine, leases with

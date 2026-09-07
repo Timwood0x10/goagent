@@ -1,11 +1,11 @@
 // gate_eval.go wraps the runtime eval evaluation framework into a VerifyGate
 // so the StrategyLifecycle can run independent regression tests before
-// promoting a candidate strategy (B5 fix: Eval was built but never
+// promoting a candidate strategy (Eval previously existed but never
 // participated in promote/rollback decisions).
 //
-// G3 (Eval Suite) is the third gate in the verify pipeline:
+// The eval suite is the third gate in the verify pipeline:
 //
-//	G1 Guardrail → G2 Shadow → G3 Eval Suite → G4 Deployment staging
+//	Guardrail → Shadow → Eval Suite → Deployment staging
 //
 // When no EvaluatorRegistry is wired, the gate is a pass-through (returns
 // pass=true) so the pipeline degrades gracefully in environments without
@@ -22,7 +22,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/runtime/eval"
 )
 
-// EvalGateConfig configures the G3 eval-suite verify gate.
+// EvalGateConfig configures the eval-suite verify gate.
 type EvalGateConfig struct {
 	// MinScore is the minimum weighted average score for a candidate to
 	// pass. Default: 0.7.
@@ -45,7 +45,7 @@ func DefaultEvalGateConfig() EvalGateConfig {
 	}
 }
 
-// EvalGate is the G3 verify gate. It wraps an eval.EvaluatorRegistry
+// EvalGate is the eval-suite verify gate. It wraps an eval.EvaluatorRegistry
 // and an optional AgentTestRunner to score candidate strategies against a
 // fixed regression suite. The gate is pass-through when no registry is set
 // (unless StrictMode is enabled, in which case it fails closed).
@@ -57,8 +57,8 @@ type EvalGate struct {
 	// skippedCount tracks how many times the gate was skipped due to
 	// missing infrastructure. Exposed via SkippedCount for observability.
 	skippedCount int
-	// logger receives a structured warn on every skip (E3) so a
-	// misconfigured G3 gate is operator-visible instead of a silent pass.
+	// logger receives a structured warn on every skip so a
+	// misconfigured eval gate is operator-visible instead of a silent pass.
 	logger *slog.Logger
 	// beforeRun, when set, is invoked with the candidate right before the
 	// suite runs — the seam that lets the executor run test cases THROUGH
@@ -79,7 +79,7 @@ func WithEvalGateBeforeRun(fn func(*mutation.Strategy)) EvalGateOption {
 	}
 }
 
-// WithEvalGateLogger overrides the skip-warning sink (E3). Default is
+// WithEvalGateLogger overrides the skip-warning sink. Default is
 // slog.Default(); tests inject a buffered handler to assert the warn.
 func WithEvalGateLogger(l *slog.Logger) EvalGateOption {
 	return func(g *EvalGate) {
@@ -89,7 +89,7 @@ func WithEvalGateLogger(l *slog.Logger) EvalGateOption {
 	}
 }
 
-// NewEvalGate creates a G3 eval-suite gate. Any nil argument makes the gate
+// NewEvalGate creates an eval-suite gate. Any nil argument makes the gate
 // a pass-through (always passes), so the pipeline degrades gracefully.
 func NewEvalGate(
 	registry *eval.EvaluatorRegistry,
@@ -118,7 +118,7 @@ func (g *EvalGate) Name() string {
 
 // SkippedCount returns the number of times the gate was skipped due to
 // missing eval infrastructure (registry, runner, or empty suite). This
-// counter lets operators detect a misconfigured G3 gate that would
+// counter lets operators detect a misconfigured eval gate that would
 // otherwise silently pass every candidate.
 func (g *EvalGate) SkippedCount() int {
 	return g.skippedCount

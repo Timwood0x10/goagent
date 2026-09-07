@@ -182,14 +182,14 @@ func (m *Manager) RegisterAgent(agent base.Agent, factory AgentFactory) {
 
 // AgentDAGEvolutionKey is the key under which Bootstrap registers the
 // synthetic placeholder DAG that the evolution executors are bound to until a
-// real agent DAG is injected (F04 isolation: the synthetic graph is confined
+// real agent DAG is injected (the synthetic graph is confined
 // to this key and never masquerades as a live target).
 const AgentDAGEvolutionKey = "evolution"
 
 // AgentDAGLiveKey is the key under which the serve entry registers the real
 // live agent DAG (built from the configured agent population). It is the
 // single key the evolution system reads to apply workflow/recovery patches to
-// the production topology (N3: the serve side previously registered the live
+// the production topology (the serve side previously registered the live
 // DAG under a third, orphaned key, so it never replaced the placeholder).
 const AgentDAGLiveKey = "leader-live"
 
@@ -262,7 +262,7 @@ func (m *Manager) StartAgent(ctx context.Context, agent base.Agent) error {
 	// If runtime hasn't started yet, skip launching — Start() will re-launch
 	// all agents with the real errgroup context (m.gctx). Launching now would
 	// attach the goroutine to the pre-start errgroup which gets discarded,
-	// creating an orphan agent whose context is never cancelled (R-01).
+	// creating an orphan agent whose context is never cancelled.
 	if !m.isStarted {
 		m.mu.Unlock()
 		return nil
@@ -510,7 +510,7 @@ func (m *Manager) recoverAgentState(ctx context.Context, agentID string, factory
 		store := m.snapshotStore
 		m.mu.RUnlock()
 
-		// D1: RecoverSnapshotOrEvents inlined — try snapshot store first,
+		// RecoverSnapshotOrEvents inlined — try snapshot store first,
 		// then fall back to event replay.
 		state := func() map[string]any {
 			if store != nil {
@@ -621,7 +621,7 @@ func (m *Manager) NotifyAgentDead(agentID string, reason string) {
 	)
 
 	// The detached label registers a background job for observability; it
-	// must be released when the emit completes (#47), or the active-count
+	// must be released when the emit completes, or the active-count
 	// only ever grows.
 	emitCtx := ares_ctxutil.WithDetachedLabel("runtime:notify-agent-dead")
 	defer ares_ctxutil.DoneBackground("runtime:notify-agent-dead")

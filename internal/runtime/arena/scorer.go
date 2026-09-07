@@ -60,7 +60,7 @@ func NewEnsembleScorer(pairs ...any) (*EnsembleScorer, error) {
 // Score calls each sub-scorer and returns the weighted average.
 // If any sub-scorer fails, the error is returned immediately.
 // The context is forwarded to sub-scorers so slow (LLM-backed) scorers
-// can observe cancellation (M4).
+// can observe cancellation.
 func (es *EnsembleScorer) Score(ctx context.Context, input any) (float64, error) {
 	var weightedSum float64
 	for i, s := range es.scorers {
@@ -121,7 +121,7 @@ type MapScorer struct {
 
 // NewMapScorer creates a scorer from an arbitrary scoring function.
 // The wrapped function receives the context so slow scorers can observe
-// cancellation (M4).
+// cancellation.
 func NewMapScorer(fn func(ctx context.Context, input any) (float64, error)) *MapScorer {
 	return &MapScorer{fn: fn}
 }

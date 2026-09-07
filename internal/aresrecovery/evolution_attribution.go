@@ -1,6 +1,6 @@
 package aresrecovery
 
-// Change attribution (v0.3.0 M3-3): estimates how much each change in a
+// Change attribution: estimates how much each change in a
 // generation contributed to the score delta versus the previous generation.
 // The attribution is deliberately simple and auditable — it does not pretend
 // to run counterfactuals: explicit Impact values (when the evolution system

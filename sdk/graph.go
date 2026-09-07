@@ -8,7 +8,7 @@ import (
 )
 
 // Graph is dynamic orchestration as a first-class citizen of the SDK
-// (docs/design/sdk-graph-v030.md, v0.4.0 M1). Nodes execute, edges carry
+// (docs/design/sdk-graph-v030.md). Nodes execute, edges carry
 // optional conditions, and an optional router overrides the next hop at
 // runtime — a minimal revival of the retired workflow-graph essentials
 // (NodeRouter + conditional edges + runtime mutation), driven through the
@@ -35,7 +35,7 @@ type Graph struct {
 	MaxIterations int
 	// MaxRoundConcurrency caps how many ready nodes launch in parallel within
 	// one round (errgroup limit; 0 = unbounded). It carries the concurrency-
-	// throttling value of the retired workflow schedulers (fusion plan §B1):
+	// throttling value of the retired workflow schedulers:
 	// ordering policies died with workflow.Runner because a fully-parallel
 	// ready batch has no "who runs first" decision left to make, but capping
 	// simultaneous LLM calls remains operationally meaningful.
@@ -68,7 +68,7 @@ type graphEdge struct {
 	cond     func(state map[string]any) bool
 }
 
-// Limits hard-coded per design §6; Add* records a deferred error on violation.
+// Limits hard-coded by design; Add* records a deferred error on violation.
 const (
 	maxGraphNodes = 1024
 	maxGraphEdges = 4096
@@ -237,7 +237,7 @@ type graphSnapshot struct {
 	conds          map[[2]string]func(map[string]any) bool
 	buildErr       error
 	timeout        time.Duration
-	// B32: maxIterations is snapshotted under RLock to prevent the data
+	// maxIterations is snapshotted under RLock to prevent the data
 	// race when RunGraph reads it without holding the lock.
 	maxIterations int
 }

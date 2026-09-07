@@ -64,7 +64,7 @@ func (b *DimensionJudgeBridge) ToEvidence(taskID, role string, resp *DimensionJu
 
 	ev := NewEvidence(taskID, role, "dimension_judge")
 	// Feed the SAME clamped value to both the dimension verdict and its
-	// evidence item (#45): previously the item status was computed from the
+	// evidence item: previously the item status was computed from the
 	// RAW float while Pass used the rounded int, so a score like 1.2/2 could
 	// yield Pass=true with a "failed" item — contradictory evidence.
 	correctness := clampScore(resp.Correctness, 3)

@@ -12,7 +12,7 @@ import (
 
 // stubExpRepo is a minimal ExperienceRepositoryInterface whose ListByAgent
 // behavior the test controls. All other methods panic to surface accidental
-// use (the production path only calls ListByAgent for the G1 prior).
+// use (the production path only calls ListByAgent for the spawn prior).
 type stubExpRepo struct {
 	exps    []*models.Experience
 	err     error
@@ -49,8 +49,8 @@ func (s *stubExpRepo) ListByAgent(ctx context.Context, agentID, tenantID string,
 	return s.exps, nil
 }
 
-// TestLoadExperiencePrior_ReturnsDistilledExperience verifies the G1 wiring
-// (aresos-agentos-plan G1: 蒸馏异步产出 → 经验仓库查询 → spawn 注入): the
+// TestLoadExperiencePrior_ReturnsDistilledExperience verifies the wiring
+// (蒸馏异步产出 → 经验仓库查询 → spawn 注入): the
 // agent's most recent distilled experience is returned as a structured prior
 // (type/problem/solution/constraints) and the query scopes the default tenant.
 func TestLoadExperiencePrior_ReturnsDistilledExperience(t *testing.T) {

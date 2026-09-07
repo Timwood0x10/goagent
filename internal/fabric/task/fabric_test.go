@@ -261,7 +261,7 @@ func TestFabricFailRetries(t *testing.T) {
 	}
 }
 
-// TestFabricTerminalEventsCarryAgentID locks the N8 contract: terminal and
+// TestFabricTerminalEventsCarryAgentID locks the contract: terminal and
 // requeue events must record the agent that caused the transition. The old
 // code cleared the owner BEFORE recording, so task.failed / task.expired /
 // task.released events lost the actor.
@@ -335,7 +335,7 @@ func TestFabricTerminalEventsCarryAgentID(t *testing.T) {
 	})
 }
 
-// TestFabricEventLogBounded locks the N8 contract: the in-memory lifecycle log
+// TestFabricEventLogBounded locks the contract: the in-memory lifecycle log
 // is capped (maxInMemoryEvents × 2 resident bound), so a pathological number
 // of transitions cannot grow memory without bound.
 func TestFabricEventLogBounded(t *testing.T) {

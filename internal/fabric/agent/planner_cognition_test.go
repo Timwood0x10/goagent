@@ -91,7 +91,7 @@ func (b *plannerTestBinder) GetToolSchemas() []resources.ToolSchema {
 	}}
 }
 
-// TestPlannerCognition_GrowsTwoPlanRoundsWithToolNodes is the M2 acceptance
+// TestPlannerCognition_GrowsTwoPlanRoundsWithToolNodes is the acceptance
 // test: a task that needs 2 rounds of tool calling grows a session graph
 // with 2 plan nodes, 2 tool nodes, and 1 answer node. The graph topology
 // is acyclic (GetExecutionOrder succeeds), every node gets a fabric task,
@@ -215,8 +215,8 @@ func TestPlannerCognition_GrowsTwoPlanRoundsWithToolNodes(t *testing.T) {
 	chatClient.mu.Unlock()
 }
 
-// TestPlannerCognition_MaxDepthForcesAnswer verifies the growth-depth guard
-// (M2-④): when the plan depth reaches the max, the planner grows an answer
+// TestPlannerCognition_MaxDepthForcesAnswer verifies the growth-depth guard:
+// when the plan depth reaches the max, the planner grows an answer
 // node instead of another tool round.
 func TestPlannerCognition_MaxDepthForcesAnswer(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -282,7 +282,7 @@ func TestPlannerCognition_MaxDepthForcesAnswer(t *testing.T) {
 		"exactly one quantum hit the depth guard (M4-B2 canary metric)")
 }
 
-// TestReaper_HarvestsTerminalTasks verifies the M2-⑤ reaper: terminal tasks
+// TestReaper_HarvestsTerminalTasks verifies the reaper: terminal tasks
 // matching the session prefix are deleted; in-flight tasks survive; the
 // grace period protects recently-completed tasks.
 func TestReaper_HarvestsTerminalTasks(t *testing.T) {
@@ -298,7 +298,7 @@ func TestReaper_HarvestsTerminalTasks(t *testing.T) {
 	// Reaper with 1ns grace — the tasks were just created, but 1ns is
 	// short enough that even a few nanoseconds' elapsed time exceeds
 	// it. The production default is 30s; here we need immediate
-	// harvesting, and 1ns avoids time.Sleep (code_rules_v2 §7.3).
+	// harvesting, and 1ns avoids time.Sleep.
 	r := taskfabric.NewReaper(fabric, "sess/s1/", 1)
 	removed := r.Sweep()
 	require.Equal(t, 2, removed, "only COMPLETED + FAILED session tasks harvested")
@@ -411,7 +411,7 @@ func (c *recordingChat) Chat(_ context.Context, msgs []*core.LLMMessage, _ []cor
 	return &core.GenerateResponse{Content: "done"}, nil
 }
 
-// TestPlannerCognition_StrategySteersGrowth locks the M4-D actuator read:
+// TestPlannerCognition_StrategySteersGrowth locks the actuator read:
 // a deployed strategy's prompt template rides a system message and its
 // params ride the LLM call. A nil source steers nothing.
 func TestPlannerCognition_StrategySteersGrowth(t *testing.T) {

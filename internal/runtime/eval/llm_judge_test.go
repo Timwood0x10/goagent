@@ -66,7 +66,7 @@ func TestNewLLMJudgeEvaluator_WithOptions(t *testing.T) {
 
 // TestNewLLMJudgeEvaluator_InvalidPromptFails ensures a custom prompt template
 // that fails to parse fails construction instead of silently falling back to
-// the default prompt (G3 gate integrity: a misconfigured judge must not score
+// the default prompt (eval gate integrity: a misconfigured judge must not score
 // candidates against an unintended prompt).
 func TestNewLLMJudgeEvaluator_InvalidPromptFails(t *testing.T) {
 	client := &mockLLMClient{response: `{"score": 8, "reason": "ok"}`}

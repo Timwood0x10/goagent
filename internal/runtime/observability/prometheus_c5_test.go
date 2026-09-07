@@ -12,7 +12,7 @@ import (
 )
 
 // newTestMetricsWithCompile creates a PrometheusMetrics instance with the
-// C5.3 compile gauges registered on a private registry for test isolation.
+// compile gauges registered on a private registry for test isolation.
 func newTestMetricsWithCompile(t *testing.T) (*PrometheusMetrics, http.Handler) {
 	t.Helper()
 	reg := prometheus.NewRegistry()
@@ -95,7 +95,7 @@ func TestPrometheusMetrics_EvolutionCompileCount(t *testing.T) {
 	}
 }
 
-// TestPrometheusMetrics_NilSafeC5 verifies the C5.3 metric setters are
+// TestPrometheusMetrics_NilSafeC5 verifies the compile metric setters are
 // nil-safe (matching the existing convention for all metrics methods).
 func TestPrometheusMetrics_NilSafeC5(t *testing.T) {
 	var m *PrometheusMetrics // nil

@@ -158,7 +158,8 @@ func (r *MemoryRetriever) SetEvidenceEmitter(em EvidenceEmitter) {
 //   - Empty input returns an empty slice + nil error (no embedding call).
 //   - topK <= 0 is normalized to 5.
 //   - Embedding failure returns a wrapped error; the retriever does not
-//     silently fall back to keyword search (code_rules §9).
+//     silently fall back to keyword search (graceful degradation means
+//     surfacing the error, not masking it).
 //   - Snippets with Score < minScore are filtered out.
 //   - At most topK snippets are returned, sorted by Score descending.
 //

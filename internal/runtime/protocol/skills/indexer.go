@@ -118,7 +118,7 @@ func (ix *Indexer) indexOne(kind SourceKind, dir string) (SkillIndexEntry, error
 		}
 	}
 
-	// Deterministic content hash for change detection (design §5).
+	// Deterministic content hash for change detection.
 	entry.Hash = contentHash(dir)
 
 	if entry.Name == "" {

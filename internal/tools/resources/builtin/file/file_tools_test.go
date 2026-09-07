@@ -234,7 +234,7 @@ func TestFileToolsRead_Success(t *testing.T) {
 		t.Errorf("operation = %v, want 'read'", data["operation"])
 	}
 
-	// The operation reports the symlink-resolved secure path (M11), which
+	// The operation reports the symlink-resolved secure path, which
 	// may differ from the input on platforms where TempDir passes through a
 	// symlink (e.g. macOS /var -> /private/var).
 	resolvedFile, err := filepath.EvalSymlinks(testFile)

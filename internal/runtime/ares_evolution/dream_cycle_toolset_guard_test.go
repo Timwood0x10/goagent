@@ -48,8 +48,8 @@ func (r *recordingTester) runCount() int {
 
 // newToolGuardDreamCycle builds a DreamCycle whose only interesting wiring is
 // the tool-set guardrail, with both arena stages configured to pass anything
-// they are handed. Any rejection observed in these tests is therefore the C6
-// guard, not the win-rate screen.
+// they are handed. Any rejection observed in these tests is therefore the
+// tool-set guard, not the win-rate screen.
 func newToolGuardDreamCycle(t *testing.T, tester TesterInterface, guardOpts ...GuardrailOption) *DreamCycle {
 	t.Helper()
 	guards, err := NewEvolutionGuardrails(guardOpts...)
@@ -75,7 +75,8 @@ func strategyWithTools(id, tools string) Strategy {
 	return Strategy{ID: id, Name: id, Version: 2, Params: map[string]any{"tools": tools}}
 }
 
-// TestFindWinner_ToolSetGuardRejectsBeforeArena is the C6 wiring assertion: a
+// TestFindWinner_ToolSetGuardRejectsBeforeArena is the tool-set guardrail
+// wiring assertion: a
 // candidate whose evolved Params["tools"] exceeds the guardrail bound must be
 // dropped in the selection path, BEFORE it is arena-tested. Without the wiring
 // the guard was dead code — ValidateToolSet existed but nothing called it, so an

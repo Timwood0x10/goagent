@@ -12,7 +12,7 @@ func echoHandler(ctx context.Context, msg *Message) (*Message, error) {
 	return &Message{ID: msg.ID, From: msg.To, To: msg.From, Topic: "reply", Payload: msg.Payload}, nil
 }
 
-// BenchmarkBus_Send measures the fire-and-forget peer send (P4).
+// BenchmarkBus_Send measures the fire-and-forget peer send.
 func BenchmarkBus_Send(b *testing.B) {
 	bus := NewBus()
 	_ = bus.Register("b", echoHandler)
@@ -26,7 +26,7 @@ func BenchmarkBus_Send(b *testing.B) {
 }
 
 // BenchmarkBus_RequestReply measures the synchronous request/reply round
-// trip with correlation-id matching (P4).
+// trip with correlation-id matching.
 func BenchmarkBus_RequestReply(b *testing.B) {
 	bus := NewBus()
 	_ = bus.Register("b", echoHandler)
@@ -38,7 +38,7 @@ func BenchmarkBus_RequestReply(b *testing.B) {
 	}
 }
 
-// BenchmarkBus_Broadcast measures fan-out to N subscribers (P4).
+// BenchmarkBus_Broadcast measures fan-out to N subscribers.
 func BenchmarkBus_Broadcast(b *testing.B) {
 	bus := NewBus()
 	for i := 0; i < 10; i++ {
@@ -54,8 +54,8 @@ func BenchmarkBus_Broadcast(b *testing.B) {
 	}
 }
 
-// BenchmarkDualTrackDispatch measures the kernel dispatch overhead (P4 D4:
-// flag read + active path + optional shadow comparison).
+// BenchmarkDualTrackDispatch measures the kernel dispatch overhead
+// (flag read + active path + optional shadow comparison).
 func BenchmarkDualTrackDispatch(b *testing.B) {
 	flag := NewPolicyFlag(PolicyTaskFabric)
 	legacy := &stubDispatcher{}

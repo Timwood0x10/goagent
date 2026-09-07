@@ -74,6 +74,6 @@ func TestPhase(t *testing.T) {
 	})
 }
 
-// D2: TestPhaseExecutor and TestSignalHandler removed (tested deleted components).
+// TestPhaseExecutor and TestSignalHandler removed (tested deleted components).
 
 // nolint: errcheck // Test code may ignore return values

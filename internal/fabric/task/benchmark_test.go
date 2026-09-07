@@ -29,7 +29,7 @@ func BenchmarkFabric_Create(b *testing.B) {
 }
 
 // BenchmarkFabric_Schedule measures the capability-aware winner pick +
-// acquire (P1: score = capability_overlap × (1-load) × confidence) including
+// acquire (score = capability_overlap × (1-load) × confidence) including
 // the lease-release cycle so each iteration starts from READY.
 func BenchmarkFabric_Schedule(b *testing.B) {
 	f := NewFabric()
@@ -76,7 +76,7 @@ func BenchmarkFabric_RunQuantum(b *testing.B) {
 }
 
 // BenchmarkFabric_ReadyTasks measures the DAG work-source drain over a small
-// graph (P2: ReadyTasks gates on completed dependencies).
+// graph (ReadyTasks gates on completed dependencies).
 func BenchmarkFabric_ReadyTasks(b *testing.B) {
 	f := NewFabric()
 	for i := 0; i < 20; i++ {

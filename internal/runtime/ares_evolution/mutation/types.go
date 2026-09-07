@@ -199,15 +199,15 @@ func (s *Strategy) SetHash(h uint64) {
 
 // ComputeEvidenceKey derives a stable evidence key from behaviorally relevant
 // fields: prompt template, sorted numeric params, the tool whitelist, and the
-// C5 tool-step attributes (budget/prior).
+// tool-step attributes (budget/prior).
 // The key format is:
 // "promptTemplate|key1=value1,key2=value2|tools=t1,t2|budget=N|prior=hint".
 // Only numeric values in Params are included, sorted by key for determinism.
 // The tool whitelist (Params["tools"]) is normalized (sorted, trimmed) and
 // included so two strategies that differ only in tool selection land on
 // different EvidenceKeys — otherwise their tool_call evidence would be merged
-// and the evolution verdict could not distinguish them by tool choice
-// (Y.3-ACT归因入key). The same rule extends to budget and prior (Y1 C5): both
+// and the evolution verdict could not distinguish them by tool choice.
+// The same rule extends to budget and prior: both
 // change execution behavior, so both must change the key, or two strategies
 // differing only in budget/prior would share one evidence stream and
 // evolution could not select between them.
@@ -249,7 +249,7 @@ func (s *Strategy) ComputeEvidenceKey() string {
 		evidenceKey = prompt + "|" + strings.Join(pairs, ",")
 	}
 
-	// Y.3-ACT: include the tool whitelist in the evidence key so strategies
+	// Include the tool whitelist in the evidence key so strategies
 	// that differ only in tool selection are distinguishable. The value is
 	// normalized (split, trim, sort, rejoin) so "b,a" and "a, b" produce the
 	// same key — the set is what matters, not the order.
@@ -260,7 +260,7 @@ func (s *Strategy) ComputeEvidenceKey() string {
 		}
 	}
 
-	// Y1 C5: include the normalized per-tool call budget so strategies that
+	// Include the normalized per-tool call budget so strategies that
 	// differ only in budget are distinguishable. Unlimited (missing /
 	// malformed / non-positive) adds no suffix, keeping the pre-budget key
 	// stable for the non-evolved path (zero-value usable).
@@ -268,7 +268,7 @@ func (s *Strategy) ComputeEvidenceKey() string {
 		evidenceKey += fmt.Sprintf("|budget=%d", budget)
 	}
 
-	// Y1 C5: include the trimmed prior hint so strategies that differ only in
+	// Include the trimmed prior hint so strategies that differ only in
 	// prior do not merge their evidence. prior is advisory prompt text, but it
 	// changes the rendered prompt and hence behavior — without this suffix two
 	// priors would share one evidence stream. Empty/missing prior adds no

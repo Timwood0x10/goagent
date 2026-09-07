@@ -4,9 +4,9 @@ package taskfabric
 // dependency task is COMPLETED — and the task itself is currently READY.
 // This is the DAG-as-scheduling-source primitive (design of
 // ares-runtime): the Scheduler only asks is_ready(task); the topology
-// lives in each task's Dependencies. D3 (2026-08-16): P1/P2 construct
-// Dependencies manually; planner / live DAG wiring happens in the P4
-// migration.
+// lives in each task's Dependencies. Callers construct
+// Dependencies manually today; live DAG wiring is the
+// workflow engine's job.
 //
 // Args:
 //   - id: the task id.

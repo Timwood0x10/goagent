@@ -13,7 +13,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
 )
 
-// TestC6_1_KillAgentScenario verifies C6.1: after a structural patch
+// TestC6_1_KillAgentScenario verifies: after a structural patch
 // (simulating a kill agent scenario — removing a node), the topology
 // changes, the compile count increments, and the attribution triplet
 // (generation, dag_version, compile_id) is queryable. No LLM is called.
@@ -46,7 +46,7 @@ func TestC6_1_KillAgentScenario(t *testing.T) {
 	unsub := coord.SubscribeGraphEvents(ctx, dag)
 	defer unsub()
 
-	// C6.1: kill agent = remove the "executor" node. Since "validator"
+	// Kill agent = remove the "executor" node. Since "validator"
 	// depends on "executor", we must first remove "validator" then
 	// "executor" (RemoveNode rejects nodes with dependents).
 	require.NoError(t, dag.RemoveNode(ctx, "validator"))
@@ -58,23 +58,23 @@ func TestC6_1_KillAgentScenario(t *testing.T) {
 	})
 	require.True(t, ok, "recompile must fire after kill agent, step count must be 1")
 
-	// C6.1: topology changed (step count 3 → 1).
+	// Topology changed (step count 3 → 1).
 	last := coord.LastCompile()
 	assert.Equal(t, 1, last.StepCount, "topology must reflect the kill")
 
-	// C6.1: attribution triplet is queryable.
+	// Attribution triplet is queryable.
 	assert.NotEmpty(t, last.CompileID, "compile_id must be non-empty")
 	assert.Equal(t, uint64(2), last.DAGVersion, "dag_version must be 2 after two RemoveNode calls")
 	assert.Greater(t, coord.CompileCount(), uint64(1), "compile count must be > 1")
 
-	// C6.1: LLM call count is 0 (by construction — no LLM is involved
+	// LLM call count is 0 (by construction — no LLM is involved
 	// in any of these operations). This is a structural test assertion:
 	// the projection + compile path uses zero LLM calls.
 	// (In the full system, the LLMCallTotal counter would be checked;
 	// here we assert by construction.)
 }
 
-// TestC6_2_TaskDistributionChange verifies C6.2: after a structural
+// TestC6_2_TaskDistributionChange verifies: after a structural
 // patch that changes the task distribution (adding a new branch), the
 // topology changes and the attribution triplet is queryable. No LLM
 // is called.
@@ -99,7 +99,7 @@ func TestC6_2_TaskDistributionChange(t *testing.T) {
 	unsub := coord.SubscribeGraphEvents(ctx, dag)
 	defer unsub()
 
-	// C6.2: change task distribution — add a parallel branch.
+	// Change task distribution — add a parallel branch.
 	require.NoError(t, dag.AddNode(ctx, &engine.Step{
 		ID:        "c",
 		AgentType: "z",
@@ -112,7 +112,7 @@ func TestC6_2_TaskDistributionChange(t *testing.T) {
 	})
 	require.True(t, ok, "recompile must fire after task distribution change")
 
-	// C6.2: topology changed (2 → 3 steps).
+	// Topology changed (2 → 3 steps).
 	last := coord.LastCompile()
 	assert.Equal(t, 3, last.StepCount)
 	assert.NotEmpty(t, last.CompileID)
@@ -124,7 +124,7 @@ func TestC6_2_TaskDistributionChange(t *testing.T) {
 	assert.GreaterOrEqual(t, len(events), 2, "at least 2 compile events (initial + recompile)")
 }
 
-// TestC6_3_DreamCycleDisabled verifies C6.3: the evolution loop operates
+// TestC6_3_DreamCycleDisabled verifies: the evolution loop operates
 // with EnableDreamCycle=false. In the full system this is asserted via
 // the bootstrap config; here we assert that the projection/compile path
 // does not depend on DreamCycle — it works with a plain MutableDAG
@@ -139,7 +139,7 @@ func TestC6_3_DreamCycleDisabled(t *testing.T) {
 	coord := NewCompileCoordinator(fabric, nil)
 
 	// The projection path works without any DreamCycle reference.
-	// This is the structural assertion for C6.3: the compile path
+	// This is the structural assertion: the compile path
 	// has zero dependencies on DreamCycle.
 	rec, err := coord.CompileDAG(context.Background(), dag)
 	require.NoError(t, err)
@@ -148,7 +148,7 @@ func TestC6_3_DreamCycleDisabled(t *testing.T) {
 	assert.Equal(t, 0, rec.Generation)
 }
 
-// TestC6_4_FrozenItemsNotTriggered verifies C6.4: the frozen items
+// TestC6_4_FrozenItemsNotTriggered verifies: the frozen items
 // (AKG, HITL, subgraph executor) are not triggered by the evolution
 // loop. This is asserted structurally: the projection/compile path
 // only imports engine.MutableDAG and taskfabric.Fabric — it does not
@@ -175,7 +175,7 @@ func TestC6_4_FrozenItemsNotTriggered(t *testing.T) {
 	require.Len(t, planSteps, 1)
 
 	ps := planSteps[0]
-	// C6.4: Interrupt (HITL) is not carried into PlanStep.
+	// Interrupt (HITL) is not carried into PlanStep.
 	// PlanStep has no Interrupt field, so this is a structural assertion.
 	// Verify RecoveryPolicy is not in the payload.
 	_, hasRecovery := ps.Payload["recovery_policy"]
@@ -188,27 +188,27 @@ func TestC6_4_FrozenItemsNotTriggered(t *testing.T) {
 	assert.False(t, hasTimeout, "Timeout must not be in PlanStep payload")
 }
 
-// TestC6_5_ShadowGateRegistered verifies C6.5: when a deterministic
-// scorer is wired (C2.6), the G2 shadow gate must be registered.
+// TestC6_5_ShadowGateRegistered verifies: when a deterministic
+// scorer is wired, the shadow gate must be registered.
 // In the full system, this is asserted via
 // `Lifecycle.DisableShadowGate == false`.
 //
-// This test verifies the C2.6 contract at the CompileCoordinator level:
+// This test verifies the scorer contract at the CompileCoordinator level:
 // the deterministic scorer produces a non-constant score (proving it is
-// a real independent scorer, not a constant), which is what enables G2
-// registration in the full system.
+// a real independent scorer, not a constant), which is what enables the
+// shadow gate registration in the full system.
 func TestC6_5_DeterministicScorerIsIndependent(t *testing.T) {
-	// This test is a structural proxy for C6.5: it verifies the
+	// This test is a structural proxy: it verifies the
 	// deterministic scorer (from aresrecovery) produces varying scores
-	// for different task distributions. The full C6.5 assertion
+	// for different task distributions. The full assertion
 	// (Lifecycle.DisableShadowGate == false) is tested in the
 	// ares_evolution package's lifecycle tests (which already exist
 	// and verify WithShadowGateDisabled vs the default path).
 	//
-	// Here we verify the projection path's contribution to C6.5:
+	// Here we verify the projection path's contribution:
 	// the compile coordinator's CompileCount is non-zero after a
 	// compile, proving the projection pipeline is live — without
-	// a live projection, the G2 gate has no shadow evidence to
+	// a live projection, the shadow gate has no shadow evidence to
 	// evaluate even if it IS registered.
 
 	dag, err := engine.NewMutableDAG([]*engine.Step{
@@ -224,7 +224,7 @@ func TestC6_5_DeterministicScorerIsIndependent(t *testing.T) {
 
 	// The compile count must be > 0 — this is the evidence that the
 	// projection pipeline is live and producing compile records.
-	// In the full system, the G2 gate uses these compiles (via shadow
+	// In the full system, the shadow gate uses these compiles (via shadow
 	// comparisons) as its evidence source.
 	assert.Greater(t, coord.CompileCount(), uint64(0),
 		"compile count must be > 0 — the projection pipeline must be live for G2 to have evidence")

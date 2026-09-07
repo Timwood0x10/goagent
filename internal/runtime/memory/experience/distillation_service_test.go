@@ -151,7 +151,8 @@ func distillableTask() *TaskResult {
 
 const llmExtractionContent = "Problem: how to sort things\nSolution: use quicksort\nConstraints: stable"
 
-// TestDistill_WithEmbeddingEnqueuerEnqueuesAsyncBackfill verifies REVIEW #13 A2:
+// TestDistill_WithEmbeddingEnqueuerEnqueuesAsyncBackfill verifies the async
+// embedding path:
 // when an async enqueuer is wired the service persists the row without a vector
 // and enqueues a backfill task (rather than embedding synchronously).
 func TestDistill_WithEmbeddingEnqueuerEnqueuesAsyncBackfill(t *testing.T) {

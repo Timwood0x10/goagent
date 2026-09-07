@@ -64,7 +64,7 @@ func (e *DiagnosticsEngine) Record(r DiagnosticRecord) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.records = append(e.records, r)
-	// P1-2: ring cap — drop the oldest record when the cap is exceeded.
+	// Ring cap — drop the oldest record when the cap is exceeded.
 	if e.cap > 0 && len(e.records) > e.cap {
 		e.records = e.records[len(e.records)-e.cap:]
 	}

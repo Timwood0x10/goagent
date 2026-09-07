@@ -7,10 +7,10 @@ import (
 	"sync/atomic"
 )
 
-// ExecutionPolicy is the strategy for dispatching a task to an agent (design
-// §2 + P4 D4). The Kernel picks one policy per dispatch; the feature flag
+// ExecutionPolicy is the strategy for dispatching a task to an agent
+// (see the design doc). The Kernel picks one policy per dispatch; the feature flag
 // selects the active path. The legacy policy is retained only as a
-// library constant — the leader runtime is removed (aresos-agentos-plan C1),
+// library constant — the leader runtime is removed,
 // so no production dispatcher registers a legacy track.
 type ExecutionPolicy int
 
@@ -25,7 +25,7 @@ const (
 )
 
 // PolicyFlag is the feature flag that selects which dispatch policy is
-// active (P4 D4: parallel + feature flag gradual cutover). Production starts
+// active (parallel + feature flag gradual cutover). Production starts
 // at PolicyTaskFabric; the flag is read atomically so a flip takes effect on
 // the next dispatch without restart.
 type PolicyFlag struct {
@@ -72,7 +72,7 @@ type Dispatcher interface {
 }
 
 // DualTrackDispatcher holds both the legacy and new dispatchers and routes to
-// the active one based on the PolicyFlag (P4 D4: parallel + feature flag).
+// the active one based on the PolicyFlag (parallel + feature flag).
 // Both paths coexist; the flag selects which is live. This is the
 // "双轨等价" verification surface: run both under the flag and compare.
 type DualTrackDispatcher struct {

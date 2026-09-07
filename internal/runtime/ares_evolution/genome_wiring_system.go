@@ -34,17 +34,17 @@ type WiredEvolutionSystem struct {
 	ScoreCache            *scoring.ScoreCache
 	Metrics               *observability.PrometheusMetrics
 
-	// Intelligence components (Phase 3-5). Set to nil to disable.
+	// Intelligence components. Set to nil to disable.
 	Reflector     *genome.LLMReflector        `json:"-"`
 	HypothesisGen *genome.HypothesisGenerator `json:"-"`
 	MetaCtrl      *genome.MetaController      `json:"-"`
 
-	// Lifecycle is the strategy orchestrator (B1/B2/B3 fix). When set,
+	// Lifecycle is the strategy orchestrator. When set,
 	// it is the sole entry point for promoting a candidate strategy.
 	// Run() submits to Lifecycle.Submit instead of Deploy directly.
 	Lifecycle *StrategyLifecycle `json:"-"`
 
-	// Phase 6: Diff Engine + Coordinator for graph structure evolution.
+	// Diff Engine + Coordinator for graph structure evolution.
 	// When set, each generation's mutation is diffed and patches submitted.
 	DiffReg     *diff.Registry                    `json:"-"`
 	Coordinator *coordinator.EvolutionCoordinator `json:"-"`
@@ -75,10 +75,10 @@ type ScoringConfig struct {
 	MemoryAwareScoringConfig scoring.MemoryAwareScoringConfig `json:"memory_aware_scoring,omitempty"`
 	MemoryExperienceProvider scoring.ExperienceProvider       `json:"-"`
 	// DeterministicScorerEnabled indicates that a zero-LLM deterministic
-	// scorer is wired (C2.6). When true, the shadow gate's hasScorer check
-	// passes even without an LLM scorer, so the G2 gate stays registered
+	// scorer is wired. When true, the shadow gate's hasScorer check
+	// passes even without an LLM scorer, so the shadow gate stays registered
 	// and can produce shadow comparison evidence from execution attribution
-	// alone. This breaks the "zero-token ⇒ no G2" deadlock.
+	// alone. This breaks the "zero-token ⇒ no shadow gate" deadlock.
 	DeterministicScorerEnabled bool `json:"deterministic_scorer_enabled,omitempty"`
 }
 
@@ -149,7 +149,7 @@ type SystemConfig struct {
 	// Lifecycle, when non-nil, overrides the default StrategyLifecycle and
 	// RuntimeFitnessAggregator configuration (fitness window, judge
 	// thresholds, weights, watch interval, gate settings). Bootstrap wires
-	// it from the evolution YAML config (design doc §7); nil keeps the
+	// it from the evolution YAML config; nil keeps the
 	// code defaults from DefaultLifecycleConfig.
 	Lifecycle *LifecycleConfig
 }
@@ -305,7 +305,7 @@ func buildAdapterOptions(ctx context.Context, cfg SystemConfig) ([]GenomeAdapter
 		// Zero-token mode: no LLM scorer and no heuristic wired. The constant
 		// baseline gives the GA a flat fitness landscape — evolution selection
 		// is effectively random. This is the accepted backward-compat default
-		// (review P0-2: the shadow gate is NOT affected by this heuristic —
+		// (the shadow gate is NOT affected by this heuristic —
 		// buildShadowEvaluator only wires a scorer when cfg.Scorer != nil, so
 		// the gate stays fail-closed in zero-token mode or uses the ReplayScorer
 		// when a store is present).
@@ -497,7 +497,7 @@ func buildFeedbackRecorder(cfg SystemConfig) *FeedbackRecorder {
 
 // GenerationActive reports whether any evolution generation is currently
 // executing — the GA dream cycle or a population-adapter run. The live-chaos
-// loop polls this to honor the GA quiet window (#12 Phase 2).
+// loop polls this to honor the GA quiet window.
 func (s *WiredEvolutionSystem) GenerationActive() bool {
 	if s == nil {
 		return false
@@ -559,11 +559,11 @@ func NewWiredEvolutionSystem(base *mutation.Strategy, cfg SystemConfig) (*WiredE
 		system.StrategyStore = cfg.StrategyStore
 	}
 
-	// E2: the ASM is built whenever a strategy store exists — no longer
+	// The ASM is built whenever a strategy store exists — no longer
 	// gated on RollbackPolicyConfig.Enabled. The rollback policy stays armed
 	// or disarmed via LifecycleConfig.RollbackArmed (watch-loop behavior),
 	// because the lifecycle AND its gate pipeline must exist even when the
-	// rollback net is disarmed: that is exactly the posture where the G2
+	// rollback net is disarmed: that is exactly the posture where the
 	// shadow gate re-arms fail-closed (see shadowGateMode in ares_bootstrap).
 	if cfg.StrategyStore != nil {
 		asm, err := buildActiveStrategyManager(cfg)
@@ -577,21 +577,21 @@ func NewWiredEvolutionSystem(base *mutation.Strategy, cfg SystemConfig) (*WiredE
 		}
 	}
 
-	// B3 fix: ShadowEvaluator is built whenever shadow evaluation is
+	// ShadowEvaluator is built whenever shadow evaluation is
 	// enabled — not only when an LLM scorer exists. buildShadowEvaluator
-	// is nil-scorer-safe, and the StrategyLifecycle's G2 shadow gate needs
+	// is nil-scorer-safe, and the StrategyLifecycle's shadow gate needs
 	// the evaluator instance to exist so it can judge comparisons fed by
 	// whichever sampler is active (DreamCycle when enabled). With the old
-	// `&& cfg.Scorer != nil` condition the G2 gate silently vanished in
+	// `&& cfg.Scorer != nil` condition the shadow gate silently vanished in
 	// every default config (LLM scoring off) — a gate that doesn't exist
 	// cannot even pass through.
 	if cfg.ShadowEvalConfig.Enabled {
 		se := buildShadowEvaluator(cfg, tiered, base)
 		system.ShadowEvaluator = se
-		// B3 fix: ShadowEvaluator is no longer exclusively tied to DreamCycle.
+		// ShadowEvaluator is no longer exclusively tied to DreamCycle.
 		// When DreamCycle exists it still gets the evaluator for its internal
-		// deploy path, but the StrategyLifecycle also gets it so the G2 gate
-		// works independently of whether DreamCycle is enabled.
+		// deploy path, but the StrategyLifecycle also gets it so the shadow
+		// gate works independently of whether DreamCycle is enabled.
 		if system.DreamCycle != nil {
 			system.DreamCycle.shadowEvaluator = se
 		}
@@ -605,7 +605,7 @@ func NewWiredEvolutionSystem(base *mutation.Strategy, cfg SystemConfig) (*WiredE
 		}
 	}
 
-	// B1/B2/B3 fix: construct the StrategyLifecycle when an
+	// Construct the StrategyLifecycle when an
 	// ActiveStrategyManager is wired. It wraps the ASM so it is the sole
 	// caller of Deploy/Rollback. The lifecycle is injected into the
 	// population adapter so Run() submits to it instead of deploying
@@ -627,7 +627,7 @@ func NewWiredEvolutionSystem(base *mutation.Strategy, cfg SystemConfig) (*WiredE
 		}
 		agg := NewRuntimeFitnessAggregator(nil, aggCfg) // store set later by bootstrap
 		lcOpts := []LifecycleOption{}
-		// E2: propagate the wiring layer's explicit shadow-gate decision. The
+		// Propagate the wiring layer's explicit shadow-gate decision. The
 		// gate's absence must be a decision (WithShadowGateDisabled), never an
 		// emergent property of nil-checking — the reason travels with it and is
 		// reported by the snapshot.
@@ -636,7 +636,7 @@ func NewWiredEvolutionSystem(base *mutation.Strategy, cfg SystemConfig) (*WiredE
 		}
 		if system.ShadowEvaluator != nil {
 			lcOpts = append(lcOpts, WithLifecycleShadowEvaluator(system.ShadowEvaluator))
-			// P0-9: wire the task-level shadow feeder so the G2 gate has
+			// Wire the task-level shadow feeder so the shadow gate has
 			// candidate-vs-active comparison evidence when DreamCycle does
 			// not feed any. Exactly ONE feeder may own StartShadow/
 			// RecordResult: wiring both would let the sampler's StartShadow
@@ -647,10 +647,10 @@ func NewWiredEvolutionSystem(base *mutation.Strategy, cfg SystemConfig) (*WiredE
 			// EnableDreamCycle OR EnableScheduler is set (see needDreamCycle
 			// above), and bootstrap runs EnableDreamCycle=false with
 			// EnableScheduler=true — so a nil-check would skip the sampler in
-			// every production config, i.e. exactly the case P0-9 exists to
-			// fix. Locked by TestWiring_ShadowSampler_WiredInBootstrapShape.
+			// every production config, i.e. exactly the case the sampler
+			// exists to fix. Locked by TestWiring_ShadowSampler_WiredInBootstrapShape.
 			if !cfg.EnableDreamCycle {
-				// W2: the replay evidence window width is configurable
+				// The replay evidence window width is configurable
 				// (ShadowEvaluationConfig.ReplayWindowSpan). Zero keeps the
 				// scorer's 10-minute default — an operator who never sets it
 				// gets the same evidence granularity as before.
@@ -722,8 +722,8 @@ func buildShadowEvaluator(cfg SystemConfig, tiered *scoring.TieredScorer, baseSt
 	// Shadow scoring is budget-gated ONLY when an LLM scorer is actually
 	// wired (cfg.Scorer != nil ⇔ evolution.llm_scoring enabled). A raw
 	// cfg.Scorer here would let every Submit's Prime run minSamples×2 LLM
-	// calls with zero accounting against MaxLLMCallsPerGeneration (review
-	// finding #1); TieredScorer instead enforces the budget
+	// calls with zero accounting against MaxLLMCallsPerGeneration;
+	// TieredScorer instead enforces the budget
 	// (TryRecordLLMCall), reuses the per-generation score cache, and falls
 	// back to the heuristic when the budget is exhausted.
 	//
@@ -731,13 +731,14 @@ func buildShadowEvaluator(cfg SystemConfig, tiered *scoring.TieredScorer, baseSt
 	// (ConstantScorer 50): every comparison would be an exact tie, which is
 	// meaningless evidence. With cfg.Scorer==nil we therefore do NOT wire the
 	// tiered heuristic here. In zero-LLM mode the independent evidence source
-	// is the DETERMINISTIC scorer (C2.6): bootstrap sets
-	// DeterministicScorerEnabled so the G2 gate registers, and the serve layer
+	// is the DETERMINISTIC scorer: bootstrap sets
+	// DeterministicScorerEnabled so the shadow gate registers, and the serve
+	// layer
 	// (cmd/ares/peer_mode.go) wires that scorer onto this evaluator once the
 	// runtime ExecutionAttribution exists — the attribution is created after
 	// NewWiredEvolutionSystem, so it cannot be injected through cfg here.
 	// Until that runtime wiring, the scorer is UNSET and the sampler no-ops
-	// (G2 stays fail-closed); this also keeps the manual-RecordResult test
+	// (the shadow gate stays fail-closed); this also keeps the manual-RecordResult test
 	// path (unit + closure) working.
 	if cfg.Scorer != nil {
 		if tiered != nil {
@@ -925,7 +926,7 @@ func RunIdleEvolution(ctx context.Context, system *WiredEvolutionSystem, n int) 
 			genome.ApplyMetaToPopulation(system.Population, system.MetaCtrl)
 		}
 
-		// Phase 6: Diff Engine — compare old/new snapshots, generate patches,
+		// Diff Engine — compare old/new snapshots, generate patches,
 		// and submit to Coordinator for evaluation and application. Every
 		// patch is attributed to the current best strategy so the coordinator
 		// and runtime can A/B compare it against the active one.

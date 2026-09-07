@@ -233,7 +233,7 @@ rt := ares.MustNew(opts...)
 
 ## 技能源配置（skill_sources，~/.ares/config.toml）
 
-Capability Fabric 的注册源声明在 **`~/.ares/config.toml`**（不是 `ares.yaml`），由 `internal/ares_skills` 的 `LoadSkillSources`/`LoadRegisteredSkillDirs` 解析（`~` 展开 + 去重 + 未知类型跳过留作扩展点）：
+Capability Fabric 的注册源声明在 **`~/.ares/config.toml`**（不是 `ares.yaml`），由 `internal/runtime/protocol/skills` 的 `LoadSkillSources`/`LoadRegisteredSkillDirs` 解析（`~` 展开 + 去重 + 未知类型跳过留作扩展点）：
 
 ```toml
 [[skill_sources]]
@@ -254,7 +254,7 @@ local_dir = "~/.ares/cache/skills"
 
 关键点：project（`.ares/skills`）与 user（`~/.ares/skills`）是约定目录，**无需配置**；此文件只声明额外源——尊重"只扫声明源，零全盘扫描"。与零值哲学一致：不配置就没有额外源。
 
-对应结构（`internal/ares_skills/config.go`）：`SkillSourceEntry{Type, Path, URL, LocalDir, ManifestURL}`，用 `pelletier/go-toml/v2` 解析。项目级目录源的类型确认为 `directory` 与 `git`。
+对应结构（`internal/runtime/protocol/skills/config.go`）：`SkillSourceEntry{Type, Path, URL, LocalDir, ManifestURL}`，用 `pelletier/go-toml/v2` 解析。项目级目录源的类型确认为 `directory` 与 `git`。
 
 ---
 

@@ -7,12 +7,12 @@ import (
 )
 
 // LoadTracker records per-agent execution statistics so scheduling decisions
-// can use real load and confidence instead of static placeholders (v0.3.0 GAP4:
-// P2 F1). The scheduler creates one tracker per scheduler instance and passes
+// can use real load and confidence instead of static placeholders.
+// The scheduler creates one tracker per scheduler instance and passes
 // it to every Candidate constructor so the Score formula reflects actual agent
 // load and evolution confidence.
 //
-// W4 Evolution feedback: SetAgentConfidence lets the evolution feedback loop
+// Evolution feedback: SetAgentConfidence lets the evolution feedback loop
 // (EvolutionExecutionFeedback.Apply) override an agent's confidence after a
 // batch of task results. SetCapabilityConfidence does the same at the
 // capability level (higher priority than agent-level). ConfidenceFor returns
@@ -30,7 +30,7 @@ type LoadTracker struct {
 	load     map[string]float64
 
 	// agentConfidenceOverride and capabilityConfidenceOverride are set by the
-	// evolution feedback loop (W4) and GA scheduler (F1). capability level
+	// evolution feedback loop and the GA scheduler. capability level
 	// takes precedence over agent level; agent level falls back to 1.0.
 	agentConfidenceOverride      map[string]float64
 	capabilityConfidenceOverride map[string]float64
@@ -74,7 +74,7 @@ func (t *LoadTracker) End(agentID string, success bool) {
 	// Release the busy slot acquired by Begin: load is the CURRENT busy
 	// fraction, so an agent that finished a quantum must be schedulable again.
 	// Without the decrement, load climbs monotonically and Score's (1-load)
-	// factor zeroes out every agent that ever ran once (F1: later rounds get
+	// factor zeroes out every agent that ever ran once (later rounds get
 	// "no capable candidate" even with live, idle executors).
 	if t.load[agentID] > 0 {
 		t.load[agentID]--
@@ -127,7 +127,7 @@ func (t *LoadTracker) SetAgentConfidence(agentID string, confidence float64) {
 	// historical success rate or the neutral prior (ConfidenceInjector
 	// contract: "<= 0 resets to the neutral prior (1.0)"). 0.0 remains a
 	// VALID override (a 0% success rate must keep an agent at the bottom of
-	// the ranking — the F1 GA tests rely on it).
+	// the ranking — the GA tests rely on it).
 	if confidence < 0 {
 		delete(t.agentConfidenceOverride, agentID)
 		return
@@ -178,13 +178,13 @@ type AgentLoadSnapshot struct {
 	Priority float64 `json:"priority"`
 	// Load is the current in-flight quantum count.
 	Load float64 `json:"load"`
-	// ConfidenceOverride is the agent-level override (evolution feedback W4);
+	// ConfidenceOverride is the agent-level override (evolution feedback);
 	// HasConfidenceOverride reports whether one is set (0.0 is a VALID
 	// override, so the bool — not the value — carries presence).
 	ConfidenceOverride    float64 `json:"confidenceOverride"`
 	HasConfidenceOverride bool    `json:"hasConfidenceOverride"`
 	// CapabilityOverrides are this agent's per-capability confidence
-	// overrides, keyed by capability name (GA scheduler F1).
+	// overrides, keyed by capability name (GA scheduler).
 	CapabilityOverrides map[string]float64 `json:"capabilityOverrides"`
 }
 
@@ -197,7 +197,7 @@ type LoadTrackerSnapshot struct {
 // Snapshot returns a consistent copy of all tracked agents. It takes the
 // tracker lock once and copies everything under it, so callers can render or
 // serialize the result without holding any scheduler locks and without racing
-// concurrent Begin/End updates (monitoring.md Phase 0: read-only snapshots).
+// concurrent Begin/End updates (monitoring.md: read-only snapshots).
 func (t *LoadTracker) Snapshot() LoadTrackerSnapshot {
 	t.mu.Lock()
 	defer t.mu.Unlock()

@@ -6,11 +6,11 @@ import (
 )
 
 // AgentSnapshot is the revival record captured when an agent dies with live
-// cognition (fusion plan Phase A1). It carries everything the recovery
+// cognition. It carries everything the recovery
 // subsystem needs to revive an EQUIVALENT execution body in place:
 //
 //   - Cognitive: the agent's last CognitiveState, already carrying its
-//     SchemaVersion (the versioned-envelope requirement of code_rules
+//     SchemaVersion (the versioned-envelope requirement
 //     — a bare map is forbidden here).
 //   - Capabilities: the declared capability set, so a revived body matches
 //     the scheduler's candidate scoring exactly as the dead one did.
@@ -22,8 +22,8 @@ type AgentSnapshot struct {
 	Parent       string
 	// DiedAt is the fabric-clock instant the death was captured. When several
 	// dead agents share a capability, recovery picks the MOST RECENT death —
-	// the freshest cognition is the safest revival seed (A2 review fix:
-	// map-iteration order must not choose arbitrarily).
+	// the freshest cognition is the safest revival seed (map-iteration
+	// order must not choose arbitrarily).
 	DiedAt time.Time
 }
 
@@ -95,7 +95,7 @@ func (s *snapshotStore) findByCapability(capability string) (string, AgentSnapsh
 // captureFromAgent copies the revivable facts off an agent about to be
 // removed by Kill. Callers must hold Fabric.mu; the cognitive field itself is
 // additionally guarded by the agent's own lock, so we take it briefly to get
-// a consistent copy (code_rules: shared-state ownership documented at
+// a consistent copy (shared-state ownership documented at
 // the field).
 func captureFromAgent(a *Agent, diedAt time.Time) AgentSnapshot {
 	a.mu.RLock()
@@ -110,7 +110,7 @@ func captureFromAgent(a *Agent, diedAt time.Time) AgentSnapshot {
 
 // LastSnapshot returns the snapshot captured when agentID died, if any.
 // The recovery subsystem calls this before deciding between in-place revival
-// and spawning a replacement (fusion plan A2 arbitration rule).
+// and spawning a replacement (the arbitration rule).
 func (f *Fabric) LastSnapshot(agentID string) (AgentSnapshot, bool) {
 	return f.snapshots.load(agentID)
 }
@@ -123,7 +123,7 @@ func (f *Fabric) ClearSnapshot(agentID string) {
 }
 
 // FindRevivableSnapshot returns a dead agent (id + snapshot) whose declared
-// capabilities cover capability — the A2 arbitration input: if such a victim
+// capabilities cover capability — the arbitration input: if such a victim
 // exists and the restart budget allows, the recovery subsystem revives it in
 // place instead of spawning a generic replacement.
 func (f *Fabric) FindRevivableSnapshot(capability string) (string, AgentSnapshot, bool) {

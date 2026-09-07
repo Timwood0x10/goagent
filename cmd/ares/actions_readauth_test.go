@@ -12,7 +12,7 @@ import (
 
 // newReadAuthHandler builds an actionHandler with auth configured the way
 // serve_routine does for security.auth_enabled=true: a WRITE middleware for
-// destructive routes and a READ middleware for the JSON read surfaces (T7).
+// destructive routes and a READ middleware for the JSON read surfaces.
 // A real intro Handler + inner pass-through make the /api/v1/introspect/*
 // routes reach the auth gate instead of falling through to a nil inner.
 func newReadAuthHandler() *actionHandler {
@@ -27,7 +27,7 @@ func newReadAuthHandler() *actionHandler {
 	}
 }
 
-// TestReadEndpointsRequireCredentials is the T7 acceptance matrix: with auth
+// TestReadEndpointsRequireCredentials is the read-auth acceptance matrix: with auth
 // configured, every JSON read surface rejects unauthenticated requests with
 // 401 — the tool inventories, the introspect snapshot/eventstream feed, and
 // the cost API. These endpoints expose task payloads and the tool/MCP
@@ -96,7 +96,7 @@ func TestReadEndpointsAcceptJWTReadRole(t *testing.T) {
 }
 
 // TestControlServerReadRoutesRequireCredentials covers the pass-through read
-// surfaces served by introspect.ControlServer. T7 demands ONE policy across
+// surfaces served by introspect.ControlServer. One policy applies across
 // equally sensitive read endpoints: the flight recorder exposes scheduling
 // decisions and diagnostics, /api/agents the live agent topology, so these
 // must not stay open while /api/v1/introspect/* is gated.
@@ -146,7 +146,7 @@ func TestNonAPIPathsStayUngated(t *testing.T) {
 
 // TestReadEndpointsOpenWhenAuthUnconfigured verifies the local-dev contract:
 // with no auth configured at all, the read surfaces stay open (protected only
-// by the loopback default bind, T1). Destructive endpoints remain
+// by the loopback default bind). Destructive endpoints remain
 // deny-by-default regardless.
 func TestReadEndpointsOpenWhenAuthUnconfigured(t *testing.T) {
 	// No apiKey, no auth middleware; a real intro + inner so the JSON feed

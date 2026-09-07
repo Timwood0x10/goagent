@@ -90,7 +90,7 @@ func (d *WorkflowDiffer) Diff(_ context.Context, old, new any) ([]patch.RuntimeP
 	}
 
 	// Find metadata-only changes on nodes that persist across the diff.
-	// C4: a metadata change on a common node emits a PatchSetNodeMetadata (not a
+	// A metadata change on a common node emits a PatchSetNodeMetadata (not a
 	// ReplaceNode), so evolution can patch a ToolStep node's enabled/budget/prior
 	// attributes WITHOUT restructuring the DAG. The differ compares the per-node
 	// Metadata snapshot carried on DAGNode; the inverse (rollback) patch restores

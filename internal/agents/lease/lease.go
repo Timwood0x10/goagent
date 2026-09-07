@@ -40,7 +40,7 @@ type Manager struct {
 	mu        sync.Mutex
 	leases    map[string]Lease
 	timeNow   func() time.Time // clock injection for tests
-	sweepTick int              // periodic full-prune counter (#59)
+	sweepTick int              // periodic full-prune counter
 }
 
 // NewManager creates a lease Manager with the system clock.
@@ -92,7 +92,7 @@ func (m *Manager) Renew(ctx context.Context, sessionID, owner string, ttl time.D
 		return fmt.Errorf("%w: %s held by %s", ErrLeaseOwnerMismatch, sessionID, l.Owner)
 	}
 	// An expired lease is dead: renewing it would resurrect a hold the
-	// manager has already given up (#62). Callers must Acquire again.
+	// manager has already given up. Callers must Acquire again.
 	if l.ExpiresAt.Before(m.timeNow()) {
 		delete(m.leases, sessionID)
 		return fmt.Errorf("%w: %s expired at %s", ErrLeaseNotFound, sessionID, l.ExpiresAt.Format(time.RFC3339))
@@ -118,7 +118,7 @@ func (m *Manager) Release(ctx context.Context, sessionID, owner string) error {
 	return nil
 }
 
-// sweepEvery bounds the periodic full prune (#59): expired leases are swept
+// sweepEvery bounds the periodic full prune: expired leases are swept
 // either when Count is called or, probabilistically, on a Get miss, so
 // abandoned expired keys cannot accumulate unboundedly in a long-lived
 // process that only ever reads via Get/Held.
@@ -131,7 +131,7 @@ func (m *Manager) Get(sessionID string) (Lease, bool) {
 	l, ok := m.leases[sessionID]
 	if !ok {
 		// Periodic probabilistic full sweep: bounds abandoned expired leases
-		// even when Count is never called (#59).
+		// even when Count is never called.
 		m.sweepTick++
 		if m.sweepTick >= sweepEvery {
 			m.sweepTick = 0
@@ -140,7 +140,7 @@ func (m *Manager) Get(sessionID string) (Lease, bool) {
 		return Lease{}, false
 	}
 	if l.ExpiresAt.Before(m.timeNow()) {
-		// Lazy cleanup: drop the expired lease on first touch (#59).
+		// Lazy cleanup: drop the expired lease on first touch.
 		delete(m.leases, sessionID)
 		return Lease{}, false
 	}
@@ -153,8 +153,8 @@ func (m *Manager) Held(sessionID string) bool {
 	return ok
 }
 
-// Count returns the number of active leases, pruning expired entries first
-// (#59): the map had no sweep, so abandoned sessions accumulated forever and
+// Count returns the number of active leases, pruning expired entries first:
+// the map had no sweep, so abandoned sessions accumulated forever and
 // Count stayed inflated long after every lease expired.
 func (m *Manager) Count() int {
 	m.mu.Lock()

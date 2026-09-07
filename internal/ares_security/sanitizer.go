@@ -39,7 +39,7 @@ type Sanitizer struct {
 
 // SanitizeOptions controls sanitization behavior.
 //
-// All three fields are honored by Sanitizer.Sanitize (#37): MaskChar replaces
+// All three fields are honored by Sanitizer.Sanitize: MaskChar replaces
 // the default '*' in masked output, PreserveLengthFor overrides the preserved
 // visible prefix for a field type, and KeepLength pads masked output to the
 // original length. Zero-value fields fall back to the built-in mask behavior.
@@ -79,7 +79,7 @@ func NewSanitizer() *Sanitizer {
 // PreserveLengthFor is intentionally empty: the per-type preserved-character
 // defaults live in the mask functions themselves (maskAPIKey, maskPhone, …).
 // An empty map keeps "map entry present" meaning an explicit caller override
-// in applyMaskOptions (#37).
+// in applyMaskOptions.
 func DefaultSanitizeOptions() SanitizeOptions {
 	return SanitizeOptions{
 		KeepLength: false,
@@ -152,7 +152,7 @@ func (s *Sanitizer) Sanitize(input string) string {
 }
 
 // applyMaskOptions adapts a mask function's output to the configured
-// SanitizeOptions (#37): an explicit PreserveLengthFor entry re-masks the
+// SanitizeOptions: an explicit PreserveLengthFor entry re-masks the
 // original match with exactly N leading visible characters, MaskChar swaps
 // the default '*', and KeepLength pads short masks up to the original length.
 func (s *Sanitizer) applyMaskOptions(t SensitiveFieldType, orig, masked string) string {
@@ -194,7 +194,7 @@ func (s *Sanitizer) SanitizeJSON(jsonStr string) string {
 		return jsonStr
 	}
 
-	// Use json.Number (B2): without UseNumber the decoder converts all
+	// Use json.Number: without UseNumber the decoder converts all
 	// numbers to float64, making the json.Number case in sanitizeValue
 	// unreachable and losing precision for large integers.
 	dec := json.NewDecoder(strings.NewReader(jsonStr))
@@ -215,7 +215,7 @@ func (s *Sanitizer) SanitizeJSON(jsonStr string) string {
 }
 
 // sanitizeValue recursively walks a decoded JSON value and sanitizes strings.
-// Numeric values are checked too (#38): a number whose digit form matches a
+// Numeric values are checked too: a number whose digit form matches a
 // sensitive pattern (card/phone/SSN) is degraded to its masked string form —
 // masking wins over type fidelity.
 func (s *Sanitizer) sanitizeValue(v interface{}) interface{} {
@@ -248,8 +248,8 @@ func (s *Sanitizer) sanitizeValue(v interface{}) interface{} {
 // unchanged value is returned as-is so the caller re-emits it as a number;
 // a hit returns the masked string (quoted in the re-serialized JSON).
 // maybeMaskNumeric sanitizes a numeric digit run, preserving the ORIGINAL JSON
-// value — and hence its numeric type — when no sensitive pattern matches
-// (#38): returning the original float64/json.Number keeps benign numbers like
+// value — and hence its numeric type — when no sensitive pattern matches:
+// returning the original float64/json.Number keeps benign numbers like
 // {"count": 42} as JSON numbers instead of degrading them to masked strings.
 func (s *Sanitizer) maybeMaskNumeric(digits string, original interface{}) interface{} {
 	masked := s.Sanitize(digits)

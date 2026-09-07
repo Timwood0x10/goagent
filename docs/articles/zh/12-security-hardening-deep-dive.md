@@ -10,7 +10,7 @@
 
 先讲清楚一个事实：给 Agent 装一个"能执行任意本地命令"的工具，和在集群里给一个进程开 root，性质是一样的。区别只在于，工具是 **Skill 清单声明出来的**——而一份 Skill 的 manifest 里每一行 tool 声明，都是在面对一个"要不要信任它"的决策点。
 
-当前代码里，这个决策点被明确地独立出来了，核心在 `internal/ares_skills/`。它遵循的一条设计原则（写在 `types.go` 的包注释里）：
+当前代码里，这个决策点被明确地独立出来了，核心在 `internal/runtime/protocol/skills/`。它遵循的一条设计原则（写在 `types.go` 的包注释里）：
 
 > "Discovery, loading, execution and trust are four separate concerns."（发现、加载、执行、信任是四个独立关注点。）
 

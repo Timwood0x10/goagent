@@ -14,7 +14,7 @@ import (
 )
 
 // configDebounceWindow is how long the watcher waits for events to settle
-// before triggering a single reload (#29).
+// before triggering a single reload.
 const configDebounceWindow = 200 * time.Millisecond
 
 // MCPConfigWatcher watches an MCP config file for changes and hot-reloads
@@ -120,7 +120,7 @@ func (cw *MCPConfigWatcher) Start(ctx context.Context) error {
 				continue
 			}
 
-			// Debounce (#29): keep consuming events and resetting the timer
+			// Debounce: keep consuming events and resetting the timer
 			// until a full debounce window elapses with no relevant event.
 			// The previous form waited only on timer/ctx, so every burst of
 			// N events produced N reloads spaced 200ms apart — no coalescing.

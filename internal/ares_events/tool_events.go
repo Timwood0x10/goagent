@@ -6,12 +6,11 @@ import (
 	"strings"
 )
 
-// Tool-event payload keys shared by the three ReAct executors
-// (agentfabric/chat_cognition.go, agents/sub/executor.go, agentloop/engine.go)
-// and the workflow graph ToolNode. Hoisting the keys here satisfies the
-// goconst "string repeated >= 3 times" rule and gives the projection layer
-// (Y1 方案C C2) a single, stable contract to read — the acceptance for C1 is
-// that all executors emit the SAME key set.
+// Tool-event payload keys shared by the tool-event emitters (today the
+// agentloop executor). Hoisting the keys here satisfies the goconst
+// "string repeated >= 3 times" rule and gives the projection layer a
+// single, stable contract to read — the acceptance is that all emitters
+// produce the SAME key set.
 const (
 	EventKeyToolName   = "tool_name"
 	EventKeyToolCallID = "tool_call_id"
@@ -25,11 +24,11 @@ const (
 )
 
 // ToolCompletedPayload records the result of one tool-call completion with a
-// UNIFIED key set across executors (Y1 C1). round/seq give the execution order
+// UNIFIED key set across executors. round/seq give the execution order
 // within a session (edge source for the trajectory projection); success/error
-// carry the outcome that was previously dropped by the peer executors (Y1
-// §9.3); arg_shape is the normalized argument-key set that aggregates
-// "the same tool used the same way" into one ToolStep (Y1 §11.0). It embeds
+// carry the outcome that was previously dropped by the peer executors;
+// arg_shape is the normalized argument-key set that aggregates
+// "the same tool used the same way" into one ToolStep. It embeds
 // no values — only key names — so identical method shapes collapse to one key.
 type ToolCompletedPayload struct {
 	AgentID     string
@@ -60,7 +59,7 @@ func (p ToolCompletedPayload) AsMap() map[string]any {
 		m[EventKeyArgShape] = p.ArgShape
 	}
 	// result is advisory (only set by executors that retain the output text);
-	// key is not part of the C1 identity set.
+	// key is not part of the identity set.
 	if p.ExtraResult != "" {
 		m[EventKeyResult] = p.ExtraResult
 	}
@@ -71,7 +70,7 @@ func (p ToolCompletedPayload) AsMap() map[string]any {
 // arguments JSON blob: the sorted set of top-level argument key names joined
 // by ",". Two calls of the same tool with the same argument KEY SET produce
 // the same shape regardless of the values, so "search(q=foo)" and
-// "search(q=bar)" collapse into a single ToolStep (Y1 §11.0). Malformed or
+// "search(q=bar)" collapse into a single ToolStep. Malformed or
 // empty JSON yields "".
 func ToolArgShape(argsJSON string) string {
 	if argsJSON == "" {

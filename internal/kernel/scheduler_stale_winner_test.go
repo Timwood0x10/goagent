@@ -26,7 +26,7 @@ func (e *stubExecutor) ExecuteStep(_ context.Context, _ *models.Task) (*sub.Step
 // TestStaleWinnerReleasedWhenReplacementExists verifies that when a stale
 // winner (selected by Schedule but no longer executable) has another capable
 // executor available, the scheduler releases the task so the next drain
-// re-schedules it within one poll interval (EDGE-4: 5-minute stall).
+// re-schedules it within one poll interval (otherwise a full-TTL stall).
 //
 // Before the fix the task stays LEASED for the full TTL (5 min); after the
 // fix it is released to READY when another capable executor exists.
@@ -69,12 +69,12 @@ func TestStaleWinnerReleasedWhenReplacementExists(t *testing.T) {
 	}
 }
 
-// TestStaleWinnerReleasedAndNominatedWhenRecoveryWired is the B1 contract for
+// TestStaleWinnerReleasedAndNominatedWhenRecoveryWired is the contract for
 // the production path: no capable executor is left, but a recovery loop is
 // wired, so the task is released to READY *and* nominated so recovery gives it
 // a replacement execution body promptly.
 //
-// Why B1 exists: the pre-B1 code kept the lease here unconditionally, letting
+// Why this exists: the old code kept the lease here unconditionally, letting
 // TTL expiry drive recovery. That made recovery depend on wall-clock time
 // advancing on its own — under a controlled clock the task stalled forever
 // (a 1-in-20 failure of TestE2E_GrandLoop_RealSchedulerChaosRecovery under
@@ -138,7 +138,7 @@ func TestStaleWinnerReleasedAndNominatedWhenRecoveryWired(t *testing.T) {
 }
 
 // TestStaleWinnerKeepsLeasedWithoutRecoveryHint locks the ordering constraint
-// that makes B1 safe: releasing clears the lease, which also removes the task
+// that makes release safe: releasing clears the lease, which also removes the task
 // from CheckExpiredLeases' scope. With no capable executor AND no recovery loop
 // to nominate, releasing would strand the task permanently — strictly worse
 // than the TTL stall. So those paths (leader, SDK, chaos/sandbox) must keep the

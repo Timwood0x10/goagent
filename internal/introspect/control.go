@@ -1,4 +1,4 @@
-// Package introspect — control-plane endpoints (monitoring.md Phase 4).
+// Package introspect — control-plane endpoints.
 //
 // After the old internal/monitoring gin server is deleted, the serve control
 // plane still needs a small set of read-only JSON endpoints: agent list/detail,
@@ -67,9 +67,9 @@ type ControlServer struct {
 	intel     *Engine
 	getConfig func() (cfg any, history []map[string]any)
 
-	// M3/M4 observability providers (migrated from internal/dashboard,
-	// monitoring.md Phase 4): evolution trajectory (M3-1), human feedback sink
-	// (M3-2) and cross-Fabric spans (M4-1). Nil disables the endpoint.
+	// observability providers (migrated from internal/dashboard):
+	// evolution trajectory, human feedback sink
+	// and cross-Fabric spans. Nil disables the endpoint.
 	evolution EvolutionTrajectoryProvider
 	feedback  EvolutionFeedbackSink
 	spans     ObservabilitySpansProvider
@@ -79,12 +79,12 @@ type ControlServer struct {
 	// dashboard /flight/* routes. Nil disables the endpoints.
 	flight FlightProvider
 
-	// lifecycleSnapshot supplies the evolution lifecycle state (P2-2).
+	// lifecycleSnapshot supplies the evolution lifecycle state.
 	// Nil disables the /api/evolution/lifecycle endpoint.
 	lifecycle LifecycleSnapshotProvider
 }
 
-// EvolutionTrajectoryProvider supplies the evolution trajectory (v0.3.0 M3-1).
+// EvolutionTrajectoryProvider supplies the evolution trajectory.
 // Implementations record per-generation snapshots; the endpoint renders them
 // as JSON.
 type EvolutionTrajectoryProvider interface {
@@ -93,7 +93,7 @@ type EvolutionTrajectoryProvider interface {
 	EvolutionTrajectory() []map[string]any
 }
 
-// EvolutionFeedback is a human review of an evolution candidate (v0.3.0 M3-2).
+// EvolutionFeedback is a human review of an evolution candidate.
 type EvolutionFeedback struct {
 	// CandidateID is the reviewed strategy/candidate id.
 	CandidateID string `json:"candidate_id"`
@@ -107,13 +107,13 @@ type EvolutionFeedback struct {
 	Reason string `json:"reason,omitempty"`
 }
 
-// EvolutionFeedbackSink receives human feedback submissions (v0.3.0 M3-2).
+// EvolutionFeedbackSink receives human feedback submissions.
 type EvolutionFeedbackSink interface {
 	// SubmitFeedback records one human feedback entry.
 	SubmitFeedback(fb EvolutionFeedback) error
 }
 
-// ObservabilitySpansProvider supplies cross-Fabric trace spans (v0.3.0 M4-1).
+// ObservabilitySpansProvider supplies cross-Fabric trace spans.
 type ObservabilitySpansProvider interface {
 	// Spans returns a snapshot of the recorded spans (insertion order), or
 	// nil when nothing is recorded.
@@ -137,8 +137,8 @@ func WithObservability(provider ObservabilitySpansProvider) ControlServerOption 
 	}
 }
 
-// LifecycleSnapshotProvider supplies the evolution lifecycle state snapshot
-// (P2-2). The provider returns a JSON-friendly map describing the current
+// LifecycleSnapshotProvider supplies the evolution lifecycle state snapshot.
+// The provider returns a JSON-friendly map describing the current
 // candidate state machine: active/previous/shadow strategy IDs, state, window
 // score, window sample count, and the most recent promote/rollback decision.
 // When not configured, the /api/evolution/lifecycle endpoint returns 404.
@@ -148,8 +148,8 @@ type LifecycleSnapshotProvider interface {
 	LifecycleSnapshot() map[string]any
 }
 
-// WithLifecycleSnapshot attaches the evolution lifecycle snapshot provider
-// (P2-2). When set, the /api/evolution/lifecycle endpoint returns the current
+// WithLifecycleSnapshot attaches the evolution lifecycle snapshot provider.
+// When set, the /api/evolution/lifecycle endpoint returns the current
 // state machine snapshot.
 func WithLifecycleSnapshot(provider LifecycleSnapshotProvider) ControlServerOption {
 	return func(s *ControlServer) {
@@ -186,14 +186,14 @@ func (s *ControlServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.handleAnomalies(w, r)
 	case r.Method == http.MethodGet && path == "/api/insights":
 		s.handleInsights(w, r)
-	// M3/M4 observability (migrated from dashboard :8090):
+	// Observability endpoints (migrated from dashboard :8090):
 	case r.Method == http.MethodGet && path == "/api/evolution/trajectory":
 		s.handleEvolutionTrajectory(w, r)
 	case r.Method == http.MethodPost && path == "/api/evolution/feedback":
 		http.Error(w, `{"error":"feedback endpoint requires auth, use action API"}`, http.StatusMethodNotAllowed)
 	case r.Method == http.MethodGet && path == "/api/observability/spans":
 		s.handleObservabilitySpans(w, r)
-	// P2-2: evolution lifecycle state snapshot.
+	// evolution lifecycle state snapshot.
 	case r.Method == http.MethodGet && path == "/api/evolution/lifecycle":
 		s.handleLifecycleSnapshot(w, r)
 	// Flight-recorder read surfaces (migrated from dashboard /flight/*):

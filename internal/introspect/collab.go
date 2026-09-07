@@ -50,7 +50,7 @@ func NewCollabReporter() *CollabReporter { return &CollabReporter{} }
 
 // Record appends one directed collaboration edge (newest last).
 //
-// Graph semantics (W2 closure): edges are a BIPARTITE agent↔task projection —
+// Graph semantics: edges are a BIPARTITE agent↔task projection —
 // From is the acting agent, To is EITHER another agent (direct IPC) or a task
 // id (the work the event was about; the Sink projects lifecycle/task events
 // here). The panel renders both node kinds; Topic disambiguates the edge

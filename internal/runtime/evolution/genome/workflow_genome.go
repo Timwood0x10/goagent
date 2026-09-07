@@ -18,7 +18,7 @@ var wfLog = logger.Module("genome.workflow")
 const (
 	WorkflowGenomeName  = "workflow"
 	KnowledgeGenomeName = "knowledge"
-	// SchedulerGenomeName is RETIRED (fusion plan §B1, 2026-08-22): the
+	// SchedulerGenomeName is RETIRED: the
 	// scheduler dimension no longer participates in genome mutation/diff.
 	// Kept only as a historical identifier for legacy persisted patches.
 	SchedulerGenomeName = "scheduler"
@@ -258,7 +258,7 @@ func (g *WorkflowGenome) mutateReplaceNode() {
 	oldStep := steps[rand.Intn(len(steps))]
 	agentType := g.config.AgentPool[rand.Intn(len(g.config.AgentPool))]
 
-	// C4: preserve Metadata through replace – previously the new step was
+	// Preserve Metadata through replace – previously the new step was
 	// built without Metadata, which meant a metadata-only gene mutation
 	// produced ZERO patches (the differ saw only topology changes) and the
 	// evolution could never select for a metadata variant.
@@ -283,7 +283,8 @@ func (g *WorkflowGenome) mutateReplaceNode() {
 	}
 }
 
-// mutateSetMetadata mutates a random node's Metadata in place (C4 作动面).
+// mutateSetMetadata mutates a random node's Metadata in place (the metadata
+// 作动面).
 // It twiddles a budget/prior/enabled-style attribute to produce a metadata-only
 // diff that WorkflowDiffer now surfaces as a PatchSetNodeMetadata. Without this
 // operator, evolution could never explore the metadata dimension — the genome

@@ -47,7 +47,7 @@ func buildPriorL1DAG(t *testing.T, prior string) *engine.MutableDAG {
 	return dag
 }
 
-// TestM5_PriorReachesPromptButNeverBlocks pins §6: prior is prompt-only —
+// TestM5_PriorReachesPromptButNeverBlocks pins: prior is prompt-only —
 // the hint text reaches the LLM, and growth is NOT blocked.
 func TestM5_PriorReachesPromptButNeverBlocks(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -129,7 +129,7 @@ func (c *l1ChatGrepThenAnswerHint) Chat(ctx context.Context, prompt []*core.LLMM
 	return &core.GenerateResponse{Content: "done"}, nil
 }
 
-// TestM5_HotUpdatedPriorIsPickedUp pins the M5 hot-update path: a
+// TestM5_HotUpdatedPriorIsPickedUp pins the hot-update path: a
 // SetNodeMetadata on the SAME L1 pointer is visible to the next quantum
 // without rebuilding the planner.
 func TestM5_HotUpdatedPriorIsPickedUp(t *testing.T) {

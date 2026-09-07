@@ -78,7 +78,7 @@ func TestGraphsEndpointPipeline(t *testing.T) {
 	}
 }
 
-// TestGraphsEndpointAutoGeneratesUniqueRunIDs locks the C4-review fix #1:
+// TestGraphsEndpointAutoGeneratesUniqueRunIDs locks the run-id fix:
 // the server always generates run ids; two identical submissions BOTH succeed
 // with distinct graph ids (a caller-supplied id colliding with live fabric
 // tasks used to surface as a 500 for a caller mistake).
@@ -98,7 +98,7 @@ func TestGraphsEndpointAutoGeneratesUniqueRunIDs(t *testing.T) {
 	}
 }
 
-// TestGraphsEndpointConcurrentRunIDsAreUnique locks the C4-review fix #1
+// TestGraphsEndpointConcurrentRunIDsAreUnique locks the run-id uniqueness
 // hardening: run ids must stay collision-free even under concurrent
 // submissions landing in the same nanosecond tick (UnixNano alone is not
 // unique — a collision would make the loser's first fabric.Create hit
@@ -205,8 +205,8 @@ func TestGraphsEndpointSchemaVersionGuard(t *testing.T) {
 	}
 }
 
-// TestGraphsEndpointNodeFailureReturns422 locks the error taxonomy (C4-review
-// #2): when the DAG is well-formed and runs but a node's work fails after
+// TestGraphsEndpointNodeFailureReturns422 locks the error taxonomy (node
+// failure): when the DAG is well-formed and runs but a node's work fails after
 // exhausting retries, the endpoint returns 422 (Unprocessable) — NOT 500. The
 // graph was accepted and executed; only the payload failed, so callers must
 // not treat it as a server hiccup to blindly retry.
@@ -349,9 +349,9 @@ func TestGraphsEndpointTimeoutReturns504(t *testing.T) {
 	}
 }
 
-// TestGraphsEndpointIgnoresCallerRunID locks the wire contract (review #2):
+// TestGraphsEndpointIgnoresCallerRunID locks the wire contract:
 // graphSubmissionRequest.RunID is accepted for back-compat but the server
-// ALWAYS generates the run id (C4-review fix #1). A caller-supplied run_id
+// ALWAYS generates the run id. A caller-supplied run_id
 // must NOT leak into the returned graph_id — the graph id is server-generated
 // (prefix "g" + timestamp). If someone later "helpfully" reconnects the field,
 // this test fails loudly instead of silently changing the contract.

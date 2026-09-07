@@ -1,6 +1,6 @@
 // Package ares_bootstrap — SKILLS progressive-disclosure wiring.
 //
-// REVIEW #11 closure: the ares_skills subsystem (Catalog → Registry) was only
+// The ares_skills subsystem (Catalog → Registry) was only
 // reachable from the `ares status` CLI; `ares serve` never constructed it, so
 // the memory manager's resident "Available skills" block was always empty and
 // progressive disclosure (Level-0 metadata resident, Level-1 body on demand)

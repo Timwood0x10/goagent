@@ -16,7 +16,7 @@ import (
 
 // ErrMissingTenantID is returned when a tenant-aware query is called with an
 // empty tenant ID. This prevents silent data leaks across tenants when RLS
-// policies are enforced via app.tenant_id (P1-11).
+// policies are enforced via app.tenant_id.
 var ErrMissingTenantID = stderrors.New("storage: missing tenant ID")
 
 // Pool represents a database connection pool with "get usage release" pattern.
@@ -171,7 +171,7 @@ func (p *Pool) Exec(ctx context.Context, query string, args ...any) (sql.Result,
 // ExecWithTenant executes a query with a mandatory tenant context on the same
 // connection. Begins a transaction, sets tenant_id via set_config (transaction-
 // scoped, is_local=true), executes the query, and commits. This ensures RLS
-// policies see the correct app.tenant_id and no data leaks across tenants (P1-11).
+// policies see the correct app.tenant_id and no data leaks across tenants.
 // Fails with ErrMissingTenantID if tenantID is empty.
 func (p *Pool) ExecWithTenant(ctx context.Context, tenantID string, query string, args ...any) (sql.Result, error) {
 	if tenantID == "" {

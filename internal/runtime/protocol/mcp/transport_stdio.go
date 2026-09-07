@@ -17,7 +17,7 @@ import (
 // Default buffer size for reading subprocess stdout lines (1 MB).
 const stdoutBufferSize = 1024 * 1024
 
-// stdioWriteTimeout bounds a single stdin write (#28). A subprocess that
+// stdioWriteTimeout bounds a single stdin write. A subprocess that
 // stops reading its stdin would otherwise block Send forever while holding
 // t.mu — which also blocks Close, so nothing could tear the transport down.
 const stdioWriteTimeout = 10 * time.Second
@@ -36,7 +36,7 @@ type StdioTransport struct {
 	cmd   *exec.Cmd
 	stdin io.WriteCloser
 	// stdinFile is stdin's concrete *os.File, captured at Start when the
-	// pipe is pollable; it enables SetWriteDeadline in Send (#28). Nil on
+	// pipe is pollable; it enables SetWriteDeadline in Send. Nil on
 	// exotic platforms where the pipe is not an *os.File.
 	stdinFile  *os.File
 	stdout     *bufio.Scanner
@@ -134,7 +134,7 @@ func (t *StdioTransport) Start(ctx context.Context) error {
 }
 
 // Send encodes and writes a JSON-RPC message to the subprocess stdin.
-// The write is bounded (#28): ctx is checked up-front, and a write deadline
+// The write is bounded: ctx is checked up-front, and a write deadline
 // (the lesser of stdioWriteTimeout and any ctx deadline) prevents a stuck
 // subprocess from holding t.mu forever — Close() needs the same mutex, so an
 // unbounded write would also block shutdown.

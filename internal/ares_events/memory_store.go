@@ -93,7 +93,7 @@ func (s *MemoryEventStore) Append(_ context.Context, streamID string, events []*
 		s.streams[streamID] = append(s.streams[streamID], event)
 		s.versions[streamID] = event.Version
 
-		// B19: clone the event before notifying subscribers. The stored
+		// clone the event before notifying subscribers. The stored
 		// *Event pointer is shared across all readers and the internal
 		// streams slice; a subscriber that mutates the event would race
 		// with concurrent Read/Append callers. The clone gives each
@@ -358,7 +358,7 @@ func (s *MemoryEventStore) unsubscribe(id int64) {
 var timeNow = time.Now
 
 // TrimBefore removes all events with version <= endVersion from the given
-// stream (P1-2③: the memory half of the compaction-trim loop). It implements
+// stream (the memory half of the compaction-trim loop). It implements
 // TrimAwareStore so NewCompactableStoreWithArchive can wire it as the trim
 // target: compaction summarizes a round, the archive sink persists it, and
 // this call reclaims the raw events — without it the in-memory store grows

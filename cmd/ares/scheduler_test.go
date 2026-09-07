@@ -403,7 +403,7 @@ func (a *yieldAgent) resumeCheckpoint() any {
 	return a.lastCkpt
 }
 
-// TestKernelSchedulerQuantumYieldResume is the P1 core contract at the
+// TestKernelSchedulerQuantumYieldResume is the core yield/resume contract at the
 // scheduler level: a task whose first quantum yields must SUSPEND (recorded as
 // a TaskYielded event), then resume with the checkpoint round-tripped and
 // complete — exactly the "Task A → Quantum#1 → checkpoint → yield → Quantum#2
@@ -462,7 +462,7 @@ func TestKernelSchedulerQuantumYieldResume(t *testing.T) {
 	}
 }
 
-// TestKernelSchedulerCapabilityPicksCorrectAgent (P1 acceptance 5): when two
+// TestKernelSchedulerCapabilityPicksCorrectAgent (capability matching): when two
 // agents declare different capabilities, a task must be scheduled to the
 // capable one — never to the other, however idle.
 func TestKernelSchedulerCapabilityPicksCorrectAgent(t *testing.T) {
@@ -504,7 +504,7 @@ func TestKernelSchedulerCapabilityPicksCorrectAgent(t *testing.T) {
 	}
 }
 
-// TestKernelSchedulerWorkStealingPicksIdleCapableAgent (P1 acceptance 6): work
+// TestKernelSchedulerWorkStealingPicksIdleCapableAgent (work stealing): work
 // stealing in the shared-queue substrate is load-aware — a candidate at full
 // load (Load=1) scores 0, so an idle capable agent picks up the work it
 // cannot accept. The busy agent is marked busy via the shared load tracker
@@ -565,7 +565,7 @@ func TestKernelSchedulerWorkStealingPicksIdleCapableAgent(t *testing.T) {
 	}
 }
 
-// TestKernelSchedulerIncapableAgentCannotSteal (P1 acceptance 7): an idle agent
+// TestKernelSchedulerIncapableAgentCannotSteal (capability guard): an idle agent
 // that does not declare the required capability must never pick up a task,
 // even when the capable agent is busy — the task waits for a capable executor.
 func TestKernelSchedulerIncapableAgentCannotSteal(t *testing.T) {
@@ -628,7 +628,7 @@ func TestKernelSchedulerIncapableAgentCannotSteal(t *testing.T) {
 	}
 }
 
-// TestKernelSchedulerP3GovernanceYieldsOnBudgetExhausted verifies the P3
+// TestKernelSchedulerP3GovernanceYieldsOnBudgetExhausted verifies the governance
 // wiring at the scheduler boundary: when the winning agent's tool budget is
 // exhausted, the pre-quantum gate yields the task back (Release → READY)
 // instead of running it, and the agent never executes again.
@@ -699,7 +699,7 @@ func TestKernelSchedulerP3GovernanceYieldsOnBudgetExhausted(t *testing.T) {
 }
 
 // TestKernelSchedulerP3GovernanceDeadlineYields verifies the deadline arm of
-// the P3 gate: a deadline-expired agent has its task released back to READY.
+// the governance gate: a deadline-expired agent has its task released back to READY.
 func TestKernelSchedulerP3GovernanceDeadlineYields(t *testing.T) {
 	ctx := context.Background()
 	f := taskfabric.NewFabric()

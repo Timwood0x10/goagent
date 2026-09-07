@@ -53,7 +53,7 @@ func FromStrategy(s *ares_evolution.Strategy, ns string) *knowledge.KnowledgeObj
 }
 
 // FromDecisionEvidence converts one lifecycle decision-evidence record
-// (promote/rollback, source="lifecycle", evolution loop closure E3) into a
+// (promote/rollback, source="lifecycle", evolution loop closure) into a
 // decision KnowledgeObject. It is the counterpart of FromStrategy: lineage
 // answers "where did this strategy come from", decision evidence answers
 // "why was it promoted or rolled back, and at what score" — only the latter

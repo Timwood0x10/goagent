@@ -1,6 +1,6 @@
 # ares 架构拆解（XIV）：插件系统 —— 说实话，它不是"不改代码就加载 .so"的那种（0.3.x）
 
-> 0.3.x 说明：本文完全基于当前代码改写。早期版本里"executor 上帝对象被插件拆解"的叙事，"ToolExpander 让技能名称即时解析为 LLM 工具定义"的机制，需要**与当前真实的插件契约区分开**。本文只写我们现在真正有的：`internal/ares_runtime/` 里的 `RuntimePlugin` **接口契约** + `PluginBus` **生命周期/钩子管理器**。
+> 0.3.x 说明：本文完全基于当前代码改写。早期版本里"executor 上帝对象被插件拆解"的叙事，"ToolExpander 让技能名称即时解析为 LLM 工具定义"的机制，需要**与当前真实的插件契约区分开**。本文只写我们现在真正有的：`internal/runtime/` 里的 `RuntimePlugin` **接口契约** + `PluginBus` **生命周期/钩子管理器**。
 
 > 先给你一句最诚实的话：**当前代码里的"插件系统"不是动态加载。** 没有 `go:plugin`、没有 `.so` 热插拔、没有"不改代码就能注入外部插件"。它是一套**编译期 Go 接口 + 注册表**——你在启动装配时把实现该接口的结构体 `Register` 进 `PluginBus`，由这个 bus 统一管理生命周期并调用定义好的扩展点。
 
@@ -8,7 +8,7 @@
 
 ## 一、它到底是什么：一个插件契约 + 一个总线
 
-`internal/ares_runtime/` 的包注释开门见山：
+`internal/runtime/` 的包注释开门见山：
 
 > "Package runtime defines the plugin contract for extending workflow execution. Plugins are registered on a PluginBus which manages their lifecycle and invokes them at defined extension points (BeforeStep, AfterStep)."
 
@@ -67,7 +67,7 @@ flowchart LR
 `bus.go` 的 `PluginBus` 是核心管理器：
 
 ```go
-bus := ares_runtime.NewPluginBus()
+bus := runtime.NewPluginBus()
 ```
 
 - `Register(plugin)`：加一个插件；**重名返回 `ErrDuplicatePlugin`；`Start` 之后再 `Register` 返回 `ErrBusAlreadyStarted`**。若插件实现了 `WorkflowHook` 会自动注册为 hook。
@@ -98,7 +98,7 @@ kernel.pluginBus = startPluginBus(ctx, store, sched, kernelLoopCfg)
 `startPluginBus`（`cmd/ares/runtime_bridge.go`）真实注册了：
 
 ```go
-loop := ares_runtime.NewLoopPlugin("kernel-loop", ares_runtime.LoopConfig{
+loop := runtime.NewLoopPlugin("kernel-loop", runtime.LoopConfig{
     MaxIterations: loopCfg.LoopMaxIterations,
 })
 if err := bus.Register(loop); err != nil { /* 降级为日志+继续调度 */ }
@@ -123,7 +123,7 @@ sched.WithQuantumHook(newPluginBusHook(bus, loop, loopCfg))
 | 运行时发现并注册外部插件 | ❌ 插件在启动装配时 `Register` |
 | 同一进程内共享一个总线的生命周期/钩子管理 | ✅ 真实存在，`PluginBus` |
 
-**为什么我强调这一点**：老版文章开头那段"executor 里写下第四个 if 之后把功能拆成插件"的叙事，以及"`ToolExpander` 让 Agent 无需重启即可获取新技能"的说法，指的根本是**另一套独立机制**——`internal/ares_skills/` 的能力发现（Discovery/Loader/Catalog/Resolver）和 `internal/ares_callbacks/` 的事件回调注册表，它们不经过 `PluginBus`，也不是"插件动态加载"。如果你要的是"上传一个插件包就能扩能力"，**当前代码没有这个东西**。
+**为什么我强调这一点**：老版文章开头那段"executor 里写下第四个 if 之后把功能拆成插件"的叙事，以及"`ToolExpander` 让 Agent 无需重启即可获取新技能"的说法，指的根本是**另一套独立机制**——`internal/runtime/protocol/skills/` 的能力发现（Discovery/Loader/Catalog/Resolver）和 `internal/ares_callbacks/` 的事件回调注册表，它们不经过 `PluginBus`，也不是"插件动态加载"。如果你要的是"上传一个插件包就能扩能力"，**当前代码没有这个东西**。
 
 ### 2.1 别把两套东西搞混：`ares_callbacks` ≠ 插件
 
@@ -133,7 +133,7 @@ sched.WithQuantumHook(newPluginBusHook(bus, loop, loopCfg))
 
 ### 2.2 与 skill 能力发现的区别
 
-`internal/ares_skills/` 的 SkillCatalog / SkillLoader / Resolver 处理"技能清单 + 工具信任门"（见《安全加固》那篇的 `TrustLevel`）。技能发现会在运行期读取磁盘上的 SKILL.md / manifest，这看起来像"动态"，但那是**能力数据**的动态，不是**插件代码**的动态——声明出来的工具要落为可执行 provider，仍要走 `Resolver` 的信任门，且不带进 `PluginBus` 的生命周期管理。
+`internal/runtime/protocol/skills/` 的 SkillCatalog / SkillLoader / Resolver 处理"技能清单 + 工具信任门"（见《安全加固》那篇的 `TrustLevel`）。技能发现会在运行期读取磁盘上的 SKILL.md / manifest，这看起来像"动态"，但那是**能力数据**的动态，不是**插件代码**的动态——声明出来的工具要落为可执行 provider，仍要走 `Resolver` 的信任门，且不带进 `PluginBus` 的生命周期管理。
 
 ---
 
@@ -171,7 +171,7 @@ flowchart LR
 
 ## 四、结语
 
-- **真实存在**的插件机制 = `internal/ares_runtime/` 的 `RuntimePlugin` 接口契约 + `PluginBus`（注册/生命周期/`BeforeStep`/`AfterStep` hook/事件系统），生产装配在 `cmd/ares/peer_mode.go` → `startPluginBus`。
+- **真实存在**的插件机制 = `internal/runtime/` 的 `RuntimePlugin` 接口契约 + `PluginBus`（注册/生命周期/`BeforeStep`/`AfterStep` hook/事件系统），生产装配在 `cmd/ares/peer_mode.go` → `startPluginBus`。
 - **真实接进内核**的插件目前主要是 `LoopPlugin`（kernel round 时钟），通过 `WithQuantumHook` 挂在调度量子边界。
 - **不是**动态插件加载：没有 `.so` / `go:plugin` / 热插拔。想不加改代码就扩展能力，得走 `ares_skills` 的能力数据路径，那是一个完全不同的机制。
 - 别把 `ares_callbacks`（事件回调注册表）和 `PluginBus`（插件总线）混为一谈——一个是广播事件，一个是管理插件生命周期。

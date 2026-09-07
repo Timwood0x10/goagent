@@ -19,7 +19,7 @@ func (o *recordingToolObserver) OnToolCall(out feedback.ToolCallOutcome) {
 	o.got = append(o.got, out)
 }
 
-// TestObserveToolCalls_ClassifiesOutcomes is the Step Y.3 acceptance: every
+// TestObserveToolCalls_ClassifiesOutcomes is the tool-channel acceptance: every
 // tool invocation produces one record, and the outcome distinguishes "the tool
 // worked", "the tool ran and failed", and "the strategy asked for a tool that
 // does not exist". The last one is the case worth separating — it is a decision

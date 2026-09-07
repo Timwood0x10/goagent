@@ -47,7 +47,7 @@ func loopPlanArgs() CreatePlanArgs {
 	}
 }
 
-// TestCreatePlanLoopRunsRounds verifies the GAP-2 create_plan loop option:
+// TestCreatePlanLoopRunsRounds verifies the create_plan loop option:
 // the kernel starts a bounded plan loop whose rounds are compiled into the
 // same fabric and executed by the normal scheduler path.
 func TestCreatePlanLoopRunsRounds(t *testing.T) {

@@ -15,8 +15,8 @@ func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
 }
 
-// TestSubmit_RegisteredAgent verifies the H1 closed loop
-// (aresos-agentos-plan H1: NewRuntime → RegisterAgent → Submit → 结果): a task
+// TestSubmit_RegisteredAgent verifies the closed loop
+// (NewRuntime → RegisterAgent → Submit → 结果): a task
 // submitted with a registered capability is executed by the agent registered
 // for it, and the result flows back unchanged.
 func TestSubmit_RegisteredAgent(t *testing.T) {
@@ -91,7 +91,7 @@ func (b *blockingLLM) Close()                        {}
 
 // TestSubmit_TimeoutPropagates verifies that Task.Timeout bounds the
 // execution: a blocked LLM surfaces a deadline-exceeded cause from Submit
-// (code_rules: context cancellation propagates, never swallowed).
+// (context cancellation propagates, never swallowed).
 func TestSubmit_TimeoutPropagates(t *testing.T) {
 	rt := NewRuntime(WithOllama("llama3.2"), WithTrace(false))
 	defer rt.Close()

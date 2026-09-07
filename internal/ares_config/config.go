@@ -71,8 +71,8 @@ type Config struct {
 	Security   SecurityConfig   `yaml:"security"`
 }
 
-// KernelConfig controls the dual-track dispatch kernel (ares-runtime.md P4 D4:
-// parallel + feature flag gradual cutover). When Policy is "taskfabric" (the
+// KernelConfig controls the dual-track dispatch kernel
+// (parallel + feature flag gradual cutover). When Policy is "taskfabric" (the
 // default), the kernel flips to the Task Fabric path: the shadow scorer is
 // replaced by the real Create→Schedule→Acquire→RunQuantum executor, shadow
 // mode is disabled (to avoid double execution) and the kernelScheduler starts
@@ -86,7 +86,7 @@ type KernelConfig struct {
 	Policy string `yaml:"policy"`
 	// PollInterval is the kernelScheduler drain interval (default 500ms).
 	PollInterval string `yaml:"poll_interval"`
-	// Resources is the P5 resource budget applied to the Agent Fabric
+	// Resources is the resource budget applied to the Agent Fabric
 	// (name → max total across live agents, e.g. {"cpu": 8, "memory": 8192}).
 	// Spawn rejects claims that exceed the remaining budget
 	// (agentfabric.ErrResourceQuotaExceeded). Empty disables enforcement.
@@ -99,13 +99,13 @@ type KernelConfig struct {
 	// Parsed with time.ParseDuration; empty/invalid falls back to the default.
 	QuotaApplyInterval string `yaml:"quota_apply_interval"`
 	// QuotaApplyTimeout bounds each quota policy application (default "30s").
-	// A hung policy store must not stall the quota loop (C1).
+	// A hung policy store must not stall the quota loop.
 	QuotaApplyTimeout string `yaml:"quota_apply_timeout"`
 	// RecoverySweepInterval is how often the recovery loop sweeps TTL-based
 	// lease expiry (default "1s").
 	RecoverySweepInterval string `yaml:"recovery_sweep_interval"`
 	// RecoverySweepTimeout bounds each recovery sweep (default "30s"). A hung
-	// store must neither block the recovery loop nor pile up sweeps (C3).
+	// store must neither block the recovery loop nor pile up sweeps.
 	RecoverySweepTimeout string `yaml:"recovery_sweep_timeout"`
 	// DispatchTimeout bounds how long kernelTaskDispatcher.Dispatch waits for
 	// a submitted task's completion event before reporting it failed
@@ -132,14 +132,14 @@ type KernelConfig struct {
 	// the atomic increment's return value, so concurrent drains cannot skip
 	// or double-fire a boundary.
 	LoopRoundQuanta int `yaml:"loop_round_quanta"`
-	// Chaos controls the fault injection subsystem (REVIEW #12). By default
+	// Chaos controls the fault injection subsystem. By default
 	// chaos runs in "shadow" mode — a scratch Sandbox verifies recovery
 	// without touching production agents. "live" mode (requires
 	// allow_live=true) enables real agent kill/suspend; it is dangerous
 	// and intended only for dedicated chaos testing environments.
 	Chaos ChaosConfig `yaml:"chaos"`
-	// DAGExecution configures the L2 session-graph execution path (M4-D:
-	// the only execution path; see DAGExecutionConfig). Every field is
+	// DAGExecution configures the L2 session-graph execution path
+	// (the only execution path; see DAGExecutionConfig). Every field is
 	// zero-value-safe — an absent dag_execution section runs the L2 router
 	// with defaults. The former `enabled` gate and the ReAct chat tool-loop
 	// it selected are gone; old files carrying `enabled:` still parse and the
@@ -148,7 +148,7 @@ type KernelConfig struct {
 }
 
 // DAGExecutionConfig configures the L2 session-graph execution path.
-// Every field is zero-value-safe. (M4-D: the `enabled` gate is gone — the
+// Every field is zero-value-safe. (The `enabled` gate is gone — the
 // L2 path is the only path. Old files carrying `enabled:` still parse;
 // the key is ignored.)
 type DAGExecutionConfig struct {
@@ -161,7 +161,7 @@ type DAGExecutionConfig struct {
 	// regardless of age — the registry keep-set gates that. A negative is a
 	// config error, rejected by Validate.
 	ReaperGrace time.Duration `yaml:"reaper_grace"`
-	// SessionIdleTTL is the session registry's idle window (P0-1a): a
+	// SessionIdleTTL is the session registry's idle window: a
 	// session untouched for this long is released by the sweeper, which
 	// lets the task reaper harvest its terminal tasks on the next sweep
 	// (0 = default 30m). Active sessions are immune — every quantum
@@ -197,8 +197,8 @@ type ChaosConfig struct {
 	// system (DreamCycle / population adapter), so live mode honors this
 	// field at injection time.
 	PauseDuringGA bool `yaml:"pause_during_ga"`
-	// EligibleCapabilities is the target whitelist for live injections
-	// (REVIEW #12 Phase 2): only agents declaring at least one of these
+	// EligibleCapabilities is the target whitelist for live injections:
+	// only agents declaring at least one of these
 	// capabilities may be injected. An empty list disables live injection
 	// entirely — it must be populated explicitly before any agent is a valid
 	// target, preventing accidental broad targeting.
@@ -281,12 +281,12 @@ type LLMConfig struct {
 
 // AgentsConfig holds agent configuration.
 type AgentsConfig struct {
-	// Peers is the flat capability-agent population (aresos-agentos-plan C1:
-	// flat peer structure as the default). Each entry is an equal peer spawned into the Agent
+	// Peers is the flat capability-agent population (flat peer
+	// structure as the default). Each entry is an equal peer spawned into the Agent
 	// Fabric with its execution body; the kernel scheduler selects among them
 	// by capability. When Peers is non-empty it is the authoritative agent
 	// source (createPeerAgents reads it); Sub remains as the legacy fallback
-	// (each sub's single Type becomes its only capability) so pre-C1 configs
+	// (each sub's single Type becomes its only capability) so legacy configs
 	// keep working.
 	Peers []PeerAgentConfig `yaml:"peers"`
 	// Sub is the LEGACY leader/sub-era sub-agent list, normalized into peers
@@ -296,7 +296,7 @@ type AgentsConfig struct {
 	Sub []SubAgentConfig `yaml:"sub"`
 }
 
-// PeerAgentConfig is one flat peer agent (C1 flat peer structure).
+// PeerAgentConfig is one flat peer agent (flat peer structure).
 type PeerAgentConfig struct {
 	// ID is the agent's unique identity (also its scheduler executor id and
 	// fabric agent id).
@@ -308,7 +308,7 @@ type PeerAgentConfig struct {
 	Capabilities []string `yaml:"capabilities"`
 	// Priority is the scheduling priority (>= 0; 0 = normal). It mirrors
 	// OS-thread priority: the kernel scheduler boosts higher-priority agents
-	// when choosing among capable candidates (B2).
+	// when choosing among capable candidates.
 	Priority float64 `yaml:"priority"`
 }
 
@@ -328,7 +328,7 @@ type SubAgentConfig struct {
 	// Priority is the scheduling priority of this sub-agent (>= 0; 0 =
 	// normal). It mirrors OS-thread priority: the kernel scheduler boosts
 	// higher-priority agents when choosing among capable candidates. Read by
-	// the kernel wiring (B2: thread priority) into the shared load tracker.
+	// the kernel wiring (thread priority) into the shared load tracker.
 	Priority float64 `yaml:"priority"`
 }
 
@@ -469,7 +469,7 @@ type MemoryConfig struct {
 
 	// EnableDistillation mirrors v0.2.4 memory.enable_distillation: when true,
 	// the closed loop distills task experiences into long-term memory.
-	// EnableDistillation gates the experience distillation wiring (C1).
+	// EnableDistillation gates the experience distillation wiring.
 	// Pointer tri-state: nil (unset) defaults to true — an explicit
 	// `enable_distillation: false` in YAML is the only way to disable.
 	EnableDistillation *bool `yaml:"enable_distillation"`
@@ -499,7 +499,7 @@ type MemoryConfig struct {
 	Archive ArchiveConfig `yaml:"archive"`
 }
 
-// DistillationEnabled reports whether distillation should be wired (C1):
+// DistillationEnabled reports whether distillation should be wired:
 // unset (nil) defaults to true; only an explicit YAML false disables it.
 func (m *MemoryConfig) DistillationEnabled() bool {
 	return m.EnableDistillation == nil || *m.EnableDistillation
@@ -814,8 +814,8 @@ type EvolutionConfig struct {
 	// uses the constant baseline scorer, preserving prior behavior.
 	LLMScoring LLMScoringConfig `yaml:"llm_scoring"`
 
-	// Lifecycle configures the StrategyLifecycle control plane (design doc
-	// §7): fitness window, judge thresholds, JUDGE weights and the rollback
+	// Lifecycle configures the StrategyLifecycle control plane: fitness
+	// window, judge thresholds, JUDGE weights and the rollback
 	// watch interval. Zero-value fields fall back to code defaults in
 	// bootstrap, so an absent section preserves the built-in behavior.
 	Lifecycle EvolutionLifecycleConfig `yaml:"lifecycle"`
@@ -831,7 +831,7 @@ type EvolutionConfig struct {
 	Shadow EvolutionShadowConfig `yaml:"shadow"`
 
 	// ShadowExecution configures real-execution shadow A/B for candidate
-	// strategies (closure plan Step 4 / N-1): when enabled, a submitted
+	// strategies: when enabled, a submitted
 	// candidate is executed on buffered recent real tasks inside an isolated,
 	// side-effect-free runner before the G2 gate judges it, producing
 	// candidate-specific evidence. Default: disabled — G2 then replays each
@@ -840,13 +840,13 @@ type EvolutionConfig struct {
 	ShadowExecution ShadowExecutionConfig `yaml:"shadow_execution"`
 
 	// ChannelFeedback configures the two perception channels evolution was
-	// blind to (closure plan Step Y.2/Y.3): cross-agent collaboration receipts
+	// blind to: cross-agent collaboration receipts
 	// and tool-call outcomes. Both default off — an agent perceives the world
 	// only through task/tool/collaboration, and until an operator opts in, only
 	// the task channel feeds the verdict.
 	ChannelFeedback ChannelFeedbackConfig `yaml:"channel_feedback"`
 
-	// M4-D0: evolution.tool_projection removed with its package (was default-disabled; unknown YAML keys are ignored, so
+	// evolution.tool_projection removed with its package (was default-disabled; unknown YAML keys are ignored, so
 	// existing config files keep loading).
 	// Gates configures the verify-gate pipeline thresholds (eval-suite
 	// minimum score, manual approval hold). Zero values fall back to code
@@ -894,9 +894,9 @@ type EvolutionGuardrailsConfig struct {
 	KnownTools []string `yaml:"known_tools"`
 }
 
-// EvolutionLifecycleConfig mirrors the `evolution.lifecycle` YAML block
-// (design doc §7). It maps onto evolution.LifecycleConfig in bootstrap.
-// The design doc's `penalty` block (cost/latency budgets) is intentionally
+// EvolutionLifecycleConfig mirrors the `evolution.lifecycle` YAML block.
+// It maps onto evolution.LifecycleConfig in bootstrap.
+// The `penalty` block (cost/latency budgets) is intentionally
 // absent: task events carry no cost/latency data yet, so no config field
 // is exposed for it (see the ares_evolution fitness_aggregator tech-debt
 // note).
@@ -929,7 +929,7 @@ type EvolutionLifecycleConfig struct {
 	// and the default applies.
 	WatchInterval string `yaml:"watch_interval"`
 	// BlacklistGenerations is how many generations a rolled-back candidate
-	// stays banned from re-nomination (§9 rollback-oscillation damping).
+	// stays banned from re-nomination (rollback-oscillation damping).
 	// Default: 3.
 	BlacklistGenerations int `yaml:"blacklist_generations"`
 	// MinActiveDuration is how long a promoted strategy must stay active
@@ -987,7 +987,7 @@ type EvolutionShadowConfig struct {
 }
 
 // ShadowExecutionConfig mirrors the `evolution.shadow_execution` YAML block
-// (closure plan Step 4 / N-1): real-execution A/B for candidate strategies.
+// for real-execution A/B of candidate strategies.
 type ShadowExecutionConfig struct {
 	// Enabled turns on real-execution shadow A/B. Default: false — when
 	// disabled, the G2 gate judges candidates by replaying each strategy's
@@ -1000,8 +1000,8 @@ type ShadowExecutionConfig struct {
 	SampleSize int `yaml:"sample_size"`
 }
 
-// ChannelFeedbackConfig mirrors the `evolution.channel_feedback` YAML block
-// (closure plan Step Y.2/Y.3). It arms the collaboration and tool-call
+// ChannelFeedbackConfig mirrors the `evolution.channel_feedback` YAML block.
+// It arms the collaboration and tool-call
 // perception channels as evolution fitness dimensions.
 //
 // Each channel has an `enabled` switch AND a weight. The switch controls
@@ -1038,14 +1038,14 @@ type EvolutionGateConfig struct {
 	// pass [0,1]. Default: 0.7.
 	EvalMinScore float64 `yaml:"eval_min_score"`
 	// RequireManualApproval holds candidates in SHADOW until an operator
-	// calls POST /api/evolution/approve (P2-4). Default: false.
+	// calls POST /api/evolution/approve. Default: false.
 	RequireManualApproval bool `yaml:"require_manual_approval"`
 	// EvalSuite loads the G3 regression test suite from a YAML file
 	// (eval.TestSuite schema: {name, description, test_cases: [...]}).
 	// Empty string disables the G3 gate (it degrades to pass-through).
 	EvalSuite string `yaml:"eval_suite"`
 	// EvalStrict fails the G3 gate closed when eval infrastructure is
-	// missing (E3). Default false preserves backward compatibility;
+	// missing. Default false preserves backward compatibility;
 	// production should set it true so an unwired gate cannot silently
 	// pass every candidate.
 	EvalStrict bool `yaml:"eval_strict"`

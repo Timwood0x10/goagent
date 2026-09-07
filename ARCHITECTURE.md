@@ -21,7 +21,7 @@
 | `examples/` 顶层 **34** 目录（含 README.md）；**被 `scripts/*.sh` 与 `.github/workflows/*` 引用** | `ls examples` / `rg` |
 | `cmd/mock-db/main.go` 存在（另有 `package main`）→ Phase 4 验收**不能**用"`cmd/ package main` = 1" | 源码已读 |
 | `cmd/ares/` 实际 **38 非测试源 + 41 测试**文件 → 收敛表述必须是"**非测试**文件收敛" | `ls` |
-| `cmd/ares/arena.go`+`flight.go`（+`serve_routine.go`）import `ares_arena`/`ares_flight` → **不能归档到 examples**（否则 cmd→examples 反向依赖） | `rg` |
+| `cmd/ares/serve.go`（含原 arena/flight 接线）import `ares_arena`/`ares_flight` → **不能归档到 examples**（否则 cmd→examples 反向依赖） | `rg` |
 | **`workflow/engine/` 严禁删除**：L1 进化作动面（`DAGPatchExecutor`/`WorkflowGenome`）+ L2 图载体 | 附录 C |
 
 ## 一、终极目标架构（修正分层）
@@ -116,16 +116,33 @@ cmd/ares/main.go = 唯一入口；kernel/fabric/runtime 平级（kernel 不被 f
 
 ### 2026-09-07 复核（kernel 搬家后重测 P1–P4，D 未动手）
 
+> **⚠️ 勘误（2026-09-07，Phase 4 收尾时补）**：本表是 **D 执行前的历史快照**，结论已被 §五「D 执行记录（E1–E7）」取代——D 已于同日用户特批落地（跳过 B2 门控，tag `convergence/pre-m4-d`）。锚点另按 Phase 4 文件合并映射重写。逐行现状：
+>
+> | 前置 | 勘误后现状 |
+> |---|---|
+> | P1 闸门可开 | **整行失效**：`Enabled` 闸门已随 E6 删除（`DAGExecutionConfig` 仅剩 `max_plan_depth/reaper_grace/session_idle_ttl`，`ares_config/config.go:154`） |
+> | P2 L2 生产流量 | **整行失效**：D 特批跳过 B2，闸门随 E6 删除，L2 已是唯一路径，无「Enabled=true」可言 |
+> | P3 chat 构造收口 | **整行失效**：闸门、`shadow_execution`/`shadow_compare` harness 均已随 E3/E5/E6 删除 |
+> | P4 单 ReAct 路 | **本体已达成**（ReAct chat 路径已删，仅剩单一 L2 路）；**残留**：`sub.Agent` 作为 peer 身份类型（ID/Type/MessageHandler 载体，非执行路径）仍存活——`createPeerSubAgents`（`cmd/ares/agent.go:1783`，调用点 agent.go:980）+ `newPeerExecutor`（spawn/恢复/IPC 链）。完全体 = 身份类型退场 → 「统一 Agent 接口」的前置；可动未立项，无门控阻塞 |
+> | D5 agentloop | 维持：无 cmd 引用；有 sdk 引用（`sdk/discovery.go`、`sdk/sdk.go`、`sdk/agent.go`）——仍不删 |
+>
+> 原锚点行号（peer_mode.go:94/:308/:382-397/:553、dag_execution.go、dashboard.go:261 等）按 §八 Phase 4 旧→新文件映射表重映射。
+
+<details>
+<summary>原快照存档（D 执行前口径，锚点为合并后位置）</summary>
+
 | 前置 | 状态 | 新锚点 |
 |---|---|---|
-| P1 闸门可开 | ✅ | `ares_config/config.go:141-170`（默认关，零值安全）；`cmd/ares/dag_execution.go` + `peer_mode.go:308` 接线 |
-| P2 L2 生产流量 | ⛔ 0 | `Enabled=true` 只出现在测试（`dag_execution_test.go:25`、`deploy_live_dag_integration_test.go:72`、`config_test.go:1148`）；`configs/ares.yaml:307` 注释态 |
-| P3 chat 构造收口 | ✅（维持） | 闸门后：`peer_mode.go:382-397`；闸门外仅剩 harness/demo：`shadow_execution.go:91`（测量 harness，by design）、`dashboard.go:261`（demo 冻结，Phase 4 处理）、`shadow_compare.go:165`（B1 harness） |
-| P4 单 ReAct 路 | ⛔ | 静态池死注册已摘（`peer_mode.go:145-151`）；但 `sub.Agent` 作为 peer 身份类型存活：`createPeerSubAgents`（`peer_mode.go:94`）+ `newPeerExecutor`（`peer_mode.go:553+`，spawn/恢复/IPC 链） |
+| P1 闸门可开 | ✅（当时） | `ares_config/config.go:141-170`（默认关，零值安全）；`cmd/ares/agent.go`（原 dag_execution.go）+ agent.go（原 peer_mode.go:308）接线 |
+| P2 L2 生产流量 | ⛔ 0（当时） | `Enabled=true` 只出现在测试（`dag_execution_test.go:25`、`deploy_live_dag_integration_test.go:72`、`config_test.go:1148`）；`configs/ares.yaml:307` 注释态 |
+| P3 chat 构造收口 | ✅（当时维持） | 闸门后：agent.go（原 peer_mode.go:382-397）；闸门外仅剩 harness/demo：`shadow_execution.go:91`（测量 harness，by design）、dashboard.go:261（demo 冻结，Phase 4 处理）、`shadow_compare.go:165`（B1 harness） |
+| P4 单 ReAct 路 | ⛔（当时） | 静态池死注册已摘（agent.go，原 peer_mode.go:145-151）；但 `sub.Agent` 作为 peer 身份类型存活：`createPeerSubAgents`（原 peer_mode.go:94 → 现 agent.go:1783）+ `newPeerExecutor`（原 peer_mode.go:553+ → 现 agent.go，spawn/恢复/IPC 链） |
 | D5 agentloop | ✅ 冻结维持 | 无 cmd 引用；有 sdk 引用（`sdk/discovery.go`、`sdk/sdk.go`、`sdk/agent.go`）——仍不删 |
 
+</details>
+
 **证据基线（本轮实跑，`-count=1`）**：`agentfabric`、`taskfabric`、`planprojection`、`workflow/...`、`ares_bootstrap`、`kernel`、`kernel/ctx` 全绿；M4 定向集（`TestShadowCompare|TestCanary|TestDualPath|TestM4|TestDAGExecution|TestL2Graph|TestPeerCapabilities|TestShadowRunner`，`agentfabric` + `cmd/ares`）全绿。
-**裁决**：D 删除仍阻塞（P2 + P4 未成）。本轮 M4 可执行部分已到顶：再往前即删 ReAct 本体，违反门控。下一步 = B2 生产采样（运维动作，需真实流量 + 开闸）或四阻塞中任一项的结构性推进（需立项）。
+**裁决（历史，已被 D 执行记录取代）**：D 删除曾判定阻塞（P2 + P4 未成）；D 已同日特批落地，B2 降级为非阻塞运维验证（与全链路 serve 验证同列，不再作为删除前置门）。
 
 ## 六、Phase 2b — 编排层正式合并（✅ 已落地 2026-09-07，M4 已通过）
 
@@ -139,7 +156,7 @@ cmd/ares/main.go = 唯一入口；kernel/fabric/runtime 平级（kernel 不被 f
 
 - ✗ **弃用 Phase 2a"占位目录 + 软链接"**（#6）：Go symlink 支持脆弱、不参与编译、制造双重真相，与"Merge≠mv"自相矛盾。改为：**直接冻结**（一条治理规则 + freeze 标记），Phase 2b 一步到位。
 - 统一 agent 接口：先以 fan-in 确认"主线 Agent 接口"（`agents/base` 为基础，须人工审 `sdk/agent.go` 与 `ares_runtime` 差异后锁定）；`sdk/agent.go` 第二套改薄包装。**严禁默认 base 就是权威**。
-- **降级条款（#15）**：若 M4 停在双跑（B2 未过），则 `chatCognition`/`sub.Agent` 协作栈不能删、Agent 接口不能收敛为 1——Phase 2b 停在"合并 agentfabric/taskfabric/workflow/engine"子集，**接口统一与 ReAct 删除各自独立成子阶段**，不互相绑架。
+- **降级条款（#15，已解除）**：~~若 M4 停在双跑（B2 未过），则 `chatCognition`/`sub.Agent` 协作栈不能删、Agent 接口不能收敛为 1~~——触发条件已随 D 落地（2026-09-07 特批）消失：`chatCognition` 已删，双跑不存在；`sub.Agent` 仅剩身份类型残留（见 §五勘误 P4 行）。**接口统一与 Agent 接口收敛仍各自独立成子阶段**（现状：`createPeerSubAgents` 在 `cmd/ares/agent.go:1783`，`sdk/agent.go` 332 行厚实现），可动未立项，须人工审 `sdk/agent.go` 与 `agents/base` 差异后锁定权威。
 - **验收**：~~`grep "type MutableDAG struct"` 仍只命中 `workflow/engine`~~ → 命中 `internal/fabric/task/workflow/engine`；`go build ./...` + `go vet ./...` 通过；freeze-manifest 已更新（移除 `agentfabric`/`taskfabric`/`planprojection`/`workflow` 顶层条目）；g1_reachability_gate 白名单已清理 fabric 条目。
 
 ## 七、Phase 3 — 运行时服务化（runtime 管完整生命周期）
@@ -151,9 +168,9 @@ cmd/ares/main.go = 唯一入口；kernel/fabric/runtime 平级（kernel 不被 f
 | `ares_evolution/`(v1) + `evolution/`(v2) | `internal/runtime/ares_evolution/` + `runtime/evolution/`（分层保留；双包同名 `evolution` 靠既有别名，不合并，#5）|
 | `ares_mcp/` `ares_skills/` `ares_protocol/` | `internal/runtime/protocol/{mcp,skills,ahp}/`（包名保持 `ares_mcp`/`ares_skills`：前者有局部变量冲突，后者与 `skills.Registry` 包撞名；ahp 压平一层） |
 | `ares_observability/` | `internal/runtime/observability/` ✅ 已落地 2026-09-07（包改名 `observability`，13 引用文件全量迁移，测试绿） |
-| `ares_arena/` | `internal/runtime/arena/`（主线能力：`cmd/ares/arena.go` 直接 import；归档 examples 会造成 cmd→examples 反向依赖，#3） |
-| `ares_flight/` | `internal/runtime/observability/flight/`（与 `ares_observability/` 合流；`cmd/ares/flight.go` 直接 import，#3） |
-| `ares_archive/` | `internal/runtime/archive/`（`cmd/ares/recall.go` + `serve.go:155-159` 直接 import，同属生产 CLI 依赖，同样不能归档 examples） |
+| `ares_arena/` | `internal/runtime/arena/`（主线能力：`cmd/ares/serve.go`（原 arena.go）直接 import；归档 examples 会造成 cmd→examples 反向依赖，#3） |
+| `ares_flight/` | `internal/runtime/observability/flight/`（与 `ares_observability/` 合流；`cmd/ares/{serve,dashboard}.go` 直接 import：serve.go 为控制面 FlightRecorder 接线（原 serve_routine.go 存量）、dashboard.go 承接原 flight.go 的 inspect/replay CLI 全量，#3） |
+| `ares_archive/` | `internal/runtime/archive/`（`cmd/ares/main.go`（原 recall.go）+ `serve.go` 直接 import，同属生产 CLI 依赖，同样不能归档 examples） |
 | `ares_eval/` + `eval/` | `internal/runtime/eval/` ✅ 已落地 2026-09-07（两包零标识符冲突，合并为单一 `package eval`；桥接文件自引用已解；fixture 路径 `../../../test/` 已修，测试绿） |
 
 - **记忆边界已核实（#10 关闭）**：`distilled_memories` 是 postgres 表（`storage/postgres/migrate_storage.go:396-397`，`base_repository.go:41` 注册）；`ares_memory` 依赖经验仓储（`NewMemoryManagerWithDistiller(..., expRepo distillation.ExperienceRepository)`，`manager_impl.go:167`）——两包是"上下游"不是"重复"，合并方式是"同一模块、按粒度分 API"；`ares_experience` 有异步 embedding 回填（`distillation_service.go`，`embedding.EmbeddingClient`）。**未证实、不写进验收**：全仓无 `QueryByVec` 符号；sqlite-vec 仅见 `knowledge/adapter/distill.go:346` 注释。向量检索实现位置 Phase 3 开工时再定。
@@ -164,8 +181,8 @@ cmd/ares/main.go = 唯一入口；kernel/fabric/runtime 平级（kernel 不被 f
 - `cmd/ares/main.go` 唯一入口；`cmd/ares/` **非测试源文件**收敛为少数文件（main/serve/agent/evolution/kernel/db/dashboard）。
 - **`cmd/mock-db/` 去向**：**保留独立**（#2 修正：它是 sqlite 零依赖冒烟工具，`mock-db [--db][--reset]`，零外部引用；并入 `ares db`（postgres 迁移）会混淆两种后端）。Phase 4 验收计数**仅限 `cmd/ares`**，mock-db 显式豁免。
 - `examples/*/main.go`（34）降级为 `examples/_fixtures/`；**同步改 `scripts/*.sh` 与 `.github/workflows/*` 对 examples 的引用**（#13）。
-- `compat/`：**留**（`ares_bootstrap/provide_llm.go` 生产引用；日落以 provide_llm 解耦为门，删除时按 code_rules_v2 §0.3 留 `// TODO(tech-debt)`）；`api/`：**留**（`cmd/ares/{serve_routine,actions,tools,mcp}.go` + `internal/tools/...` 生产引用，是公共 API 面，不是 examples 附庸）；`evaluation/`：✅ 已迁至 `examples/_fixtures/evaluation/`（全仓唯一引用方 `examples/eval/main.go` 已更新）。
-- **落地状态**：✅ `evaluation/` → `examples/_fixtures/evaluation/`；✅ `go build -o ares ./cmd/ares` 成功；✅ `cmd/ares` 唯一入口（`func main()` 仅在 `main.go`）；✅ 所有 `examples/*/main.go`（33 目录）已迁移到 `examples/_fixtures/`；✅ `scripts/*.sh`、`Makefile`、`freeze-manifest.txt`、`examples/README.md` 路径引用已同步更新；✅ freeze-check 通过；✅ `go build ./...` + `go vet ./...` 通过。`cmd/ares/` 38 个非测试源文件的细粒度合并（→ 7 文件）为后续多步 PR，不影响验收。
+- `compat/`：**留**（`ares_bootstrap/provide_llm.go` 生产引用；日落以 provide_llm 解耦为门，删除时按 code_rules_v2 §0.3 留 `// TODO(tech-debt)`）；`api/`：**留**（`cmd/ares/{serve,agent}.go` + `internal/tools/...` 生产引用，是公共 API 面，不是 examples 附庸）；`evaluation/`：✅ 已迁至 `examples/_fixtures/evaluation/`（全仓唯一引用方 `examples/eval/main.go` 已更新）。
+- **落地状态**：✅ `evaluation/` → `examples/_fixtures/evaluation/`；✅ `go build -o ares ./cmd/ares` 成功；✅ `cmd/ares` 唯一入口（`func main()` 仅在 `main.go`，dev.go 的 `func main()` 是 `ares init` 模板字符串非真实定义）；✅ 所有 `examples/*/main.go`（33 目录）已迁移到 `examples/_fixtures/`；✅ `scripts/*.sh`、`Makefile`、`freeze-manifest.txt`、`examples/README.md` 路径引用已同步更新；✅ freeze-check 通过；✅ `go build ./...` + `go vet ./...` 通过。✅ **`cmd/ares/` 细粒度合并已完成（2026-09-07）：38 → 7 非测试源文件（main / serve / agent / evolution / kernel / db / dashboard），345 个顶层符号逐一比对零丢失，`go build ./...` + `go vet` + `golangci-lint`（0 issues）+ `go test ./...` + `go test -race ./cmd/ares` + `git diff --check` + freeze-check 全绿。** 旧→新文件映射（下文历史记录中的行号锚点以此表重映射）：`actions/peer_mode/peer_agents/tools/mcp/mcp_null/dag_execution/session_admission/collab_graph.go → agent.go`；`serve_routine/serve_agents/serve_chaos/serve_live_dag/arena.go → serve.go`；`kernel_adopt/kernel_bridge/kernel_dispatcher/kernel_loop/scheduler_compat/runtime_bridge.go → kernel.go`；`evolution_ipc/strategy_score_adapter.go → evolution.go`；`db_migrate/db_create_table/db_check_rls.go → db.go`；`status/flight.go → dashboard.go`；`dev/auth/knowledge_cli/recall.go → main.go`。Review 修订（同日）：`cognitionTaskExecutor` 并入 `cognitionExecutor`（同一结构体同时满足 sub.TaskExecutor / kernel.CapabilityExecutor / stepExecutor 三契约，顶层符号 345 → 344）；kernel.go 补回 kernel_loop 的 GAP-3 TODO 与 kernel_adopt 设计注释；`ares_flight` 行的"原 flight.go 分属两处"表述已修正（flight CLI 全量入 dashboard.go，serve.go 的 flight import 源自原 serve_routine.go 存量）。
 - **验收**：✅ `go build -o ares ./cmd/ares` 成功；✅ `ARES serve` 单命令启完整 OS；✅ `examples/` 顶层仅 `_fixtures/`、`arena/`（yaml）、`README.md`。
 
 ## 九、Phase 5 — 验证与文档（✅ 落地 2026-09-07）
@@ -565,8 +582,8 @@ COMPLETED 时 `RunQuantum` 保留 checkpoint（worker result），dispatcher 订
 **影响**：`Reaper` 结构体、`Sweep()` 全实现了，但**没有任何生产代码调用它**。长驻 `serve`/`peer` 进程里，每个 L2 会话的终态任务（COMPLETED/FAILED）永远留在内存 task map 中，**单调增长直到 OOM**。这是最典型的"长跑必炸"缺陷。
 
 **落地（2026-09-06）**：三条修复建议全部执行——
-1. `NewReaperWithKeep` 加 keep 谓词（nil = 旧墙钟语义）；`cmd/ares/peer_mode.go` `createPeerAgents` 内经 `runBackground` 托管循环接线（serve 模式同走此函数，两模式覆盖），`gracePeriod` 走 `kernel.dag_execution.reaper_grace` 配置（缺省 30s 单一真相源在 taskfabric）。
-2. keep-set 以 `SessionRegistry` 为唯一权威：`sessionKeepSet`（`cmd/ares/session_admission.go`）经 `SessionIDFromNode` 反解任务 ID → 会话存活即永不收割（decision C 语义：墙钟 grace 不再能吃掉长会话的可读历史）。
+1. `NewReaperWithKeep` 加 keep 谓词（nil = 旧墙钟语义）；`cmd/ares/agent.go`（原 peer_mode.go）`createPeerAgents` 内经 `runBackground` 托管循环接线（serve 模式同走此函数，两模式覆盖），`gracePeriod` 走 `kernel.dag_execution.reaper_grace` 配置（缺省 30s 单一真相源在 taskfabric）。
+2. keep-set 以 `SessionRegistry` 为唯一权威：`sessionKeepSet`（`cmd/ares/agent.go`，原 session_admission.go）经 `SessionIDFromNode` 反解任务 ID → 会话存活即永不收割（decision C 语义：墙钟 grace 不再能吃掉长会话的可读历史）。
 3. 回归测试：`TestReaper_KeepSetProtectsLiveSession`（grace=1ns 下存活会话跨边界不误删、释放后可收割）、`TestSessionKeepSet`、`TestSessionIDFromNode`（ID 反解往返）、`TestResolveReaperGrace`、`TestValidateKernelDAGExecution/negative_reaper_grace`。
 
 **修复后复查发现两条残留（新账，见下）**：keep-set 把"fabric 单调增长"转化成了"注册表条目永不死则任务永不收割"——泄漏路径没消失，只是换了持有者。
@@ -575,12 +592,12 @@ COMPLETED 时 `RunQuantum` 保留 checkpoint（worker result），dispatcher 订
 
 ### 🔴 P0-1a　会话永不释放 → keep-set 永久钉住任务（P0-1 残留）
 
-**位置**：`internal/fabric/agent/session_registry.go`（无 TTL/过期机制）+ `cmd/ares/session_admission.go:47`
+**位置**：`internal/fabric/agent/session_registry.go`（无 TTL/过期机制）+ `cmd/ares/agent.go`（原 session_admission.go:47，行号漂移）
 **事实链**：
-- 释放点只有两处：answer 体执行成功（`l2graph.go:429`）与准入失败回滚（`session_admission.go:80`）。
+- 释放点只有两处：answer 体执行成功（`l2graph.go:429`）与准入失败回滚（agent.go，原 session_admission.go:80）。
 - 会话准入后若**永远到不了 answer**——planner 量子持续失败、工具错误循环、多轮会话被客户端放弃、answer 量子在执行到 `ReleaseSession` 前失败——注册表条目永久存活。
 - keep-set 对存活会话**无条件保留**（这正是 P0-1 的语义），所以这些会话的全部终态任务**永不收割**：泄漏从 fabric 单调增长变成"每个被放弃的会话钉住一份"，量级变小但没有归零。
-- 更糟：编译订阅挂在 `context.WithoutCancel(ctx)` 上（`session_admission.go:47`），`session_registry.go:106` 注释承诺的"未释放会话随 owner ctx 消亡"兜底**在准入路径上不成立**——WithoutCancel 之后只有进程退出才取消。
+- 更糟：编译订阅挂在 `context.WithoutCancel(ctx)` 上（agent.go，原 session_admission.go:47），`session_registry.go:106` 注释承诺的"未释放会话随 owner ctx 消亡"兜底**在准入路径上不成立**——WithoutCancel 之后只有进程退出才取消。
 
 **修复方向**：注册表条目加 `lastAccess`（`GetSession` 触碰刷新）+ `SweepExpired(idle)`，挂进同一个 reaper 后台循环；idle 窗口只需覆盖最长合法会话（depth × 量子时长），15–30min 量级安全。answer 失败路径可另行补 release。
 
@@ -588,7 +605,7 @@ COMPLETED 时 `RunQuantum` 保留 checkpoint（worker result），dispatcher 订
 
 ### 🟠 P0-1b　含 `/` 的 session_id 击穿 keep-set（P0-1 残留）
 
-**位置**：`cmd/ares/peer_mode.go:636/651`（`session_id` 取自客户端 payload，无格式校验）+ `agentfabric.SessionIDFromNode`（按首个 `/` 反解）
+**位置**：`cmd/ares/agent.go`（原 peer_mode.go:636/651，行号随 Phase 4 合并漂移）（`session_id` 取自客户端 payload，无格式校验）+ `agentfabric.SessionIDFromNode`（按首个 `/` 反解）
 **事实链**：客户端提交 `session_id="a/b"` → 节点 ID `sess/a/b/d1/grep#0` → `SessionIDFromNode` 反解出 `"a"` → 注册表里只有 `"a/b"` → keep=false → **存活会话的历史任务在 grace 后被收割**，planner 组装上下文读到已删 envelope。这正是 decision C 禁止的事故类别，且触发条件是纯客户端输入。
 **修复方向**：准入处校验 session_id 不含 `/`（fail-fast 拒绝，与空 ID 同级）；确定性 ID 构造器（`SessionRootID`/`SessionNodeID`）的无斜杠前提应成为显式契约。
 
@@ -596,7 +613,7 @@ COMPLETED 时 `RunQuantum` 保留 checkpoint（worker result），dispatcher 订
 
 ### 🔴 P0-1c　answer 后同 ID 重提交静默继承上一会话状态（多轮主流程即触发）
 
-**位置**：`cmd/ares/session_admission.go:66-71`（root `ErrTaskExists` → adopt）+ `internal/fabric/planprojection/coordinator.go:411-422`（节点 `compileOrAdopt`：`ErrTaskExists` 永不浮出）+ `internal/fabric/agent/l2graph.go:350-355`（root 以会话 prompt 为输出完成）
+**位置**：`cmd/ares/agent.go`（原 session_admission.go:66-71，行号漂移）（root `ErrTaskExists` → adopt）+ `internal/fabric/planprojection/coordinator.go:411-422`（节点 `compileOrAdopt`：`ErrTaskExists` 永不浮出）+ `internal/fabric/agent/l2graph.go:350-355`（root 以会话 prompt 为输出完成）
 **事实链**（正常多轮流程，非对抗输入）：
 1. 轮次 1 走完 answer → `ReleaseSession`；其任务留在 fabric 等收割（grace 30s + sweep 1min，最坏 ~2min 窗口）。
 2. 轮次 2 带**同一 `session_id`** 到达（客户端续聊的自然行为）：注册表已空 → `InitSession` 成功 → root `CompileNode` 撞 `ErrTaskExists` → 被当作"部分失败重试"**adopt**。
@@ -613,7 +630,7 @@ COMPLETED 时 `RunQuantum` 保留 checkpoint（worker result），dispatcher 订
 
 ### 🔴 P0-2　IPC 无重试 / 死信"有仓库、没入库"
 
-**位置**：`cmd/ares/kernel_loop.go:3-5`
+**位置**：`cmd/ares/kernel.go`（原 kernel_loop.go:3-5）
 ```go
 // TODO(tech-debt): agentipc has no retry/dead-letter semantics (the legacy ahp
 // DLQProcessor was removed with the leader-sub protocol). Wire IPC retry or a
@@ -895,7 +912,7 @@ P3（加固，非重构）
 | `WorkflowGenome.SetDAG`（把基因组重指到 live 图）                                          | `evolution/genome/workflow_genome.go:99`                            |
 | `UpdateLiveDAG`（下发 live 图给进化执行器 + 重指基因组）                                         | `ares_bootstrap/provide_new_evolution.go:364`（`SetDAG` 调用在 `:380`）  |
 | `GraphEventHub` + 六种 `ChangeType`                                                | `workflow/engine/graph_events.go:12-26`/`:49`                       |
-| 增量编译订阅（生产已接）                                                                     | `planprojection/coordinator.go:476` ← `cmd/ares/serve_agents.go:98` |
+| 增量编译订阅（生产已接）                                                                     | `planprojection/coordinator.go:476` ← `cmd/ares/serve.go`（原 serve_agents.go:98） |
 
 **换掉节点语义，进化系统一行不改就作用于工具执行过程。** 这是选 `MutableDAG` 而不是新造结构的全部理由。
 
@@ -974,7 +991,7 @@ P3（加固，非重构）
 | `Fabric.CompileNode`（单步编译，1:1 契约）                                 | `taskfabric/workflow_plan.go:154`                                                           |
 | 依赖跨批解析（批次内 → fabric 已存在 → 报错）                                     | `taskfabric/workflow_plan.go:189`                                                           |
 | `CompileCoordinator.ApplyChange`（五种 ChangeType 派发，`Skipped` 记账不吞） | `planprojection/coordinator.go:266`                                                         |
-| 事件订阅 → 增量投影（**生产已接**）                                             | `planprojection/coordinator.go:476` ← `cmd/ares/serve_agents.go:98`                         |
+| 事件订阅 → 增量投影（**生产已接**）                                             | `planprojection/coordinator.go:476` ← `cmd/ares/serve.go`（原 serve_agents.go:98）                         |
 | 测试                                                                | `planprojection/incremental_compile_test.go`、`taskfabric/workflow_plan_incremental_test.go` |
 
 设计要点：`ChangeSetNodeMetadata` 走 `UpdatePayload`，payload 落 checkpoint envelope 的 `Payload` 字段；增量重写不进持久化事件（`TestIncrementalRewritesAreNotPersisted` 固化）。
@@ -987,7 +1004,7 @@ P3（加固，非重构）
 
 | 欠账                                                                                                                 | 证据                                                                    |
 | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
-| **未接生产**。无任何非测试代码构造 `NewL2Graph`/`NewRouterCognition`；生产仍是 `newPeerChatCognition`（`cmd/ares/peer_mode.go:309`）     | `l2graph.go:20-22` 注释自陈「NOT yet wired into the production serve path」 |
+| ✅ **D 后已接生产**：router 是唯一路径（E2 spawn 常开 router、E6 删 chatCognition/闸门）；勘误 2026-09-07 ~~未接生产~~：~~无任何非测试代码构造 `NewL2Graph`/`NewRouterCognition`；生产仍是 `newPeerChatCognition`（`cmd/ares/peer_mode.go:309`）~~ | ~~`l2graph.go:20-22` 注释自陈「NOT yet wired into the production serve path」~~（注释已随 D 更新） |
 | **`DAGExecution`** **闸门不存在**。非测试代码 0 命中                                                                            | 闸门是 M2–M3 双跑对拍的载体，而对拍是 M4 不可逆删除的唯一前置——缺它则 M4 无从验收                     |
 | **M0 × M1 接缝零覆盖**。M1 的 E2E 走 `CompilePlan` 整批（`l2_graph_scheduler_integration_test.go:181`），不走事件增量路径；M0 的增量测试不带调度器 | 「生长 → 事件 → ApplyChange → drain」这条 M2 完全依赖的链路从未一起跑过                    |
 | 三处代码缺陷                                                                                                             | 见 §4 D1–D3                                                            |
@@ -1015,7 +1032,7 @@ P3（加固，非重构）
 | D1 ✅ | `agentfabric/l2graph.go: AddToolNode` 单次 `AddNode`（`DependsOn` 空→无前驱，非空→单前驱）；删 `AddEdge` 两步（该步曾发布无依赖节点事件 + 原地改已发布 `*Step`，与异步订阅者真实数据竞争）                                                                                                                                                                     | `TestL2Graph_AddToolNodeEmitsSingleEvent`（1 事件 + `DependsOn` 在事件 Step 内 + 无第二事件）；D5 测试 `-race` 即「边生长边订阅」覆盖                                                                                                                   |
 | D2 ✅ | 选「seq + 对账 + 计数」分支：`GraphEvent.Seq`（hub 锁内分配 + 发布，原子）、`GraphEventHub.Dropped`（per-sub 计数）、`MutableDAG.DroppedEvents`、`CompileCoordinator.Reconcile`（拓扑序创建 + 已跟踪刷新 + stale 删除 + 终态跳过；`ChangeReconcile` 归因）+ `applyAddNode` 的 `ErrTaskExists` 幂等认领；订阅循环做 seq-gap 告警 + 对账、drop 计数轮询（逐事件 + 250ms ticker，覆盖突发尾部） | `TestGraphEventHub_SeqAndDroppedCount`（64 缓冲外精确计数 + 单调 seq）；`TestM15_ReconcileCreatesTasksForMissedBurst` / `AdoptsPreexistingTasks` / `DeletesStaleTrackedTasks`；`TestL2Graph_BurstGrowthConvergesThroughEvents`（70 节点突发收敛） |
 | D3 ✅ | 选 `arg.` 前缀分支：`AddToolNode` 经 `argsMetadata` 写命名空间，`argsFromPayload` 只认 `arg.`（剥前缀），`input` / 调度恢复键不再进 `CallTool`；root params 保持原样（root 的 Metadata 从不进工具参数位）                                                                                                                                                | `TestL2Graph_ArgsNamespacedInMetadata`；`TestL2Cognition_StrictToolReceivesOnlyDeclaredArgs`（strictBinder：未声明 key 即报错，payload 含 `input` + `checkpoint` 照样跑通）；E2E chain 仍绿                                                     |
-| D4 ✅ | `agentfabric.DAGExecution{Enabled}` + `Select(chat, router)` 纯函数；`cmd/ares/peer_mode.go` 生产接线（默认关 → 与今天无差异；`TODO(tech-debt)` 标 M2 绑定 config + 全量 capability 广告）                                                                                                                                             | `TestDAGExecution_SelectKeepsLegacyBehaviorOff`（关→chat，开→router）；闸门开 3 节点链 = router 本体 E2E（`TestL2Graph_SchedulerExecutesThreeNodeChain` + D5）                                                                               |
+| D4 ✅（历史；`Enabled` 闸门与 `Select` 已随 E6/D 删除） | `agentfabric.DAGExecution{Enabled}` + `Select(chat, router)` 纯函数；`cmd/ares/agent.go`（原 peer_mode.go）生产接线（默认关 → 与今天无差异；`TODO(tech-debt)` 标 M2 绑定 config + 全量 capability 广告）                                                                                                                                             | `TestDAGExecution_SelectKeepsLegacyBehaviorOff`（关→chat，开→router）；闸门开 3 节点链 = router 本体 E2E（`TestL2Graph_SchedulerExecutesThreeNodeChain` + D5）                                                                               |
 | D5 ✅ | `TestL2Graph_IncrementalEventsDriveSchedulerToCompletion`（生长→事件→真 `Scheduler.Run`→envelope join，生长 / 编译 / 执行三方重叠）+ `TestL2Graph_BurstGrowthConvergesThroughEvents`                                                                                                                                          | `-race` 绿（§12 集内）                                                                                                                                                                                                            |
 
 **M1.5 实施中发现并顺手固定的接缝问题**：L2 root 依赖在事件路径下无法编译（`CompileNode` 拒 dangling 依赖，而剥离 root 边会破坏会话顺序 + `GetExecutionOrder` 确定性）——解法：root 作为 admission 任务一起编译，`rootCognition`（`ares/root`）零工作量完成并把 prompt 送进 envelope（§2.1 表已加行）。副作用：M2 planner 可用同一 ID-join 读 prompt；M3 广告 capability 清单应为 `tool/<name>` / `ares/plan` / `ares/answer` / `ares/root`（§5 M3-② 已同步）。批量路径旧 helper 的 root 剥离保留（历史测试路径不动，只增不改）。
@@ -1046,7 +1063,7 @@ P3（加固，非重构）
 
 - **目标**：`Messages[]` 被图路径取代。
 
-- **任务**：① 沿前驱路径按节点 ID join fabric envelope 取 Output 拼 prompt；② agent 广告全量 capability（`tool/<name>` / `ares/plan` / `ares/answer` / `ares/root`，随工具注册变化；今天只声明一个，`peer_mode.go:315`）。
+- **任务**：① 沿前驱路径按节点 ID join fabric envelope 取 Output 拼 prompt；② agent 广告全量 capability（`tool/<name>` / `ares/plan` / `ares/answer` / `ares/root`，随工具注册变化；今天只声明一个，原 peer_mode.go:315 → 现 `cmd/ares/agent.go` `peerCapabilities`）。
 
 - **验收**：同一任务闸门开/关两条路径对拍——同工具序列、同观察内容、外部行为一致。
 
@@ -1068,10 +1085,10 @@ P3（加固，非重构）
 
 | # | 前置 | 实测 | 为什么阻塞 |
 |---|---|---|---|
-| P1 | 闸门可开 | `DAGExecution` 生产零值（`peer_mode.go:308`）；`internal/ares_config` 零配置键 | 不改代码打不开，无法灰度 |
+| P1 | ~~闸门可开~~（历史：闸门已随 E6 删除，L2 为唯一路径，无灰度语义） | ~~`DAGExecution` 生产零值（`peer_mode.go:308`）~~；`internal/ares_config` 零配置键 | ~~不改代码打不开，无法灰度~~（由 D 特批消解） |
 | P2 | L2 路径有生产流量 | `Enabled=true` 只出现在 `l2graph_test.go:29`、`m3_context_test.go:158` | 生产请求数 0，全部证据是单元测试 |
 | P3 | `chatCognition` 消费者都在闸门后 | 4 处生产构造，**2 处不在闸门后**：`shadow_execution.go:90`、`introspect/dashboard.go:261` | 删即断影子执行与 introspection 面板 |
-| P4 | 只有一条 ReAct 路 | `peer_mode.go:145-148` 把 `sub.Agent` 注册进调度器执行池 | `sub/executor.go` 的循环是生产可达的第二条活路 |
+| P4 | ~~只有一条 ReAct 路~~（✅ 达成：ReAct 循环已随 E6 删除；`sub.Agent` 仅剩身份类型残留，见 §五勘误） | ~~`peer_mode.go:145-148` 把 `sub.Agent` 注册进调度器执行池~~（现 `cmd/ares/agent.go`，仅身份注册非执行池） | ~~`sub/executor.go` 的循环~~（已删） |
 
 **ReAct 为什么在这里**（决定了删除是收敛而非取舍）：首提交的执行模型是 YAML 声明的**静态** DAG（`docs/engine/zh.md §4.2`），全库无 ReAct。轮次工具循环在 `6fe11772`（2026-06-30）进入 `sub/executor.go`，比 `MutableDAG` 出生（`296d12f4`，2026-06-12）**晚 18 天**——图当时已能运行时长节点，缺的是增量编译器（一次图变更 → 一个任务，不重建批次），所以循环留下，并被复制三份。M0 补上了那块缺口，ReAct 的存在理由随之消失。
 
@@ -1087,11 +1104,11 @@ P3（加固，非重构）
 
 #### A 阶段 — 装回滚手柄（可逆，不改默认行为）
 
-**落地（2026-09-06）：A1 ✅ / A2 ✅。** 配置节 `kernel.dag_execution`（`ares_config/config.go:DAGExecutionConfig`）：`enabled` 默认 false，缺省与今天逐字节一致；`max_plan_depth` 默认 0 = planner 默认（`agentfabric.DefaultMaxPlanDepth = 10`，原未导出 `maxPlanDepth` 已导出为单一真相源）。`peer_mode.go` 经 `resolveDAGExecution` / `resolveMaxPlanDepth`（`cmd/ares/dag_execution.go`）接线，`MaxDepth` 传入 `PlannerDeps`；原 `TODO(tech-debt)` 已摘（做完即删）。负 `max_plan_depth` 被 `Validate` 拒绝；resolver 与 planner 双层兜底（非正 → 默认），护栏永不被误关。
+**落地（2026-09-06）：A1 ✅ / A2 ✅。** 配置节 `kernel.dag_execution`（`ares_config/config.go:DAGExecutionConfig`）：`enabled` 默认 false，缺省与今天逐字节一致；`max_plan_depth` 默认 0 = planner 默认（`agentfabric.DefaultMaxPlanDepth = 10`，原未导出 `maxPlanDepth` 已导出为单一真相源）。`agent.go`（原 peer_mode.go）经 `resolveDAGExecution` / `resolveMaxPlanDepth`（原 cmd/ares/dag_execution.go，已并入 agent.go）接线，`MaxDepth` 传入 `PlannerDeps`；原 `TODO(tech-debt)` 已摘（做完即删）。负 `max_plan_depth` 被 `Validate` 拒绝；resolver 与 planner 双层兜底（非正 → 默认），护栏永不被误关。
 
 | # | 任务 | 验收 |
 |---|---|---|
-| A1 | 加配置键 `kernel.dag_execution.enabled`（默认 false），`peer_mode.go:308` 从配置读 | 配置 false → `Select` 返回 chat；true → 返回 router；默认值缺省时与今天逐字节一致 |
+| A1（历史；`enabled` 键已随 E6 删除，旧 yaml 携带仍解析但忽略） | 加配置键 `kernel.dag_execution.enabled`（默认 false），原 peer_mode.go:308 从配置读 | 配置 false → `Select` 返回 chat；true → 返回 router；默认值缺省时与当时逐字节一致 |
 | A2 | `MaxDepth` 接配置 `kernel.dag_execution.max_plan_depth`（默认 10） | 配置 3 时第 3 层强制收敛为 answer 节点，不再生长 |
 | A3 | 会话可观测：图深度、节点数、终止原因（正常收敛 / 深度耗尽） | 深度耗尽各产生一次带 session id 的 warn + 一次计数 |
 
@@ -1110,7 +1127,7 @@ P3（加固，非重构）
 
 | # | 缺件 | 落点 | 测试 |
 |---|---|---|---|
-| B2-1 | 生产会话准入（`InitSession` 零生产调用方——开闸后 planner 首量子必 `ErrSessionNotFound`） | `ensureSessionAdmission`（`cmd/ares/session_admission.go`）：有 `session_id` + 闸门开 → 幂等准入（多轮复用，不 duplicate root）→ 编译 root → 提交的任务自然流向 planner；失败 fail-fast（无半建任务、无半准入会话）；订阅用 `context.WithoutCancel`（请求 ctx 会随 handler 消亡） | `TestSubmitPeerTask_AdmitsSessionFirst` / `ResubmitReusesSession` / `SessionlessUnchanged` / `GateOffIgnoresSession` / `AdmissionFailureCreatesNothing` |
+| B2-1 | 生产会话准入（`InitSession` 零生产调用方——开闸后 planner 首量子必 `ErrSessionNotFound`） | `ensureSessionAdmission`（`cmd/ares/agent.go`，原 session_admission.go）：有 `session_id`（历史记录：开闸语义已随 E6 消失，现全量 auto-session） → 幂等准入（多轮复用，不 duplicate root）→ 编译 root → 提交的任务自然流向 planner；失败 fail-fast（无半建任务、无半准入会话）；订阅用 `context.WithoutCancel`（请求 ctx 会随 handler 消亡） | `TestSubmitPeerTask_AdmitsSessionFirst` / `ResubmitReusesSession` / `SessionlessUnchanged` / `GateOffIgnoresSession` / `AdmissionFailureCreatesNothing` |
 | B2-2 | 会话释放（answer 执行后图句柄不 drop = 订阅泄漏） | `NewRouterCognitionWithPlanner` 加 `sessions` 参 → answer 体执行成功后 `ReleaseSession`（miss 只 warn；nil = legacy 不变） | `TestL2Cognition_AnswerReleasesSession` / `AnswerWithoutSessionsKeepsWorking` |
 | B2-3 | C4 提前：开闸 peer 的能力集**替换**（不含 primary）——经核查这是隔离机制本身，不是 bug：legacy 主能力任务只匹配关闸 peer，`ares/*` 只匹配开闸 peer；且调度器在 fabric 已接线时**唯一**候选源就是 fabric 活体（`scheduler.go` C1 注释），静态 `sub.Agent` 池够不着 `ares/*` | `peerCapabilities` 纯函数锁定该分区（开闸集**不得**含 primary，含了就是把 legacy 流量吸进金丝雀） | `TestPeerCapabilities_PartitionTraffic` |
 | B2-4 | 深度耗尽计数（B2 验收要"率"，只有 warn 日志给不出数） | `plannerCognition.ForcedAnswers()`（atomic，进程级；读口预留，metrics 端点另接） | `MaxDepthForcesAnswer` 内断言 0→1 |
@@ -1131,9 +1148,9 @@ P3（加固，非重构）
 |---|---|---|
 | C1 | 影子执行不再依赖"具体执行体能跑一切"的假设 | 原计划"改用 router"**不可行**：router 跑 L2 任务会经 planner 向**活会话图**长节点（生产副作用），且 planner 不消费策略、A/B 无意义。实际做法：`shadowQuantumRunner` 按 `agentfabric.IsL2Capability` 跳过 L2 任务（中性 `(false, nil)` + `Skipped()` 计数 + 日志），legacy 判决行为逐字节不变。L2 覆盖归 B1 对拍 + B2 金丝雀，不管策略影子要。测试：`TestShadowRunner_SkipsL2Tasks`（4 种 L2 cap 全跳过、计数 4、legacy 照跑）+ `TestShadowRunner_NilTaskFailsFast`（nil 由 panic 改显式错误） |
 | C2 | `introspect/dashboard.go:261` | **冻结，不迁**：唯一调用方是 `examples/30-introspect-panel-demo`（demo 运行时，非生产服务），其 agent 是任意 capability，router 接不下来。D 阶段删 `chat_cognition.go` 时一并处理该 example（迁 L2 cap 或删例）。 |
-| C3 | 摘 `sub.Agent` 静态池注册 + 恢复绑定按能力分发 | 摘了两处**死注册**：`peer_mode.go` 批量池（fabric 接线时调度器跳过静态池，`scheduler.go` C1 注释为证）+ syscall-spawn 回调里的 `sched.RegisterExecutor`（同一原因；`agentsyscall.Executor` 那一半保留，协作工具靠它）。`kernel.executors` 保持非空 map 传参（scheduler 拷贝，无别名风险）。**恢复绑定已 L2 化**（C3 余量关闭）：`RegisterExecutorForTask` 的工厂按任务能力分发——L2 cap 经 `selectRecoveryBody` 走 `peerRouter` 的 `cognitionExecutor` 适配器（`Done/Checkpoint/Result` 逐字段直通），其余走原 `newPeerExecutor`；`peerRouter` 为空或失败时回退 legacy，任务永不因分发本身被 stranded。测试：`TestSelectRecoveryBody`（6 格：关闸/L2/legacy/空 router 全覆盖）+ `TestNewCognitionExecutor_TranslatesOutcome`（直通 + 错误透传 + 空体构造失败）。 |
+| C3 | 摘 `sub.Agent` 静态池注册 + 恢复绑定按能力分发 | 摘了两处**死注册**：原 peer_mode.go（现 agent.go）批量池（fabric 接线时调度器跳过静态池，`scheduler.go` C1 注释为证）+ syscall-spawn 回调里的 `sched.RegisterExecutor`（同一原因；`agentsyscall.Executor` 那一半保留，协作工具靠它）。`kernel.executors` 保持非空 map 传参（scheduler 拷贝，无别名风险）。**恢复绑定已 L2 化**（C3 余量关闭）：`RegisterExecutorForTask` 的工厂按任务能力分发——L2 cap 经 `selectRecoveryBody` 走 `peerRouter` 的 `cognitionExecutor` 适配器（`Done/Checkpoint/Result` 逐字段直通），其余走原 `newPeerExecutor`；`peerRouter` 为空或失败时回退 legacy，任务永不因分发本身被 stranded。测试：`TestSelectRecoveryBody`（6 格：关闸/L2/legacy/空 router 全覆盖）+ `TestNewCognitionExecutor_TranslatesOutcome`（直通 + 错误透传 + 空体构造失败）。 |
 | C4 | 分区验证（已提前至 B2-3） | `peerCapabilities` + `TestPeerCapabilities_PartitionTraffic` 锁定：开闸集永不含 primary。 |
-| — | 收口检查 | `NewChatCognition` 生产构造点：闸门后 1 处（`peer_mode.go`）+ 策略影子 1 处（测量 harness，C1 后只跑 legacy）+ demo 1 处（冻结）+ B1 对拍 harness 1 处（非服务流量）。**D 仍删不动**：见下。 |
+| — | 收口检查 | `NewChatCognition` 生产构造点：闸门后 1 处（原 peer_mode.go，现 agent.go）——已随 E6 整体删除+ 策略影子 1 处（测量 harness，C1 后只跑 legacy）+ demo 1 处（冻结）+ B1 对拍 harness 1 处（非服务流量）。**D 仍删不动**：见下。 |
 
 **D 阻塞（书面）：D0 已删 ✅；D1–D4 未动手——测绘后确认计划低估了范围，动手删即违规，原因如下。**
 
@@ -1239,7 +1256,7 @@ P3（加固，非重构）
 | `sub/executor.go` ReAct 工具循环                         | `agents/sub/executor.go`                                                                                  | **删**，收敛到 §2.1 三执行体                   | 与 chat\_cognition 语义重复                                                              |
 | `internal/toolprojection`                            | 整包（`projection.go` / `projector.go`）                                                                      | **删**                                 | 事后投影，被 L2 图取代（图就是事实）                                                                |
 | `tool_projection_worker.go` + 配置键                    | `ares_bootstrap/tool_projection_worker.go`，启动点 `bootstrap_steps.go:492`，配置 `cfg.Evolution.ToolProjection` | **删**（连启动点与配置键一起摘）                    | `toolprojection` 唯一引用方                                                              |
-| `buildLiveAgentDAG`（节点=agent）                        | `cmd/ares/serve_live_dag.go:30`                                                                           | **重写**为 L1 能力图构造（M5，含解绑 `CompileDAG`） | 节点语义错，是分散的根源                                                                        |
+| `buildLiveAgentDAG`（节点=agent）                        | `cmd/ares/serve.go`（原 serve_live_dag.go:30，行号漂移）                                                                           | **重写**为 L1 能力图构造（M5，含解绑 `CompileDAG`） | 节点语义错，是分散的根源                                                                        |
 | `buildEvolutionDAG` 合成 input→process→output          | `ares_bootstrap/bootstrap.go:664`                                                                         | **删**                                 | 占位图，L1 真图取代                                                                         |
 | `workflow/graph.ToolNode`                            | `workflow/graph/node.go:77`                                                                               | **已删 ✅（2026-09-06）**：零生产/测试调用方，`NewToolNode` 全仓无引用（`rg` 归零），连 `hashInput` 一并摘 | 不在执行主路径                                                                             |
 | `agentloop/engine.go` ReAct                          | `agentloop/engine.go:250`，仅 `sdk/` 引用                                                                     | **冻结**为 legacy 兼容壳，不接主线               | 无生产 cmd 引用，动它是纯风险。注意其 `Request.ToolWhitelist`（`:210`）生产从不赋值、且无零交集回退——不要把它当已接线的第三执行体 |

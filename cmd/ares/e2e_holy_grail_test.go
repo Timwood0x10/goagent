@@ -38,7 +38,7 @@ const (
 
 // holyGrailChildOutput is the configurable payload a child agent returns.
 // The test mutates it between runs to prove the parent's synthesis tracks
-// the child's REAL output (H2 §10.4: synthesis must not be hardcoded).
+// the child's REAL output (synthesis must not be hardcoded).
 type holyGrailChildOutput struct {
 	mu  sync.Mutex // guards val
 	val string
@@ -191,7 +191,7 @@ func (e *holyGrailParentExecutor) reset() {
 	e.finalResult = ""
 }
 
-// holyGrailReplacementExecutor is the W1/E1 replacement for a killed child.
+// holyGrailReplacementExecutor is the recovery replacement for a killed child.
 type holyGrailReplacementExecutor struct {
 	id      string
 	typ     models.AgentType
@@ -329,7 +329,7 @@ func newHolyGrailFixture(t *testing.T, ctx context.Context) *holyGrailFixture {
 	return f
 }
 
-// startKernel wires the scheduler and the W1 recovery loop over the fabric
+// startKernel wires the scheduler and the recovery loop over the fabric
 // and launches both managed workers (both stop via ctx).
 func (f *holyGrailFixture) startKernel(t *testing.T, ctx context.Context) {
 	t.Helper()
@@ -391,8 +391,7 @@ func waitForChildTask(t *testing.T, f *holyGrailFixture, id string) {
 }
 
 // assertSynthesis reads the parent's final synthesis and asserts it contains
-// both children's real outputs, returning the synthesis for change detection
-// (H2 §10.4).
+// both children's real outputs, returning the synthesis for change detection.
 func assertSynthesis(t *testing.T, f *holyGrailFixture, wantB, wantC string) string {
 	t.Helper()
 	f.parentExec.mu.Lock()
@@ -414,7 +413,7 @@ func assertSynthesis(t *testing.T, f *holyGrailFixture, wantB, wantC string) str
 // ─── The holy-grail E2E test ───
 
 // TestE2E_HolyGrail is the single continuous end-to-end test that proves the
-// full Agent-OS thesis (aresos-agentos-plan H2 §10.2/§10.4 "圣杯测试"):
+// full Agent-OS thesis ("圣杯测试"):
 //
 //	User → Submit(root task) → Scheduler → Agent A (quantum 1: spawn B,C)
 //	  → B,C scheduled → B,C run → IPC results back to A

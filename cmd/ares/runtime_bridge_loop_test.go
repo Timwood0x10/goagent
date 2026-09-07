@@ -1,6 +1,6 @@
 package main
 
-// W-L1 falsifiable acceptance: the kernel loop clock must actually drive the
+// Loop-clock falsifiable acceptance: the kernel loop clock must actually drive the
 // round-end actions through the PluginBus capability discovery — not just
 // tick. A grep for NewLoopPlugin cannot distinguish "beat wired" from
 // "capability actions reachable", so every test here asserts effects that

@@ -65,10 +65,10 @@ func NewDiscoverer(allowlist []string, opts ...Option) *Discoverer {
 	d := &Discoverer{
 		allowlist: allowlist,
 		exec: func(ctx context.Context, name string, args []string) ([]byte, error) {
-			// B3: cap output so a chatty command cannot exhaust memory —
+			// cap output so a chatty command cannot exhaust memory —
 			// a bounded buffer replaces the unbounded .Output() read.
 			cmd := exec.CommandContext(ctx, name, args...) //nolint:gosec // allowlist-gated by design
-			// B3: capture stdout and stderr separately — describe
+			// capture stdout and stderr separately — describe
 			// parses the FIRST line as the tool description, and many CLIs
 			// write --help (or warnings) to stderr; mixing the streams made
 			// the description nondeterministic. Output exceeding the cap is
@@ -78,7 +78,7 @@ func NewDiscoverer(allowlist []string, opts ...Option) *Discoverer {
 			cmd.Stdout = &outBuf
 			cmd.Stderr = &errBuf
 			if err := cmd.Run(); err != nil {
-				// B3: surface stderr in the error, but degrade to the bare
+				// surface stderr in the error, but degrade to the bare
 				// error when stderr is empty — avoids a trailing ": " artifact.
 				if stderr := strings.TrimSpace(errBuf.String()); stderr != "" {
 					return nil, fmt.Errorf("%w: %s", err, stderr)
@@ -223,7 +223,7 @@ func (t *CommandTool) Execute(ctx context.Context, params map[string]interface{}
 	if err != nil {
 		return core.NewErrorResult(fmt.Sprintf("command %q failed: %v", t.name, err)), nil
 	}
-	// B3: the exec closure rejects over-cap output upstream, so len(out) here
+	// the exec closure rejects over-cap output upstream, so len(out) here
 	// is always within budget — no second truncation check to drift.
 	return core.NewResult(true, map[string]interface{}{
 		"stdout": string(out),

@@ -52,7 +52,7 @@ func (s *stubIPCProtocolSource) ActiveIPCProtocolPolicy(context.Context) (aresre
 // the large leader.Agent / sub.Agent interfaces. It creates the bus AND the
 // policy-aware IPC on the SAME bus, so the peer send reaches the registered
 // handler. A non-nil tracer records each peer send as a message span, exactly
-// like the production wiring (v0.3.0 review: TraceMessage was library-only).
+// like the production wiring (TraceMessage was once library-only).
 func buildBridge(target *fakeMessageAgent, policy aresrecovery.IPCProtocolPolicy, tracer *aresrecovery.GlobalTracer) *peer.Registry {
 	bus := agentipc.NewBus()
 	ipc := aresrecovery.NewEvolutionAwareIPC(bus, &stubIPCProtocolSource{policy: policy})
@@ -177,7 +177,7 @@ func TestToAHPMessageRejectsGarbage(t *testing.T) {
 	}
 }
 
-// TestEvolutionIPCBridgeTracesMessage verifies the v0.3.0 review wiring: every
+// TestEvolutionIPCBridgeTracesMessage verifies the tracing wiring: every
 // peer send through the evolution-aware bus also records a cross-Fabric
 // message span on the shared GlobalTracer (TraceMessage's production path,
 // previously library-only). The span is keyed by the message id and links to
@@ -214,7 +214,7 @@ func TestEvolutionIPCBridgeTracesMessage(t *testing.T) {
 	}
 }
 
-// ── M1 collaboration wiring (delegate/pipeline/orchestrate) ────────────────
+// ── Collaboration wiring (delegate/pipeline/orchestrate) ────────────────
 
 // fakeExecuteAgent implements both the SendMessage surface (peer delivery) and
 // sub.Agent Execute (collaboration execution), so wireEvolutionIPC wires it
@@ -236,7 +236,7 @@ func (a *fakeExecuteAgent) Execute(_ context.Context, task *models.Task) (*model
 }
 
 // TestExecuteCollaboration_RunsTaskAndReturnsReply verifies the core helper
-// behind the M1 collaboration wiring: a delegate/pipeline/orchestrate message
+// behind the collaboration wiring: a delegate/pipeline/orchestrate message
 // is bridged into a *models.Task, executed on the target agent, and the result
 // is returned as the request/reply reply with the correlation id preserved.
 func TestExecuteCollaboration_RunsTaskAndReturnsReply(t *testing.T) {
@@ -324,7 +324,7 @@ func TestExecuteCollaboration_NoExecuteCapability(t *testing.T) {
 // wiring: a DelegateToSpecialist request sent through a bus that mirrors the
 // production wireEvolutionIPC registration (topic dispatch + Execute) reaches
 // the sub agent's Execute capability and the result round-trips back as the
-// reply. This proves M1 collaboration is no longer library-only — a bus
+// reply. This proves collaboration is no longer library-only — a bus
 // handler for the delegate topic executes on the target agent.
 func TestWireEvolutionIPC_CollaborationExecutedOnSub(t *testing.T) {
 	ctx := context.Background()

@@ -8,7 +8,7 @@ import (
 )
 
 // Compiled regexes for P3 identifier protection (see
-// plan/context_compression_strategy.md §2.3). These are package-level and
+// plan/context_compression_strategy.md). These are package-level and
 // immutable after init, so they are safe for concurrent use.
 var (
 	// reCommitHash matches abbreviated (7+) or full (40) lowercase hex commit

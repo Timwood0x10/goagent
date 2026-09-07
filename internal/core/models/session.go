@@ -5,7 +5,7 @@ import "time"
 // Session represents a user conversation session.
 // The struct fields are preserved for SQL scan compatibility; the behavior
 // methods (NewSession/IsExpired/IsCompleted/AddTask/Progress/SetStatus) were
-// removed as dead code (D5) — only tests referenced them.
+// removed as dead code — only tests referenced them.
 type Session struct {
 	SessionID   string           `json:"session_id"`
 	UserID      string           `json:"user_id"`
@@ -21,5 +21,5 @@ type Session struct {
 	ExpiredAt   time.Time        `json:"expired_at"`
 }
 
-// D5: NewSession, IsExpired, IsCompleted, AddTask, AddResult, SetStatus,
+// NewSession, IsExpired, IsCompleted, AddTask, AddResult, SetStatus,
 // Progress removed as dead code (only tests referenced them).

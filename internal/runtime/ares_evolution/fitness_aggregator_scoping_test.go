@@ -4,8 +4,8 @@ package evolution
 // decision path (Window called WITH a strategy ID) requires the strategy's
 // OWN "strategy" source to satisfy MinSamplesBeforeJudge — global sources
 // (workflow/scheduler/recovery/dimension_eval) weight the mean but can never
-// license a rollback decision on the strategy's behalf (design doc §4⑤
-// principle 4: rollback decisions must rest on the strategy's own evidence).
+// license a rollback decision on the strategy's behalf (rollback decisions
+// must rest on the strategy's own evidence).
 
 import (
 	"context"

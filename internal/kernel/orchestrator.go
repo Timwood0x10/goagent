@@ -22,7 +22,7 @@ const stopTimeout = 30 * time.Second
 const waitTimeout = 30 * time.Second
 
 // overallShutdownTimeout bounds the WHOLE Shutdown sequence when the caller
-// provides no deadline of its own (K4). Per-component timeouts already bound
+// provides no deadline of its own. Per-component timeouts already bound
 // each Stop/Wait; this cap keeps the total teardown finite even when many
 // components are registered.
 const overallShutdownTimeout = 30 * time.Second
@@ -40,7 +40,7 @@ type Orchestrator struct {
 	cancel   context.CancelFunc
 	eg       *errgroup.Group
 	// events is the optional event sink for background-loop failure records
-	// (K3). Nil disables event emission; the loop panic is always logged and
+	// Nil disables event emission; the loop panic is always logged and
 	// reflected in the component status regardless.
 	events ares_events.EventStore
 
@@ -178,7 +178,7 @@ func (o *Orchestrator) startComponent(ctx context.Context, name string) error {
 // and returned. Shutdown is idempotent and safe to call concurrently: only
 // the first call runs the sequence.
 //
-// K4: the whole sequence runs under an overall budget — the caller's context
+// The whole sequence runs under an overall budget — the caller's context
 // deadline when it has one, otherwise overallShutdownTimeout. Components that
 // did not reach Stopped when the budget expires are named in the returned
 // error (and logged) instead of blocking the process exit forever.
@@ -229,7 +229,7 @@ func (o *Orchestrator) Shutdown(ctx context.Context) error {
 	}
 
 	// Report every component that did not reach a terminal stopped state so
-	// a truncated teardown is visible instead of silent (K4).
+	// a truncated teardown is visible instead of silent.
 	var notStopped []string
 	for _, st := range o.registry.AllStatuses() {
 		if st.State != StateStopped && st.State != StateDisabled {
@@ -372,7 +372,7 @@ func (o *Orchestrator) Go(fn func() error) {
 	o.eg.Go(fn)
 }
 
-// Adopt registers a component AFTER Start has already run (K1: late
+// Adopt registers a component AFTER Start has already run (late
 // admission, e.g. the kernel pillars assembled later in the serve flow) and
 // drives its startup state record so the component joins the status snapshot
 // and the reverse-topological Shutdown sequence.
@@ -462,7 +462,7 @@ func (o *Orchestrator) Adopt(ctx context.Context, c Component, mode Mode) error 
 	return nil
 }
 
-// GoBackground runs fn as an errgroup-managed background loop (K3: the
+// GoBackground runs fn as an errgroup-managed background loop (the
 // unified entry for cmd/ares long-lived loops, replacing bare `go`).
 //
 // The name identifies the owning component: a loop that panics is recovered,
@@ -515,14 +515,14 @@ func (o *Orchestrator) runBackground(ctx context.Context, name string, fn func(c
 			log.Error("system_runtime: background loop panicked",
 				"component", name, "panic", r)
 			o.markBackgroundFailed(name, fmt.Sprintf("panic: %v", r))
-			err = nil // contained: do not crash the process (K3)
+			err = nil // contained: do not crash the process
 		}
 	}()
 	return fn(ctx)
 }
 
 // markBackgroundFailed marks the named component Failed with the given
-// reason and emits a component.failed event on the configured sink (K3/K5:
+// reason and emits a component.failed event on the configured sink (the
 // the FlightRecorder subscribes to the whole event stream, so the panic
 // lands on the flight timeline). Best-effort: an unwired sink or missing
 // component only skips that part of the record; the log line is the
@@ -556,13 +556,13 @@ func (o *Orchestrator) markBackgroundFailed(name, reason string) {
 }
 
 // SetEventSink attaches the optional event store used to record background
-// component failures (K3). Nil (the default) disables event emission.
+// component failures. Nil (the default) disables event emission.
 func (o *Orchestrator) SetEventSink(store ares_events.EventStore) {
 	o.events = store
 }
 
 // Snapshot returns a point-in-time status view of all managed components
-// (K5: the introspect panel and startup logs consume this instead of
+// (the introspect panel and startup logs consume this instead of
 // reaching into the registry).
 func (o *Orchestrator) Snapshot() Snapshot {
 	return o.registry.Snapshot()

@@ -9,9 +9,9 @@ import (
 	"github.com/Timwood0x10/ares/internal/ares_events"
 )
 
-// This file implements cross-restart task-state rebuild (release-readiness
-// T2 / ares-repair-plan GAP): with an event store attached, a restarted
-// Fabric can fold the durable task.* event log back into in-memory tasks.
+// This file implements cross-restart task-state rebuild: with an event
+// store attached, a restarted Fabric can fold the durable task.* event log
+// back into in-memory tasks.
 //
 // Design contracts:
 //

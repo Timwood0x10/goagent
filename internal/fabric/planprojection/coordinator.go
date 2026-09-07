@@ -160,8 +160,8 @@ func (c *CompileCoordinator) LastCompile() CompileRecord {
 	return c.lastCompile
 }
 
-// CompileCount returns the total number of compile actions since startup
-// (C5.1/C5.3). This is the compileSeq counter — the same source that
+// CompileCount returns the total number of compile actions since startup.
+// This is the compileSeq counter — the same source that
 // generates compile IDs — exposed for introspection and metrics. A flat
 // zero means no compile has fired, which indicates the GraphEvent
 // subscription is not wired or the DAG has not been mutated.
@@ -172,14 +172,14 @@ func (c *CompileCoordinator) CompileCount() uint64 {
 	return atomic.LoadUint64(&c.compileSeq)
 }
 
-// CompileID returns the most recent compile's unique identifier (C5.2).
+// CompileID returns the most recent compile's unique identifier.
 // Empty when no compile has happened yet.
 func (c *CompileCoordinator) CompileID() string {
 	return c.LastCompile().CompileID
 }
 
-// DAGVersion returns the live DAG's mutation counter at the last compile
-// (C5.2). Zero when no compile has happened yet.
+// DAGVersion returns the live DAG's mutation counter at the last compile.
+// Zero when no compile has happened yet.
 func (c *CompileCoordinator) DAGVersion() uint64 {
 	return c.LastCompile().DAGVersion
 }
@@ -541,7 +541,7 @@ func (c *CompileCoordinator) applyEdgeChange(dag *engine.MutableDAG, ch engine.G
 // applyMetadataChange rewrites a task's payload in place. It deliberately
 // does NOT recreate the task: a pure attribute patch must not reset the
 // task's CreatedAt (which would also re-stamp its submission-time strategy
-// attribution, E1) nor disturb anything that already references it.
+// attribution) nor disturb anything that already references it.
 func (c *CompileCoordinator) applyMetadataChange(dag *engine.MutableDAG, ch engine.GraphChange, res *ChangeResult) {
 	step := ch.Step
 	if step == nil {

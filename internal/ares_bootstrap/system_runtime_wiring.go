@@ -1,4 +1,4 @@
-// Package ares_bootstrap — System Runtime wiring (Stage 1).
+// Package ares_bootstrap — System Runtime wiring.
 //
 // This file bridges the system-level control plane (internal/kernel)
 // into the Bootstrap assembly: after all components are constructed, they are
@@ -33,7 +33,7 @@ const (
 )
 
 // SysCompEventStore is the System Runtime registry name of the shared event
-// store. Exported for the kernel-side adoption (cmd/ares K2): the kernel
+// store. Exported for kernel-side adoption: the kernel
 // pillar adapters declare it as their dependency edge so Shutdown stops them
 // before the store.
 const SysCompEventStore = sysCompEventStore
@@ -41,11 +41,11 @@ const SysCompEventStore = sysCompEventStore
 // runtimeComponentAdapter adapts an already-constructed Bootstrap component
 // to the System Runtime Component interface. Identity and dependency metadata
 // drive registry ordering; optional stop/wait hooks let the orchestrator's
-// Shutdown drive real teardown in reverse topological order (Stage 9) instead
+// Shutdown drive real teardown in reverse topological order instead
 // of leaving teardown only to entry-point shutdown managers. Nil hooks are
 // safe no-ops, so components without a dedicated teardown still transition.
 // An optional readyFn lets a Degraded-mode component report a missing
-// capability instead of silently claiming Ready (F03, Stage 9).
+// capability instead of silently claiming Ready.
 type runtimeComponentAdapter struct {
 	name    string
 	deps    []string
@@ -79,7 +79,7 @@ func (a *runtimeComponentAdapter) Wait() error {
 // Ready reports whether the component is fully operational. A nil readyFn
 // means no readiness constraint (component is Ready by construction). A
 // non-nil readyFn returning an error signals a missing capability, which the
-// orchestrator records as Degraded for Degraded-mode components (F03).
+// orchestrator records as Degraded for Degraded-mode components.
 func (a *runtimeComponentAdapter) Ready(ctx context.Context) error {
 	if a.readyFn == nil {
 		return nil
@@ -107,7 +107,7 @@ func registerSystemComponent(reg *kernel.Registry, name string, present bool, de
 // wireSystemRuntime registers every constructed component with the System
 // Runtime registry and creates the orchestrator that observes their states.
 // It runs after construction completes so the full component graph is known.
-// Teardown hooks (Stage 9) let Orchestrator.Shutdown own real Stop/Wait in
+// Teardown hooks let Orchestrator.Shutdown own real Stop/Wait in
 // reverse topological order, so entry points no longer duplicate teardown.
 //
 // Args:
@@ -136,7 +136,7 @@ func wireSystemRuntime(ctx context.Context, cfg *ares_config.Config, comp *Compo
 
 	// Knowledge component: when AKG retrieval is enabled but the write-side
 	// dependency (DistillBridge) is missing, the component must NOT silently
-	// claim Ready — it registers as Degraded with a readiness error (F03).
+	// claim Ready — it registers as Degraded with a readiness error.
 	// Otherwise it is a normal Required component.
 	knowledgeMode := kernel.ModeRequired
 	var knowledgeReady func(ctx context.Context) error
@@ -152,7 +152,7 @@ func wireSystemRuntime(ctx context.Context, cfg *ares_config.Config, comp *Compo
 	registerSystemComponent(reg, sysCompDiscovery, comp.Discovery != nil, nil, kernel.ModeRequired, nil, nil, nil)
 
 	orch := kernel.NewOrchestrator(reg, ctx)
-	// K3: background component failures are recorded on the shared event
+	// Background component failures are recorded on the shared event
 	// store so the flight recorder timeline (which subscribes to the whole
 	// stream) shows them. Best-effort: a nil store only disables the record.
 	orch.SetEventSink(comp.EventStore)

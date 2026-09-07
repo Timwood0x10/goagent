@@ -10,7 +10,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/ares_events"
 )
 
-// TestRestoreFromStoreResumesSuspendedTask is the T2 integration contract: a
+// TestRestoreFromStoreResumesSuspendedTask is the integration contract: a
 // fabric instance discarded mid-execution (process crash) is fully rebuilt
 // from the event store alone — the task folds back to READY with its
 // checkpoint, and the scheduler's ordinary acquire path resumes it.

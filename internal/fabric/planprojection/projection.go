@@ -29,7 +29,7 @@ type CompileRecord struct {
 
 // ProjectStep converts a single engine.Step into a taskfabric.PlanStep.
 //
-// Mapping rules (fixed, see ares-evolution-loop-tasklist-zh.md C1.1):
+// Mapping rules (fixed):
 //
 //	PlanStep.ID         ← Step.ID
 //	PlanStep.Capability  ← Step.AgentType

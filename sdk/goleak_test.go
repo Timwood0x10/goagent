@@ -41,13 +41,13 @@ func goleakOptions() []goleak.Option {
 	}
 }
 
-// TestRuntimeCloseLeaksNoGoroutines is the T4/B4 acceptance: after Close() the
+// TestRuntimeCloseLeaksNoGoroutines is the Close() acceptance: after Close() the
 // Runtime must leave no goroutine of its own behind.
 //
 // It covers the scheduler drain loop, the syscall kernel, and the background
 // errgroup — ensureScheduler starts all three, and Close() is the only thing
-// that stops them. Before this test the guarantee was asserted only by prose in
-// the release plan; the repo had no goleak dependency at all.
+// that stops them. Before this test the guarantee was asserted only by prose
+// in the docs; the repo had no goleak dependency at all.
 func TestRuntimeCloseLeaksNoGoroutines(t *testing.T) {
 	defer goleak.VerifyNone(t, goleakOptions()...)
 
@@ -66,7 +66,8 @@ func TestRuntimeCloseLeaksNoGoroutines(t *testing.T) {
 //
 // A plan loop is the one Runtime-owned goroutine a user can start indirectly
 // (through the create_plan tool's `loop` option) and therefore the easiest to
-// leak: it outlives the call that created it by design. T4 required this to be
+// leak: it outlives the call that created it by design. The serve/SDK
+// lifecycle contract required this to be
 // asserted with goleak or equivalent; this is that assertion.
 func TestPlanLoopCloseLeaksNoGoroutines(t *testing.T) {
 	defer goleak.VerifyNone(t, goleakOptions()...)

@@ -1,9 +1,9 @@
 package runtime
 
-// Architecture gate 6.1 (agent-os-loop-wiring plan §6.1): every RuntimePlugin
+// Architecture gate: every RuntimePlugin
 // constructor in this package must have at least one PRODUCTION reference (a
 // non-test .go file). This is the root-cause defense for the original bug
-// this plan was written for: LoopPlugin was fully implemented, never wired,
+// this gate was written for: LoopPlugin was fully implemented, never wired,
 // and nobody noticed for multiple releases because nothing failed.
 //
 // Detection: constructor = exported FuncDecl named "New*Plugin" in this

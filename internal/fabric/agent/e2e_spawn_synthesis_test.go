@@ -7,19 +7,19 @@ import (
 	"time"
 )
 
-// This file is the P3.4 end-to-end proof (aresos-plan.md §P3.4 + §P3 验收):
+// This file is the spawn-synthesis end-to-end proof:
 // Agent A receives a complex task, judges it too large, spawns B/C/D as
 // same-level peers, each child has independent Cognitive State, children
 // report results via IPC (simulated through the Fabric's context layer),
 // parent A synthesises. A dies → B/C/D survive; tasks do not die with A.
 //
-// The test also exercises P3.2 (Context three-layer separation): each
+// The test also exercises Context three-layer separation: each
 // agent's Private State is walled off from Task Shared State, and a
 // child's Private State never appears in another agent's Task Shared
 // layer.
 
-// TestP3_4_EndToEndSpawnSynthesis is the P3.4 acceptance scenario
-// (aresos-plan.md §P3 验收, simplified):
+// TestP3_4_EndToEndSpawnSynthesis is the spawn-synthesis acceptance scenario
+// (simplified):
 //
 //  1. Agent A receives "audit unsafe FFI" (too complex).
 //  2. A spawns B (code-structure), C (ffi-safety), D (dependency-analysis).
@@ -203,7 +203,7 @@ func TestP3_4_EndToEndSpawnSynthesis(t *testing.T) {
 	}
 }
 
-// TestP3_2_ContextThreeLayerSeparation verifies P3.2 (aresos-plan.md §P3.2):
+// TestP3_2_ContextThreeLayerSeparation verifies Context three-layer separation:
 // Task Shared State, Agent Private State, and IPC are strictly separated.
 // A child's Private State NEVER appears in another agent's Task Shared State,
 // and setting a Private key does not bleed into Task Shared.
@@ -297,7 +297,7 @@ func TestP3_2_ContextThreeLayerSeparation(t *testing.T) {
 	}
 }
 
-// TestP3_4_ParentDeathChildrenContinueTasks verifies §P3 acceptance:
+// TestP3_4_ParentDeathChildrenContinueTasks verifies the acceptance:
 // "A 死亡，B/C/D 不死亡" and "Task 不因 A 死亡而消失" and
 // "B/C/D 可以继续执行".
 func TestP3_4_ParentDeathChildrenContinueTasks(t *testing.T) {
@@ -387,7 +387,7 @@ func TestP3_4_ParentDeathChildrenContinueTasks(t *testing.T) {
 }
 
 // TestP3_4_ConcurrentSpawnSynthesis exercises the concurrent spawn + IPC
-// scenario with goroutines (code_rules: managed goroutines).
+// scenario with goroutines (managed goroutines).
 // Multiple children work in parallel, report via a channel, and the parent
 // synthesises.
 func TestP3_4_ConcurrentSpawnSynthesis(t *testing.T) {

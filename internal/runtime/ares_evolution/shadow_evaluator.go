@@ -22,7 +22,7 @@ import (
 // comparison — a random-direction jitter would report "evidence exists but
 // win rate is thin" instead of "no evidence", and a monotonically-rising
 // attribution could let the candidate systematically win a comparison that was
-// really a tie (review P1-3). The ReplayScorer also memoizes its prior per
+// really a tie. The ReplayScorer also memoizes its prior per
 // window so the two calls agree exactly; the epsilon is the defensive second
 // layer for any scorer that does not memoize.
 const shadowTieEpsilon = 1e-9
@@ -105,7 +105,7 @@ type ShadowEvaluationConfig struct {
 	DeterministicScorer bool `json:"-"`
 
 	// ReplayWindowSpan is the width of ONE replay evidence window used by the
-	// ReplayScorer (C3.2). Each comparison reads a distinct slice of history,
+	// ReplayScorer. Each comparison reads a distinct slice of history,
 	// so MinSamples is satisfied by independent evidence. Zero falls back to
 	// the replayWindowSpan default (10 minutes). Exposed so an operator can
 	// tune the evidence granularity without touching code — this parameter
@@ -214,7 +214,7 @@ func (e *ShadowEvaluator) RecordResult(activeScore, shadowScore float64) {
 	comparison := ShadowComparison{
 		ActiveScore: activeScore,
 		ShadowScore: shadowScore,
-		// B-3 / P1-3: a score within shadowTieEpsilon of the active is a tie,
+		// A score within shadowTieEpsilon of the active is a tie,
 		// not a win. ShadowWon must agree with ShouldDeployLoose's decisive
 		// filter (both use isTie), otherwise a near-tie could be recorded as a
 		// win yet be filtered out of the sample count — or vice versa.
@@ -228,10 +228,10 @@ func (e *ShadowEvaluator) RecordResult(activeScore, shadowScore float64) {
 // on accumulated comparison results. It uses majority voting with a configurable
 // minimum sample count and win rate threshold.
 //
-// SEMANTICS (review: one evaluator, two consumers, two readings — now
-// explicit): ShouldDeploy is the STRICT judge, fail-closed — insufficient
-// DECISIVE samples REJECT. It is the contract the StrategyLifecycle's G2
-// verify gate relies on (design doc §3.1: "fewer than MinSamples samples →
+// SEMANTICS (one evaluator, two consumers, two readings):
+// ShouldDeploy is the STRICT judge, fail-closed — insufficient
+// DECISIVE samples REJECT. It is the contract the StrategyLifecycle's shadow
+// verify gate relies on ("fewer than MinSamples samples →
 // the candidate stays in SHADOW and is NOT deployed"). DreamCycle's internal
 // deploy path uses ShouldDeployLoose instead, where insufficient data defers
 // to the deployer rather than veto.
@@ -269,14 +269,14 @@ func (e *ShadowEvaluator) ShouldDeploy() (bool, *ShadowReport) {
 // raw comparisons the verdict is identical to ShouldDeploy on the DECISIVE
 // subset.
 //
-// B-3 (tie semantics): an exact tie (activeScore == shadowScore) carries no
+// Tie semantics: an exact tie (activeScore == shadowScore) carries no
 // information about which strategy is better. It is neither a win nor a
 // sample — it is excluded from TotalComparisons, so a run of cold-start
 // prior-vs-prior comparisons (sparse-window active vs never-executed
 // candidate, see replay_scorer.go) can no longer dilute the win rate toward
 // the fail-closed boundary.
 //
-// P0-3 (tie-vs-no-evidence): a report is returned whenever ANY comparison was
+// Tie-vs-no-evidence: a report is returned whenever ANY comparison was
 // recorded — including the all-tie case — so the caller can distinguish "no
 // comparisons gathered" (nil report) from "comparisons gathered but all were
 // ties" (report with TieCount == TotalComparisons' complement). The all-tie
@@ -292,14 +292,14 @@ func (e *ShadowEvaluator) ShouldDeployLoose() (bool, *ShadowReport) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
-	// B-3: only decisive comparisons (shadow != active) count toward the
+	// Only decisive comparisons (shadow != active) count toward the
 	// sample total. A tie is recorded for observability but adds nothing to
 	// either the numerator or the denominator.
 	total := 0
 	shadowWins := 0
 	tieCount := 0
 	for _, r := range e.shadowResults {
-		// P0 (review): the decisive filter MUST use the same predicate as
+		// The decisive filter MUST use the same predicate as
 		// ShadowWon (isTie), not an exact `==`. A pair whose difference falls
 		// in (0, shadowTieEpsilon] is a tie for ShadowWon but would be
 		// "decisive" for an exact comparison — entering `total` while never

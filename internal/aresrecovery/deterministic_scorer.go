@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// Scoring weights for the deterministic scorer (C2.2).
+// Scoring weights for the deterministic scorer.
 //
 // These are compile-time constants — no runtime config, no randomness.
 // The weights are chosen so that:
@@ -37,15 +37,14 @@ const (
 	recoverCeiling = 3.0
 )
 
-// DeterministicScorer is the zero-LLM scorer (C2.2): it aggregates the
+// DeterministicScorer is the zero-LLM scorer: it aggregates the
 // extended attribution data (success rate, average latency, average
 // retries, average recoveries) into a single [0,1] score using fixed
 // weights and no random source.
 //
 // The scorer is deterministic: the same AttributionSnapshot always produces
-// the same score. This is a hard requirement (see ares-evolution-loop-
-// tasklist-zh.md C2.2): the GA must not depend on an LLM or any random
-// source for its fitness signal.
+// the same score. This is a hard requirement: the GA must not depend on
+// an LLM or any random source for its fitness signal.
 //
 // Thread-safe: holds no mutable state.
 type DeterministicScorer struct{}
@@ -116,7 +115,7 @@ func (s DeterministicScorer) ScoreSnapshot(snap AttributionSnapshot) float64 {
 
 // ScoreAttribution is a convenience method: it takes an ExecutionAttribution
 // source, snapshots it, and scores the snapshot. This is the method the
-// feedback loop calls (C2.3/C2.4).
+// feedback loop calls.
 func (s DeterministicScorer) ScoreAttribution(src ExecutionResultSource) float64 {
 	if src == nil {
 		return 0.5
@@ -124,7 +123,7 @@ func (s DeterministicScorer) ScoreAttribution(src ExecutionResultSource) float64
 	return s.ScoreSnapshot(src.Snapshot())
 }
 
-// TaskScore implements the evolution.TaskScoreProvider interface (C2.4).
+// TaskScore implements the evolution.TaskScoreProvider interface.
 // It returns the current aggregate deterministic score from the attribution
 // source, regardless of the success/failure of the individual task event —
 // the score reflects the OVERALL execution quality trend, not a single
@@ -143,7 +142,7 @@ func (p *AttributionScoreProvider) TaskScore(_ bool) float64 {
 }
 
 // AttributionScoreProvider adapts a DeterministicScorer + ExecutionResultSource
-// into the evolution.TaskScoreProvider interface (C2.4). It is the bridge
+// into the evolution.TaskScoreProvider interface. It is the bridge
 // that lets the EvolutionScheduler read attribution-derived scores without
 // importing the aresrecovery package — the wiring layer (cmd/ares) constructs
 // this adapter and injects it via evolution.WithScoreProvider.

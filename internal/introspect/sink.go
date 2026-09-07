@@ -27,10 +27,10 @@ const (
 //
 // The intelligence engine (health/anomalies/insights) is fed by a separate
 // subscription in cmd/ares (setupServeControlPlane) rather than here, keeping
-// the two consumers independent (monitoring.md Phase 4).
+// the two consumers independent.
 type Sink struct {
 	store *Store
-	// collab is the optional collaboration-edge producer (W2 closure). When
+	// collab is the optional collaboration-edge producer. When
 	// set, lifecycle/task events are projected into agent→task edges so the
 	// panel's Collab tab shows the real work distribution instead of an
 	// always-empty graph.

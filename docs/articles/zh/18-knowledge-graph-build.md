@@ -124,7 +124,7 @@ flowchart LR
 
 它 `t.Logf` 打印对象数/边数/置信度，但**不做固定边数断言**——边数取决于语料里真的有多少“修复了/依赖/调用/属于”之类模式。所以“27K、147、73ms”这三个数是编的，**我没有证据支撑，统一标（待核实）**：真实情况是——AKG 能从 `docs/articles/**/*.md` 建图，具体边数每次跑都不一样。
 
-顺带说 `internal/ares_skills/indexer.go` 的 `parseFrontMatter`：它会解析每个 skill 目录里 `SKILL.md` 的 `---` YAML 头，产出技能元数据进入技能目录（这是**技能发现**那一路，不是 AKG 的建图管线，别混为一谈）。
+顺带说 `internal/runtime/protocol/skills/indexer.go` 的 `parseFrontMatter`：它会解析每个 skill 目录里 `SKILL.md` 的 `---` YAML 头，产出技能元数据进入技能目录（这是**技能发现**那一路，不是 AKG 的建图管线，别混为一谈）。
 
 ---
 

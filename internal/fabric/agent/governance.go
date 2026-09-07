@@ -6,9 +6,9 @@ import (
 	"time"
 )
 
-// P3 resource governance — Agent Runtime resource governance, NOT cgroups.
+// Resource governance — Agent Runtime governance, NOT cgroups.
 //
-// aresos-plan.md P3 (converged): the Kernel governs cognitive-execution
+// The Kernel governs cognitive-execution
 // budgets, not CPU timeslices. An agent runs with:
 //
 //	Agent A: token budget = 50k, tool budget = 100, deadline = 10m
@@ -21,7 +21,7 @@ import (
 //
 // This file adds the budget side. Lease expiry is already covered by the
 // taskfabric/recovery chain; cgroup-style CPU isolation is explicitly out of
-// scope (aresos-plan.md 核心模型修正 §9).
+// scope.
 
 // Governance is an agent's cognitive-execution budget. Zero values mean
 // "unlimited" for that dimension. It is set at spawn time and read-only for
@@ -51,7 +51,7 @@ type governanceState struct {
 
 // CheckResource reports whether the agent may consume the given token/tool
 // amounts in the NEXT quantum WITHOUT recording consumption. It is the
-// scheduler's pre-quantum gate (validate before execute, code_rules).
+// scheduler's pre-quantum gate (validate before execute).
 // ok=false means at least one budget would be exceeded.
 func (f *Fabric) CheckResource(agentID string, token, tool int) (ok bool, err error) {
 	f.mu.Lock()
@@ -75,7 +75,7 @@ func (f *Fabric) CheckResource(agentID string, token, tool int) (ok bool, err er
 
 // ConsumeResource records token/tool consumption. It returns
 // ErrResourceExceeded when a budget is exhausted — the cooperative yield
-// signal the plan P3 requires. Consumption is only recorded on success; a
+// signal. Consumption is only recorded on success; a
 // failed quantum does not burn budget.
 func (f *Fabric) ConsumeResource(agentID string, token, tool int) error {
 	f.mu.Lock()
@@ -126,7 +126,7 @@ func (f *Fabric) DeadlineExceeded(agentID string) (exceeded bool, err error) {
 }
 
 // ResetResource clears the agent's consumption counters (and re-arms its
-// deadline) — the "new quantum start" hook the plan P3 describes after a
+// deadline) — the "new quantum start" hook after a
 // checkpoint/resume boundary.
 func (f *Fabric) ResetResource(agentID string) error {
 	f.mu.Lock()

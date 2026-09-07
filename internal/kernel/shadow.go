@@ -3,9 +3,9 @@ package kernel
 import "github.com/Timwood0x10/ares/internal/core/models"
 
 // ShadowExecutionHook observes finalized real tasks so a shadow A/B executor
-// can buffer them for isolated candidate-strategy execution (closure plan
-// Step 4 / N-1: real-execution A/B). The interface is defined at the consumer
-// (code_rules) — the scheduler knows nothing about the evolution layer, and
+// can buffer them for isolated candidate-strategy execution (real-execution
+// A/B). The interface is defined at the consumer — the scheduler knows
+// nothing about the evolution layer, and
 // implementers satisfy it structurally without importing this package back.
 //
 // The hook fires on the drain path, so implementations MUST NOT block:

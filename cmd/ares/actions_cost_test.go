@@ -9,7 +9,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/runtime/observability"
 )
 
-// TestActionHandlerCostRoutesWired locks the W1 construction contract: a
+// TestActionHandlerCostRoutesWired locks the construction contract: a
 // handler with the cost dashboard wired must serve the read-only cost routes.
 // The mux is built through the same buildCostMux call the construction
 // literal in serve_routine.go uses — an earlier revision set cost without

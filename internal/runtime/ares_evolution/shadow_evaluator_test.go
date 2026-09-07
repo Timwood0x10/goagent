@@ -223,10 +223,10 @@ func TestShadowEvaluator_ShouldDeploy_NoResults(t *testing.T) {
 	}
 }
 
-// TestShadowEvaluator_StrictVsLoose locks the two-contract split (review:
-// DreamCycle and the lifecycle G2 gate read the same evaluator with opposite
-// insufficient-sample semantics — now explicit):
-//   - Strict (ShouldDeploy, the G2 gate): insufficient samples → REJECT.
+// TestShadowEvaluator_StrictVsLoose locks the two-contract split:
+// DreamCycle and the lifecycle shadow gate read the same evaluator with opposite
+// insufficient-sample semantics:
+//   - Strict (ShouldDeploy, the shadow gate): insufficient samples → REJECT.
 //   - Loose (ShouldDeployLoose, DreamCycle deploy path): insufficient
 //     samples → defer to the deployer (true, "cannot judge yet").
 //   - Enough samples → identical verdicts.
@@ -385,14 +385,14 @@ func TestShadowEvaluator_TiesNotCountedAsSamples(t *testing.T) {
 	}
 }
 
-// TestShadowEvaluator_AllTiesNoDecisiveEvidence pins the P0-3 contract:
+// TestShadowEvaluator_AllTiesNoDecisiveEvidence pins the tie contract:
 // when every comparison is a tie (the empty-evidence-store / full-cold-start
 // case), there is no DECISIVE evidence — but the sample was still gathered.
 // ShouldDeploy must fail-closed with a NON-NIL report (TieCount > 0,
 // TotalComparisons == 0), so a caller can distinguish "no comparisons" (nil)
 // from "comparisons gathered but all were ties". The loose contract must NOT
 // defer on an all-tie MinSamples wall: enough raw comparisons that say nothing
-// is a REJECTION, never a flip to "proceed" (review P0-3).
+// is a REJECTION, never a flip to "proceed".
 func TestShadowEvaluator_AllTiesNoDecisiveEvidence(t *testing.T) {
 	e := NewShadowEvaluator(ShadowEvaluationConfig{Enabled: true, MinSamples: 3, MinWinRate: 0.55})
 	e.SetActiveStrategy(&mutation.Strategy{ID: "active"})
@@ -433,7 +433,8 @@ func TestShadowEvaluator_AllTiesNoDecisiveEvidence(t *testing.T) {
 	}
 }
 
-// TestShadowEvaluator_NearTieUsesSamePredicateEverywhere pins the review-P0
+// TestShadowEvaluator_NearTieUsesSamePredicateEverywhere pins the
+// predicate-uniformity
 // fix: the decisive-sample filter and ShadowWon must use the SAME tie
 // predicate (isTie), not `==` in one place and isTie in the other.
 //
@@ -441,7 +442,7 @@ func TestShadowEvaluator_AllTiesNoDecisiveEvidence(t *testing.T) {
 // If the filter compared exactly, such a pair would be "decisive" — entering
 // TotalComparisons while never entering ShadowWins — so every near-tie would
 // be silently counted as a LOSS and drag the win rate below MinWinRate. That
-// is the mirror image of the P1-3 false-positive: a false NEGATIVE verdict
+// is the mirror image of the false-positive case: a false NEGATIVE verdict
 // built from comparisons that carry no information.
 func TestShadowEvaluator_NearTieUsesSamePredicateEverywhere(t *testing.T) {
 	e := NewShadowEvaluator(ShadowEvaluationConfig{Enabled: true, MinSamples: 2, MinWinRate: 0.55})
@@ -480,7 +481,7 @@ func TestShadowEvaluator_NearTieUsesSamePredicateEverywhere(t *testing.T) {
 
 // TestShadowEvaluator_NoComparisonsNilReport pins the "no evidence at all"
 // contract: when nothing was recorded, ShouldDeploy returns a nil report so a
-// caller can tell "no comparisons gathered" from "all ties" (the P0-3
+// caller can tell "no comparisons gathered" from "all ties" (the
 // distinction that prevents an all-tie wall from being misread as a deferral).
 func TestShadowEvaluator_NoComparisonsNilReport(t *testing.T) {
 	e := NewShadowEvaluator(ShadowEvaluationConfig{Enabled: true, MinSamples: 3, MinWinRate: 0.55})

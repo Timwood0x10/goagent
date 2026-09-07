@@ -173,7 +173,8 @@ func (r *ChannelFeedbackRecorder) Start(ctx context.Context) {
 
 	go func() {
 		// A background goroutine must not take the process down on a bug
-		// (code_rules §4.2) — recover, log, exit cleanly.
+		// (a background goroutine must not take the process down on a bug)
+		// — recover, log, exit cleanly.
 		defer func() {
 			if rec := recover(); rec != nil {
 				log.ErrorContext(context.Background(), "channel feedback drain panicked",
@@ -287,7 +288,7 @@ func (r *ChannelFeedbackRecorder) OnToolCall(out feedback.ToolCallOutcome) {
 			"tool":    out.Tool,
 			"caller":  out.Caller,
 			"outcome": string(out.Outcome),
-			// Process-level attribution (Y1 C3): toolStepID = tool#argShape.
+			// Process-level attribution: toolStepID = tool#argShape.
 			// Carried verbatim so the aggregator / projection layer can scope by
 			// (strategyID, toolStepID) instead of the coarse per-strategy bucket —
 			// two strategies calling the same tool with different shapes no longer

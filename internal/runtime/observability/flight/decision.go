@@ -52,7 +52,7 @@ func (l *DecisionLog) Add(d Decision) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.decisions = append(l.decisions, d)
-	// P1-2: ring cap — drop the oldest decision when the cap is exceeded.
+	// Ring cap — drop the oldest decision when the cap is exceeded.
 	if l.cap > 0 && len(l.decisions) > l.cap {
 		l.decisions = l.decisions[len(l.decisions)-l.cap:]
 	}

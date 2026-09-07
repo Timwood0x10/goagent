@@ -142,7 +142,7 @@ func TestRestartBudgetExhausted(t *testing.T) {
 	}
 }
 
-// TestFullRecoveryChain verifies the complete P5 acceptance path: inject
+// TestFullRecoveryChain verifies the complete acceptance path: inject
 // failure (kill agent) → lease expires → Task READY → B acquire → checkpoint
 // resume. The task survives the agent's death.
 func TestFullRecoveryChain(t *testing.T) {
@@ -280,7 +280,7 @@ func TestRestartAgentThroughSpawner(t *testing.T) {
 // TestRecoverTaskCheckpointThroughSpawner verifies checkpoint recovery routes
 // the replacement spawn through the evolution gate's TIMING check (Enabled)
 // but BYPASSES the MaxConcurrent quota: recovery replaces a dead/expired agent
-// and must not be stranded by the population cap (v0.3.0 M2-1).
+// and must not be stranded by the population cap.
 func TestRecoverTaskCheckpointThroughSpawner(t *testing.T) {
 	tasks, agents, rec, _, _ := newRecoveryHarness(t)
 	ctx := context.Background()
@@ -360,7 +360,7 @@ func TestRecoveryRespectsDisabledGate(t *testing.T) {
 // a task yields at a quantum boundary (SUSPENDED + preserved checkpoint),
 // its agent is suspended (lifecycle pause), resumed, and the task is
 // recovered with the checkpoint intact — the full yield→suspend→resume
-// round trip proving the "agent as thread" model (B1) end to end.
+// round trip proving the "agent as thread" model end to end.
 func TestYieldSuspendResumeFullChain(t *testing.T) {
 	tasks, agents, rec, _, _ := newRecoveryHarness(t)
 	ctx := context.Background()

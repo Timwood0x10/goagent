@@ -24,7 +24,7 @@ const defaultPGReliability = 0.5
 // object when the table exposes no rank/score column. It is a NEUTRAL PRIOR,
 // not a real query-relevance signal: the PG provider does a full-table scan
 // with no relevance ranking, so claiming any non-neutral relevance would be
-// a lie (§9: no fake constant returns). The neutral 0.5 keeps PG objects
+// a lie (no fake constant returns). The neutral 0.5 keeps PG objects
 // rankable alongside other providers without pretending to know how well
 // they match the query. Actual query-time filtering is delegated to
 // collectSnippets' topK + the real Relevance scores produced by other

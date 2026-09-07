@@ -10,7 +10,7 @@ import (
 )
 
 // SkillSourcesConfig is the top-level shape of ~/.ares/config.toml skill
-// section (design §4: registered extra sources are declared, never scanned).
+// section (registered extra sources are declared, never scanned).
 type SkillSourcesConfig struct {
 	// SkillSources lists declared extra skill directories.
 	SkillSources []SkillSourceEntry `toml:"skill_sources"`

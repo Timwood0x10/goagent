@@ -13,8 +13,8 @@ import (
 // conservative on purpose: retrieval runs on the hot chat-loop path.
 const retrieveHelperSharedLimit = 4
 
-// RetrieveAll calls every retriever in parallel (ctx-cancelable via errgroup,
-// code_rules §4.5) and merges their results.
+// RetrieveAll calls every retriever in parallel (ctx-cancelable via errgroup)
+// and merges their results.
 //
 // Retrievers are invoked concurrently with a shared concurrency limit. A
 // failure in any single retriever is logged via the returned error chain and

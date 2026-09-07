@@ -8,7 +8,7 @@ import (
 )
 
 // TestTraceFreshRoot mints a trace on Send and carries it into the handler
-// context (A-3): the handler's downstream calls continue it with no code.
+// context: the handler's downstream calls continue it with no code.
 func TestTraceFreshRoot(t *testing.T) {
 	bus := NewBus()
 	var handlerTrace string
@@ -90,9 +90,9 @@ func TestTraceSpansNestedCalls(t *testing.T) {
 	}
 }
 
-// TestTraceRecordedOnUndeliverable locks the GAP-3 hole closure: a Request
+// TestTraceRecordedOnUndeliverable locks the hole closure: a Request
 // to an unregistered agent is dead-lettered WITH its trace (Send already
-// did; Request returned silently before A-3).
+// did; Request used to return silently).
 func TestTraceRecordedOnUndeliverable(t *testing.T) {
 	bus := NewBus()
 	ctx := ContextWithTraceID(context.Background(), "trace-doomed-7")

@@ -48,17 +48,17 @@ type NewEvolutionComponents struct {
 	StrategyStore evolution.StrategyStore
 
 	// GAGenerationActive reports whether a GA generation is currently in
-	// flight (REVIEW #12 Phase 2: the live-chaos GA quiet-window probe). Nil when
+	// flight (the live-chaos GA quiet-window probe). Nil when
 	// no wired evolution system exists.
 	GAGenerationActive func() bool
 
-	// Lifecycle is the strategy lifecycle orchestrator (P2-2). When set,
+	// Lifecycle is the strategy lifecycle orchestrator. When set,
 	// serve wires it into the introspect control plane so
 	// /api/evolution/lifecycle returns a state snapshot.
 	Lifecycle *evolution.StrategyLifecycle
 
 	// ActiveStrategyManager is the ASM the Lifecycle wraps (sole Deploy/
-	// Rollback/RecordScore caller). Exposed for the §8 closure assertions:
+	// Rollback/RecordScore caller). Exposed for the closure assertions:
 	// Previous() / RollbackPolicy() are the acceptance surfaces for the
 	// promote→rollback loop. Nil when no strategy store was wired.
 	ActiveStrategyManager *evolution.ActiveStrategyManager
@@ -70,7 +70,7 @@ type NewEvolutionComponents struct {
 	ShadowEvaluator *evolution.ShadowEvaluator
 
 	// ChannelFeedback records the two perception channels that were previously
-	// invisible to evolution (closure plan Step Y.2/Y.3): cross-agent
+	// invisible to evolution: cross-agent
 	// collaboration receipts and tool-call outcomes. The wiring layer attaches
 	// it to the IPC bus (agentipc.CollaborationObserver) and wraps the tool
 	// binder with it (sub.ToolCallObserver). Nil when
@@ -83,7 +83,7 @@ type NewEvolutionComponents struct {
 	// are created and their DAGs are registered with the runtime manager.
 	liveDAG *engine.MutableDAG
 
-	// toolClassDAG is the L1 capability graph (M5): one node per ToolClass
+	// toolClassDAG is the L1 capability graph: one node per ToolClass
 	// (toolName#argShape) with enabled/budget/prior metadata. Evolution
 	// structure patches (SetNodeMetadata on L1) constrain L2 growth: the
 	// plannerCognition reads enabled/budget before growing tool nodes.
@@ -133,7 +133,7 @@ type NewEvolutionComponents struct {
 // When dag, rt, or memoryStore is nil, their corresponding executors are skipped.
 func ProvideNewEvolution(dag *engine.MutableDAG, rt *knowledgeruntime.KnowledgeRuntime, memoryStore aresmemory.MemoryConfigStore, evStore evidence.Store) (*NewEvolutionComponents, error) {
 	// 1. Evidence Store — central logging for all runtime evidence.
-	// T1 (evidence persistence): an explicit non-nil store (e.g. Postgres)
+	// An explicit non-nil store (e.g. Postgres)
 	// survives restarts; nil falls back to the in-memory store.
 	if evStore == nil {
 		evStore = evidence.NewMemoryStore()
@@ -153,12 +153,12 @@ func ProvideNewEvolution(dag *engine.MutableDAG, rt *knowledgeruntime.KnowledgeR
 		}
 
 		// TODO(tech-debt): the scheduler genome dimension was retired
-		// (fusion plan §B1, 2026-08-22): sdk.Graph runs fully-parallel ready
+		// (2026-08-22): sdk.Graph runs fully-parallel ready
 		// batches, so ordering schedulers have no execution decision left.
 		// Legacy PatchChangeScheduler appliers remain for persisted patches.
 		// TODO(evolution-dim): candidate successor dimension — a concurrency
 		// genome evolving sdk.Graph.MaxRoundConcurrency (the one scheduling
-		// semantic that survived the retirement). Not scheduled for 0.3.x.
+		// semantic that survived the retirement).
 
 		recoveryGenome := genome.NewRecoveryGenome(
 			&engine.RecoveryPolicy{Strategy: engine.RecoveryRetry, MaxAttempts: 3},
@@ -468,7 +468,7 @@ func (c *NewEvolutionComponents) UpdateLiveDAG(dag *engine.MutableDAG) error {
 	return nil
 }
 
-// SetToolClassDAG injects the L1 capability graph (M5). The L1 graph is the
+// SetToolClassDAG injects the L1 capability graph. The L1 graph is the
 // evolution system's ToolClass action surface: its nodes are
 // toolName#argShape, and its Metadata (enabled/budget/prior) constrains L2
 // growth. Unlike the live DAG (UpdateLiveDAG), the L1 graph is NOT compiled
@@ -476,7 +476,7 @@ func (c *NewEvolutionComponents) UpdateLiveDAG(dag *engine.MutableDAG) error {
 // capability catalog, not an execution plan.
 //
 // The L1 graph is stored for the plannerCognition to read at growth time
-// (§6 constraint point: "要不要长出这个节点"). Evolution structure patches
+// (the "要不要长出这个节点" constraint point). Evolution structure patches
 // (SetNodeMetadata) mutate L1 metadata; the planner reads the mutated values
 // before growing each tool node. A nil dag clears the L1 graph (constraints
 // default to permissive).
@@ -490,7 +490,7 @@ func (c *NewEvolutionComponents) SetToolClassDAG(dag *engine.MutableDAG) {
 
 // ToolClassDAG returns the L1 capability graph, or nil when no L1 graph was
 // injected. The plannerCognition reads this to check enabled/budget/prior
-// before growing tool nodes (§6 constraint point).
+// before growing tool nodes (the "要不要长出这个节点" constraint point).
 func (c *NewEvolutionComponents) ToolClassDAG() *engine.MutableDAG {
 	return c.toolClassDAG
 }

@@ -1,6 +1,6 @@
 # ares 架构拆解 (XIII)：Bootstrap 与系统运行时编排（0.3.x）
 
-> 0.3.x 更新：`internal/ares_bootstrap.Bootstrap` 是唯一的接线枢纽，按固定顺序组装 EventStore、Runtime、Memory、MCP、Skills、LLM、Distillation、AKG、Observability、NewEvolution、FlightRecorder、Evolution、GA、Discovery、SystemRuntime。系统运行时（`internal/system_runtime.Orchestrator`）在启动时按拓扑序执行 **Construct → Bind → Start → Ready**，在关闭时按逆拓扑序执行 **Stop → Wait**（受 30s 预算约束）。接入入口是 `Bootstrap(ctx, cfg, deps)` —— 不是 `New`，也没有 `DefaultConfig()`。
+> 0.3.x 更新：`internal/ares_bootstrap.Bootstrap` 是唯一的接线枢纽，按固定顺序组装 EventStore、Runtime、Memory、MCP、Skills、LLM、Distillation、AKG、Observability、NewEvolution、FlightRecorder、Evolution、GA、Discovery、SystemRuntime。系统运行时（`internal/kernel.Orchestrator`）在启动时按拓扑序执行 **Construct → Bind → Start → Ready**，在关闭时按逆拓扑序执行 **Stop → Wait**（受 30s 预算约束）。接入入口是 `Bootstrap(ctx, cfg, deps)` —— 不是 `New`，也没有 `DefaultConfig()`。
 
 每个框架都会有一个时刻：用户的问题从"怎么调 LLM"变成"怎么把这些东西接在一起"。那一刻，你需要 bootstrap。
 
@@ -40,7 +40,7 @@ func Bootstrap(ctx context.Context, cfg *ares_config.Config, deps *BootstrapDeps
 type BootstrapDeps struct {
 	EventStore ares_events.EventStore
 	ExpRepo    repositories.ExperienceRepositoryInterface
-	LLMClient  ares_eval.LLMClient
+	LLMClient  eval.LLMClient
 }
 ```
 
@@ -73,7 +73,7 @@ graph LR
 | 步骤 | 函数 / Provider（真实符号） | 组件写入 `comp.` | 门控 / 语义 |
 |---|---|---|---|
 | 1 | `deps.EventStore` 或 `ares_events.NewMemoryEventStore()` | `EventStore` | 默认内存 |
-| 2 | `ProvideRuntime(eventStore)` → `ares_runtime.New(nil, eventStore, nil)` | `Runtime` | 总是创建 |
+| 2 | `ProvideRuntime(eventStore)` → `runtime.New(nil, eventStore, nil)` | `Runtime` | 总是创建 |
 | 3 | `wireMemory(cfg, eventStore)` → `ProvideMemory(memCfg)`；`mem.SetEventStore(eventStore, "memory")` | `Memory` | 门控 `cfg.Memory.IsEnabled()` |
 | 4 | `ProvideMCP(ctx, cfg.MCP)` → `ares_mcp.NewMCPManager` + `.Start(ctx)` | `MCP` | 无服务可配时最小可用 |
 | 4b | `wireSkills(ctx, mem, mcp)`；`NewSkillOutcomeRecorder(catalog).Start` | `SkillsRegistry`, `SkillCatalog` | best-effort |
@@ -108,7 +108,7 @@ type Components struct {
 	LLM          *LLMComponents
 	Evolution    *EvolutionComponents
 	NewEvolution *NewEvolutionComponents
-	Runtime      *ares_runtime.Manager
+	Runtime      *runtime.Manager
 	Memory       ares_memory.MemoryManager
 	EventStore   ares_events.EventStore
 	Distillation *aresexp.DistillationService
@@ -121,8 +121,8 @@ type Components struct {
 	FlightRecorder  *flight.FlightRecorder
 	ExpRepo         repositories.ExperienceRepositoryInterface
 	EvidenceStore   evidence.Store
-	SystemRuntime   *system_runtime.Orchestrator
-	SystemRegistry  *system_runtime.Registry
+	SystemRuntime   *kernel.Orchestrator
+	SystemRegistry  *kernel.Registry
 	Observability   *ObservabilityComponents
 	ExpiryCleaners  []NamedExpiryCleaner
 	// ...
@@ -139,7 +139,7 @@ type Components struct {
 
 | Provider（真实签名） | 产出 | 备注 |
 |---|---|---|
-| `ProvideRuntime(eventStore) (*ares_runtime.Manager, error)` | Runtime | `ares_runtime.New(nil, eventStore, nil)` |
+| `ProvideRuntime(eventStore) (*runtime.Manager, error)` | Runtime | `runtime.New(nil, eventStore, nil)` |
 | `ProvideMemory(cfg) (ares_memory.MemoryManager, error)` | Memory | `cfg==nil` 时用 `DefaultMemoryConfig()` |
 | `provideDistillation(ctx, cfg, llmClient) (*distillationWiring, error)` | distillation wiring | 返回 `{pool, embeddingClient, experienceRepo, service, guidanceProvider, embeddingQueue, embeddingConfig}` |
 | `ProvideMCP(ctx, cfg) (*ares_mcp.MCPManager, error)` | MCP | `NewMCPManager` + `Start` |
@@ -172,8 +172,8 @@ type Components struct {
 
 Bootstrap 的最后一步把已组装的组件注册进 `system_runtime`，由 Orchestrator 统一管理生命周期：
 
-- `system_runtime.NewRegistry()`，然后每个已构造组件用 `reg.Register(adapter, mode)` 注册（adapter 带 `deps`/`Stop`/`Wait`/`Ready` 钩子）。
-- `system_runtime.NewOrchestrator(reg, rootCtx)` 创建 Orchestrator，`orch.SetEventSink(comp.EventStore)`（组件后台失败会上事件流），最后 `orch.Start(ctx)`。
+- `kernel.NewRegistry()`，然后每个已构造组件用 `reg.Register(adapter, mode)` 注册（adapter 带 `deps`/`Stop`/`Wait`/`Ready` 钩子）。
+- `kernel.NewOrchestrator(reg, rootCtx)` 创建 Orchestrator，`orch.SetEventSink(comp.EventStore)`（组件后台失败会上事件流），最后 `orch.Start(ctx)`。
 
 ### 生命周期：启动
 

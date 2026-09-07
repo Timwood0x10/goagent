@@ -150,7 +150,7 @@ func (c *canaryRouterChat) Chat(ctx context.Context, msgs []*core.LLMMessage, to
 	return nil, fmt.Errorf("canary: no script matches session in %d messages", len(msgs))
 }
 
-// TestCanary_FullStackL2Sessions is the B2 simulated canary: five L2 sessions
+// TestCanary_FullStackL2Sessions is the simulated canary: five L2 sessions
 // run concurrently through the REAL stack (planner → subscription → real
 // scheduler → router → echo tools), and the test reports production-shaped
 // numbers — session completion rate, tool-call success rate, per-session
@@ -305,7 +305,7 @@ func canaryRequireItemContent(t *testing.T, f *taskfabric.Fabric, id, want strin
 
 // waitForCanaryAnswer polls until the session's terminal answer task reads
 // COMPLETED, and returns its task id. Polling with a deadline (not sleep
-// sync) per code_rules §7.3.
+// sync).
 func waitForCanaryAnswer(t *testing.T, fabric *taskfabric.Fabric, sessionID string, timeout time.Duration) string {
 	t.Helper()
 	deadline := time.Now().Add(timeout)

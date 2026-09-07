@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// TrustLevel is the permission tier for a resolved tool (design §9: the
+// TrustLevel is the permission tier for a resolved tool (the
 // smallest possible trust gate — Discovered -> Declared -> Trusted? -> Allowed?).
 type TrustLevel int
 
@@ -23,7 +23,7 @@ const (
 )
 
 // trustForSource maps a skill source kind to its default trust tier
-// (design §9 trust matrix).
+// (source-kind trust matrix).
 //
 // Args:
 //   - kind: the declaring source.

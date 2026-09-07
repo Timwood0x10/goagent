@@ -4,9 +4,9 @@
 // fitness value. It is the shared scoring backend for:
 //
 //   - StrategyLifecycle: decides whether to RecordScore into RollbackPolicy
-//     (B1 fix) and whether a candidate is "good enough" to promote.
+//     and whether a candidate is "good enough" to promote.
 //   - Deployment staging: replaces the single-source "workflow" check with
-//     a multi-dimensional aggregate (B6 fix).
+//     a multi-dimensional aggregate.
 //
 // The aggregator is read-only: it never mutates evidence or strategy state.
 // Cold-start (insufficient samples) returns ok=false so the caller can
@@ -37,18 +37,18 @@ type FitnessWeights struct {
 	Scheduler float64 `json:"scheduler"`
 	// Recovery is the weight for recovery-sourced fitness evidence.
 	Recovery float64 `json:"recovery"`
-	// Collaboration weights cross-agent collaboration receipts (Step Y.2:
-	// "should I have asked THAT agent?"). Default 0 — the channel is opt-in,
+	// Collaboration weights cross-agent collaboration receipts ("should I
+	// have asked THAT agent?"). Default 0 — the channel is opt-in,
 	// so an operator who has not enabled collab feedback sees an unchanged
 	// aggregate even if stray evidence exists.
 	Collaboration float64 `json:"collaboration"`
-	// ToolCall weights tool-invocation outcomes (Step Y.3: "was calling THAT
+	// ToolCall weights tool-invocation outcomes ("was calling THAT
 	// tool worth it?"). Default 0, same opt-in reasoning as Collaboration.
 	ToolCall float64 `json:"tool_call"`
 }
 
 // DefaultFitnessWeights returns sensible default weights summing to 1.0.
-// Collaboration and ToolCall are deliberately 0: those channels (Step Y.2/Y.3)
+// Collaboration and ToolCall are deliberately 0: those channels
 // are opt-in, and giving them a non-zero default would silently redistribute
 // every existing deployment's fitness mix on upgrade.
 func DefaultFitnessWeights() FitnessWeights {
@@ -68,7 +68,7 @@ type AggregatorConfig struct {
 	WindowSize int `json:"window_size"`
 	// MinSamplesBeforeJudge is the minimum total evidence count before the
 	// aggregator returns ok=true. Below this, it returns ok=false so callers
-	// can apply a conservative cold-start policy (B6 fix).
+	// can apply a conservative cold-start policy.
 	MinSamplesBeforeJudge int `json:"min_samples_before_judge"`
 	// ColdStartScore is the score returned when no evidence exists. Callers
 	// use this when they need a fallback instead of ok=false.
@@ -77,8 +77,8 @@ type AggregatorConfig struct {
 	Weights FitnessWeights `json:"weights"`
 }
 
-// TODO(tech-debt): the design doc (ga-runtime-evolution-design-zh.md §4 ②)
-// specifies a cost/latency penalty term subtracted from the aggregate
+// TODO(tech-debt): the design doc specifies a cost/latency penalty term
+// subtracted from the aggregate
 // fitness (penalty(cost, latency)). It is not implemented because task
 // events carry no cost or latency data today — see the observer.go
 // tech-debt note. Wire it once flight-trace cost/latency reaches the
@@ -163,12 +163,12 @@ type sourceStat struct {
 // the most recent WindowSize records per source (legacy behavior). Callers
 // that compare two strategies (deployment staging Evaluate) MUST use WindowAt
 // with a shared [since, until] anchor instead — two independent Window calls
-// can straddle concurrent evidence writes and distort the delta (E1).
+// can straddle concurrent evidence writes and distort the delta.
 func (a *RuntimeFitnessAggregator) Window(ctx context.Context, strategyID string) WindowResult {
 	return a.WindowAt(ctx, strategyID, time.Time{}, time.Time{})
 }
 
-// WindowAt is Window scoped to the [since, until] evidence time range (E1).
+// WindowAt is Window scoped to the [since, until] evidence time range.
 // Zero since/until disables that bound (matching MemoryStore/PostgresStore
 // semantics). Both bounds SHOULD be non-zero for staging comparisons so the
 // shadow and baseline sides read the same snapshot.
@@ -191,7 +191,7 @@ func (a *RuntimeFitnessAggregator) Window(ctx context.Context, strategyID string
 //     "strategy" source must ITSELF hold ≥ MinSamplesBeforeJudge records for
 //     the given ID before Ok=true. Global sources contribute to the weighted
 //     mean but can never substitute for the active strategy's own evidence
-//     (design doc §4⑤ principle 4: rollback decisions must rest on the
+//     (rollback decisions must rest on the
 //     strategy's own evidence). Without
 //     this gate, 10 unrelated global records would license a rollback
 //     decision while the strategy's own sample count is 0.
@@ -333,7 +333,7 @@ func (a *RuntimeFitnessAggregator) WindowAt(ctx context.Context, strategyID stri
 }
 
 // querySourceMeanAt computes the mean fitness value from evidence matching
-// the given source and kind within [since, until] (E1). Only values in [0,1]
+// the given source and kind within [since, until]. Only values in [0,1]
 // are accepted (matching recentFitnessSummary's filter), so callers can rely
 // on the [0,1] contract. When strategyID is non-empty, records whose payload
 // strategy_id differs are skipped (the strategy source scopes by candidate);
@@ -347,7 +347,7 @@ func (a *RuntimeFitnessAggregator) querySourceMeanAt(ctx context.Context, store 
 }
 
 // querySourceMeanScopedAt is querySourceMeanAt with an optional tool_step_id
-// sub-filter (Y1 C3) and an explicit [since, until] evidence time range (E1).
+// sub-filter and an explicit [since, until] evidence time range.
 // When toolStepID is non-empty, only tool_call evidence whose payload
 // tool_step_id matches is counted — enabling process-level attribution
 // ("this strategy calling the tool THIS way") distinct from the coarse
@@ -403,7 +403,7 @@ func (a *RuntimeFitnessAggregator) querySourceMeanScopedAt(ctx context.Context, 
 }
 
 // WindowToolStep computes the aggregate fitness scoped to a specific tool step
-// (strategyID, toolStepID) for the tool_call channel (Y1 C3). The tool_step
+// (strategyID, toolStepID) for the tool_call channel. The tool_step
 // dimension surfaces process-level attribution: two strategies — or two
 // argument shapes under the same strategy — calling the same tool no longer
 // blend into one undifferentiated signal. It reuses the same cold-start gate
@@ -413,7 +413,7 @@ func (a *RuntimeFitnessAggregator) WindowToolStep(ctx context.Context, strategyI
 	return a.WindowToolStepAt(ctx, strategyID, toolStepID, time.Time{}, time.Time{})
 }
 
-// WindowToolStepAt is WindowToolStep scoped to [since, until] (E1/M6).
+// WindowToolStepAt is WindowToolStep scoped to [since, until].
 func (a *RuntimeFitnessAggregator) WindowToolStepAt(ctx context.Context, strategyID, toolStepID string, since, until time.Time) WindowResult {
 	if toolStepID == "" {
 		return a.WindowAt(ctx, strategyID, since, until)

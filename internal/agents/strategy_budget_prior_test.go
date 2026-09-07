@@ -134,8 +134,8 @@ func TestApplyPriorHint(t *testing.T) {
 	})
 }
 
-// TestPriorDoesNotAffectToolSet is the separation-of-concerns guard for C5:
-// prior is prompt-only. A params map carrying ONLY a prior must leave both
+// TestPriorDoesNotAffectToolSet is the separation-of-concerns guard for the
+// budget/prior pair: prior is prompt-only. A params map carrying ONLY a prior must leave both
 // whitelist and budget at their permissive zero values, so a bad prior can
 // never silently remove a tool from the advertised set.
 func TestPriorDoesNotAffectToolSet(t *testing.T) {

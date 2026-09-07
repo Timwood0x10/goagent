@@ -9,7 +9,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/fabric/task"
 )
 
-// TestSchedulerRunningFlag covers the K5 readiness contract: Running is
+// TestSchedulerRunningFlag covers the readiness contract: Running is
 // false before Run, true while the drain loop is alive, and false after the
 // loop exits on context cancellation — the System Runtime Adopt gate polls
 // exactly this flag.

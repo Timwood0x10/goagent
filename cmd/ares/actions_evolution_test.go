@@ -53,8 +53,9 @@ func newApproveHandler(t *testing.T, lc *evolution.StrategyLifecycle) (*actionHa
 //  1. The FIRST Submit is the seed deploy: with no active strategy it promotes
 //     unconditionally, bypassing every gate (lifecycle.go's one-shot `seeded`
 //     flag). A second Submit is therefore required before anything can be held.
-//  2. No ShadowEvaluator is wired here, so NewStrategyLifecycle registers no G2
-//     gate and the pipeline is empty. That is deliberate: with G2 present the
+//  2. No ShadowEvaluator is wired here, so NewStrategyLifecycle registers no
+//     shadow gate and the pipeline is empty. That is deliberate: with the
+//     shadow gate present the
 //     default configuration is fail-closed (zero shadow comparisons ⇒ reject),
 //     so the candidate would be rejected before ever reaching the manual hold.
 func newPendingLifecycle(t *testing.T) *evolution.StrategyLifecycle {
@@ -98,8 +99,8 @@ func postApprove(t *testing.T, h *actionHandler, token string) (int, map[string]
 	return w.Code, body
 }
 
-// TestEvolutionApproveUnauthenticatedReturns401 covers the deny-by-default path
-// (B3). The endpoint mutates the active strategy, so an unauthenticated caller
+// TestEvolutionApproveUnauthenticatedReturns401 covers the deny-by-default path.
+// The endpoint mutates the active strategy, so an unauthenticated caller
 // must never reach the lifecycle.
 func TestEvolutionApproveUnauthenticatedReturns401(t *testing.T) {
 	lc := newPendingLifecycle(t)

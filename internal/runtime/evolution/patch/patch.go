@@ -43,7 +43,7 @@ const (
 
 	// ── Node attribute mutations ─────────────────────
 	// PatchSetNodeMetadata updates a single live-DAG node's Metadata map
-	// (Y1 方案C C4). This is the "作动面" for a ToolStep node: enabled/budget/
+	// (方案C). This is the "作动面" for a ToolStep node: enabled/budget/
 	// prior are node attributes the evolution can patch without restructuring
 	// the DAG. The differ emits this only for metadata-only changes; a DAG used
 	// to produce ZERO patches for those (WorkflowDiffer only compared node/edge

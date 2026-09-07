@@ -30,7 +30,7 @@ func (c *Client) validatePrompt(ctx context.Context, prompt string, start time.T
 		return err
 	}
 	// Count runes, not bytes: CJK and other multi-byte characters would
-	// otherwise be wrongly rejected against a character-based limit (M8).
+	// otherwise be wrongly rejected against a character-based limit.
 	if utf8.RuneCountInString(prompt) > c.promptMaxLength() {
 		err := fmt.Errorf("prompt exceeds maximum length of %d characters", c.promptMaxLength())
 		c.recordLLMCall(ctx, prompt, "", 0, start, err)
@@ -326,7 +326,7 @@ func (c *Client) generateAnthropic(ctx context.Context, prompt string, o request
 		"max_tokens": anthropicMaxTokens,
 	}
 	// Anthropic rejects top_k=0 with an API 400; only send it when a
-	// positive override is present (M9).
+	// positive override is present.
 	if topK := o.applyTopK(0); topK > 0 {
 		requestBody["top_k"] = topK
 	}

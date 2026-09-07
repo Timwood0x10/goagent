@@ -46,7 +46,7 @@ type Result struct {
 	Query string `json:"query"`
 }
 
-// Retriever implements AKG.md §8: Intent → Graph → Expand → Prune → Compile.
+// Retriever implements the AKG retrieval flow: Intent → Graph → Expand → Prune → Compile.
 // It wraps the KnowledgeRuntime and Compiler into a single query interface.
 type Retriever struct {
 	runtime  *runtime.KnowledgeRuntime

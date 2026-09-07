@@ -52,7 +52,7 @@ func (p *UserProfile) Validate() error {
 	return nil
 }
 
-// D5: HasStyle, HasOccasion removed as dead code (only tests referenced them).
+// HasStyle, HasOccasion removed as dead code (only tests referenced them).
 
 // UserFeedback represents user feedback on recommendations.
 type UserFeedback struct {
@@ -66,4 +66,4 @@ func (f *UserFeedback) IsValid() bool {
 	return f != nil && f.Rating >= 1 && f.Rating <= 5
 }
 
-// D5: SetRating removed as dead code (only tests referenced it).
+// SetRating removed as dead code (only tests referenced it).

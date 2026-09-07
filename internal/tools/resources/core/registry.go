@@ -370,8 +370,8 @@ var (
 
 // GlobalRegistry is the default tool registry.
 //
-// Deprecated: GlobalRegistry is no longer populated by production code after
-// the P2.1 DI change (no production caller invokes Register). Use a *Registry
+// Deprecated: GlobalRegistry is no longer populated by production code
+// (no production caller invokes Register). Use a *Registry
 // instance created via NewRegistry and passed through dependency injection
 // instead.
 var GlobalRegistry = NewRegistry()

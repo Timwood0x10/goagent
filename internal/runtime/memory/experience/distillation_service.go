@@ -51,7 +51,7 @@ type DistillationOption func(*DistillationService)
 
 // WithEmbeddingEnqueuer wires an async embedding producer. When set, Distill
 // persists the experience row without a vector and enqueues a backfill task so
-// the embedding worker writes the vector back asynchronously (REVIEW #13 A2).
+// the embedding worker writes the vector back asynchronously.
 // When unset (default), Distill embeds synchronously exactly as before, so
 // SDK / zero-config callers observe unchanged behavior.
 func WithEmbeddingEnqueuer(enqueuer EmbeddingEnqueuer) DistillationOption {
@@ -71,7 +71,7 @@ func WithEmbeddingConfig(cfg *postgres.EmbeddingConfig) DistillationOption {
 
 // NewDistillationService creates a new DistillationService instance.
 // The optional options are applied in order; WithEmbeddingEnqueuer switches the
-// service to async embedding (REVIEW #13 A2).
+// service to async embedding.
 func NewDistillationService(
 	llmClient *llm.Client,
 	embeddingClient *embedding.EmbeddingClient,
@@ -179,7 +179,7 @@ func (s *DistillationService) Distill(ctx context.Context, task *TaskResult) (*E
 		}
 	} else {
 		// Default (SDK / no enqueuer): embed synchronously and persist the
-		// vector with the row, preserving pre-A2 behavior.
+		// vector with the row, preserving the legacy synchronous behavior.
 		if err := s.embedAndCreate(ctx, exp, extracted.Problem); err != nil {
 			return nil, err
 		}

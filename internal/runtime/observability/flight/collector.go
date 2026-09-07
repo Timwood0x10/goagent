@@ -32,7 +32,7 @@ type Collector struct {
 	diag               *DiagnosticsEngine
 	pipelines          map[string]*MemoryPipeline
 	// agentStartIDs maps agentID → its most recent start event ID so
-	// handleAgentEnd can set ParentID for robust timeline pairing (B8).
+	// handleAgentEnd can set ParentID for robust timeline pairing.
 	agentStartIDs map[string]string
 	cancel        context.CancelFunc
 	eg            errgroup.Group
@@ -248,7 +248,7 @@ func (c *Collector) handleAgentStart(evt *ares_events.Event) {
 		Metadata: evt.Payload,
 	})
 
-	// B8: record the start event ID so handleAgentEnd can set ParentID,
+	// Record the start event ID so handleAgentEnd can set ParentID,
 	// enabling robust start→end pairing in Timeline.Add even with
 	// out-of-order arrival or overlapping calls within one agent.
 	c.mu.Lock()
@@ -274,7 +274,7 @@ func (c *Collector) handleAgentStart(evt *ares_events.Event) {
 func (c *Collector) handleAgentEnd(evt *ares_events.Event) {
 	agentID := evt.StreamID
 
-	// B8: set ParentID to the agent's start event ID so Timeline.Add can
+	// Set ParentID to the agent's start event ID so Timeline.Add can
 	// pair the end event with the exact start event (not just the most
 	// recent unpaired one — robust to out-of-order arrival).
 	parentID := ""
@@ -292,7 +292,7 @@ func (c *Collector) handleAgentEnd(evt *ares_events.Event) {
 		Metadata: evt.Payload,
 	})
 
-	// Update graph node status under the Graph write lock (P0-2).
+	// Update graph node status under the Graph write lock.
 	c.graph.UpdateNodeStatus(agentID, StatusCompleted, evt.Timestamp)
 }
 
@@ -366,7 +366,7 @@ func (c *Collector) handleMemoryDistilled(evt *ares_events.Event) {
 	if !ok {
 		pipeline = NewMemoryPipeline(sessionID)
 		c.pipelines[sessionID] = pipeline
-		// P1-2: cap the pipelines map — evict the oldest pipeline when
+		// Cap the pipelines map — evict the oldest pipeline when
 		// the cap is exceeded.
 		if maxPipelines > 0 && len(c.pipelines) > maxPipelines {
 			var oldestID string

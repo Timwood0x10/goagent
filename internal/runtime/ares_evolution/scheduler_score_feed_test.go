@@ -28,7 +28,7 @@ func waitForScore(t *testing.T, s *EvolutionScheduler, n int) {
 // TestRegister_TaskOutcomeEventsFeedScores locks the production score feed:
 // task.completed / task.failed events flowing through the EventStore must
 // land in the scheduler's score window (success=1.0, failure=0.0 — normalized
-// to [0,1], §8 assertion 6), so TriggerOnThreshold / TriggerOnIdle degradation
+// to [0,1]), so TriggerOnThreshold / TriggerOnIdle degradation
 // detection works without an external feeder.
 func TestRegister_TaskOutcomeEventsFeedScores(t *testing.T) {
 	store := ares_events.NewMemoryEventStore()

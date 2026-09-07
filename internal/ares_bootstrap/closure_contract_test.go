@@ -1,8 +1,7 @@
-// Package ares_bootstrap — Runtime Closure Contract Tests (Stage 0).
+// Package ares_bootstrap — Runtime Closure Contract Tests.
 //
-// These tests are designed to FAIL initially, exposing gaps documented in
-// RUNTIME_COMPONENT_CLOSURE_PLAN_2026-08-04.md. Each test asserts the
-// desired (target) behavior, not the current behavior. When Stage 1+
+// These tests are designed to FAIL initially, exposing known gaps. Each test
+// asserts the desired (target) behavior, not the current behavior. As the
 // implementation closes the gaps, these tests should turn green.
 //
 // Contract tests are tagged with build constraint "closure" so they can be
@@ -54,7 +53,7 @@ func TestClosure_MemoryDisabled_NotConstructed(t *testing.T) {
 	require.NotNil(t, comp)
 
 	// Target behavior: Memory must be nil when disabled.
-	// Current behavior: Memory is always constructed (F01).
+	// Current behavior: Memory is always constructed.
 	assert.Nil(t, comp.Memory,
 		"Memory must be nil when cfg.Memory.Enabled=false; "+
 			"currently Bootstrap always constructs Memory (F01: config gate bypass)")
@@ -90,7 +89,7 @@ func TestClosure_EvolutionDisabled_NoGATicker(t *testing.T) {
 	require.NotNil(t, comp)
 
 	// Target behavior: NewEvolution should not exist when evolution is disabled.
-	// Current behavior: NewEvolution is always constructed (F02).
+	// Current behavior: NewEvolution is always constructed.
 	if comp.NewEvolution != nil {
 		t.Errorf("NewEvolution must be nil when cfg.Evolution.Enabled=false; " +
 			"currently Bootstrap always constructs NewEvolution (F02: config gate bypass)")
@@ -156,15 +155,15 @@ func TestClosure_KnowledgeRetrievalEnabled_MissingWriteDeps_NotReady(t *testing.
 
 	// Target behavior: When AKG retrieval is enabled but write deps are
 	// missing, the system must not report Ready. It should be Degraded.
-	// Current behavior: Bootstrap silently skips AKG wiring and reports success (F03).
+	// Current behavior: Bootstrap silently skips AKG wiring and reports success.
 	//
-	// Since Runtime status API does not exist yet (Stage 1), we assert on
+	// Since Runtime status API does not exist yet, we assert on
 	// observable side effects:
 	// 1. KnowledgeRetriever should not be wired (no retriever).
 	// 2. AKGBridge should be nil (no write path).
 	// 3. KnowledgeStore should be nil (no backing store).
 
-	// F03 (Stage 9, hard assertion): the knowledge component must report
+	// Hard assertion: the knowledge component must report
 	// Degraded — NOT Ready — when AKG retrieval is enabled but the write-side
 	// dependency is missing. The registry now carries a readiness hook for
 	// this exact case (wireSystemRuntime registers Degraded mode + readyFn),
@@ -218,13 +217,12 @@ func TestClosure_Ready_AllExecutorsBoundToLiveTargets(t *testing.T) {
 	// with a synthetic MutableDAG. Only wireEvolutionLiveDAGs (called post-
 	// Start in serve.go) replaces it with the real agent DAG.
 	//
-	// F04: At Bootstrap time, executors are bound to synthetic targets.
-	// This is the core bypass the plan calls out.
+	// At Bootstrap time, executors are bound to synthetic targets.
 
 	// Verify the synthetic DAG exists (the 3-step placeholder) AND is isolated
 	// to the "evolution" key: the leader's live DAG key must NOT be occupied by
 	// the synthetic graph, so the serve entry (buildLeaderLiveDAG, pre-Start)
-	// is the sole source of the production DAG. This is the F04 hard assertion:
+	// is the sole source of the production DAG. This is the hard assertion:
 	// synthetic placeholders never masquerade as a live agent DAG.
 	if comp.NewEvolution != nil && comp.Runtime != nil {
 		dag, ok := comp.Runtime.GetAgentDAG(runtime.AgentDAGEvolutionKey)
@@ -241,7 +239,7 @@ func TestClosure_Ready_AllExecutorsBoundToLiveTargets(t *testing.T) {
 	// The live DAG supply chain (buildLeaderLiveDAG → RegisterAgentDAG →
 	// wireEvolutionLiveDAGs) is verified at the serve entry in
 	// cmd/ares/serve_live_dag_test.go; this Bootstrap-level test asserts the
-	// isolation half of F04 (synthetic graph confined to the "evolution" key).
+	// isolation half of the invariant (synthetic graph confined to the "evolution" key).
 }
 
 // ---------------------------------------------------------------------------

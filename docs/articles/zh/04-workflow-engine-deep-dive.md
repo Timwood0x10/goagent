@@ -23,7 +23,7 @@
 
 ### 1.1 Step 与 Workflow
 
-`Step` 定义在 `internal/workflow/engine/types.go`。我读到的字段：
+`Step` 定义在 `internal/fabric/task/workflow/engine/types.go`。我读到的字段：
 
 ```go
 type Step struct {
@@ -98,7 +98,7 @@ type DAGNode struct {
 
 ## 二、MutableDAG：线程安全、可演进的运行时拓扑
 
-`internal/workflow/engine/mutable_dag.go`。核心结构：
+`internal/fabric/task/workflow/engine/mutable_dag.go`。核心结构：
 
 ```go
 type MutableDAG struct {
@@ -185,7 +185,7 @@ flowchart TD
 
 ## 三、GraphEventHub：事件、序号、丢弃计数
 
-`internal/workflow/engine/graph_events.go`。核心是这三处，都直接来自源码：
+`internal/fabric/task/workflow/engine/graph_events.go`。核心是这三处，都直接来自源码：
 
 ```go
 type GraphChange struct {
@@ -253,7 +253,7 @@ type GraphEventHub struct {
 
 ## 四、DAGPatchExecutor：把结构 patch 直接打到活拓扑上
 
-`internal/workflow/engine/dag_patcher.go`。这个执行器很直白地体现了一个立场：**补丁不再"存到某处等写到别的地方"，而是直接改活 DAG**。
+`internal/fabric/task/workflow/engine/dag_patcher.go`。这个执行器很直白地体现了一个立场：**补丁不再"存到某处等写到别的地方"，而是直接改活 DAG**。
 
 ```go
 type DAGPatchExecutor struct {
@@ -275,7 +275,7 @@ type DAGPatchExecutor struct {
 
 ## 五、CompileCoordinator：把图"编译"成任务集合
 
-现在到了 0.3.x 最核心的部分：图变了之后，任务集合怎么跟着变。全部在 `internal/planprojection/coordinator.go`。
+现在到了 0.3.x 最核心的部分：图变了之后，任务集合怎么跟着变。全部在 `internal/fabric/planprojection/coordinator.go`。
 
 ### 5.1 两条编译路径：全量 vs 增量
 

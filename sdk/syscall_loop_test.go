@@ -9,7 +9,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/agentsyscall"
 )
 
-// TestSDKPlanLoopLifetimeWired is the T4 acceptance (serve/SDK parity): the
+// TestSDKPlanLoopLifetimeWired is the serve/SDK parity acceptance: the
 // SDK path's create_plan must accept the `loop` option — before this the
 // shared schema advertised a parameter that always failed with "plan loop
 // requires a kernel loop lifetime". The kernel is built with the runtime's
@@ -52,7 +52,7 @@ func TestSDKPlanLoopLifetimeWired(t *testing.T) {
 	}
 }
 
-// TestSDKPlanLoopControlSurface is the other half of the T4 acceptance: plan
+// TestSDKPlanLoopControlSurface is the other half of the parity acceptance: plan
 // loops must be OBSERVABLE and STOPPABLE from the SDK, not just startable.
 // Without exported accessors a `loop` plan would be a goroutine the embedding
 // program can neither list nor cancel before Close.

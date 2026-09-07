@@ -9,7 +9,7 @@ import (
 
 // TestMemoryPatchExecutor_ApplyAndRollback verifies a memory patch mutates the
 // live config and that the returned rollback patch restores the previous values.
-// This guards the P1 bug where rollback carried a MemoryConfig struct (not a
+// This guards a bug where rollback carried a MemoryConfig struct (not a
 // map), so re-applying it silently no-op'd and never restored the config.
 func TestMemoryPatchExecutor_ApplyAndRollback(t *testing.T) {
 	store := NewMinimalMemoryManager()

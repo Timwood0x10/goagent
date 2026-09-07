@@ -263,7 +263,7 @@ func (n *testNormalizer) Normalize(_ context.Context, obj *KnowledgeObject) (*Kn
 // The following minimal implementations exercise KnowledgePipeline.Process
 // with a configured matcher/validator so that the shared resolvedObjects map
 // is read and written. Running this test under `go test -race` proves the
-// B22 data race is fixed.
+// data race is fixed.
 
 type raceMatcher struct{}
 
@@ -287,7 +287,7 @@ func (raceSummarizer) Summarize(_ context.Context, obj *KnowledgeObject) (*Knowl
 }
 
 // TestKnowledgePipelineProcessConcurrent verifies that Process is safe for
-// concurrent use (B22). The pipeline is invoked from many goroutines so the
+// concurrent use. The pipeline is invoked from many goroutines so the
 // shared resolvedObjects candidate pool is read and written in parallel; the
 // race detector fails the test if the access is not serialized by a mutex.
 func TestKnowledgePipelineProcessConcurrent(t *testing.T) {

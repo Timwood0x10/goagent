@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// Cross-Fabric tracing (v0.3.0 M4-1): a global tracer that follows a Task
+// Cross-Fabric tracing: a global tracer that follows a Task
 // from creation to completion, an Agent's full execution trajectory, and an
 // IPC message's route (by correlation id). Spans are recorded by the runtime
 // hooks (Task Fabric transitions, Agent lifecycle, IPC bus) and queried for
@@ -56,7 +56,7 @@ type TraceSpan struct {
 	mu sync.Mutex `json:"-"`
 }
 
-// GlobalTracer records and serves cross-Fabric spans (v0.3.0 M4-1).
+// GlobalTracer records and serves cross-Fabric spans.
 // Thread-safe; span history is capped by WithMaxSpans.
 type GlobalTracer struct {
 	mu    sync.Mutex

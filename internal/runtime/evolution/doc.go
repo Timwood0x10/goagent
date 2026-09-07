@@ -1,4 +1,4 @@
-// Package evolution is the ARES evolution engine v2 (convergence Phase 3).
+// Package evolution is the ARES evolution engine.
 //
 // It holds the genetic machinery that acts on the L1 ToolClass graph:
 // genome representation and workflow operators, patch generation and

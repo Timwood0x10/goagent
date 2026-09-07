@@ -343,7 +343,7 @@ func buildSDKEvidenceStore(cfg *config, knowRt *khruntime.KnowledgeRuntime, boot
 // (non-fatal: a warning is logged). Extracted from New() to keep the
 // constructor under the 100-line limit.
 //
-// Branch B (T2.0): SDK has no live DAG, so workflow/scheduler/recovery
+// Branch B: SDK has no live DAG, so workflow/scheduler/recovery
 // evolution is serve-only; the nil-DAG path is explicitly logged.
 func wireEvolutionHotUpdate(cfg *config, knowRt *khruntime.KnowledgeRuntime, memMgr memory.MemoryConfigStore, evStore evidence.Store) *ares_bootstrap.NewEvolutionComponents {
 	if !cfg.evoCfg.Enabled || knowRt == nil {
@@ -367,7 +367,7 @@ func wireEvolutionHotUpdate(cfg *config, knowRt *khruntime.KnowledgeRuntime, mem
 // store. Stage 8: when the Bootstrap core supplies a NewEvolution it is reused
 // (the Bootstrap-assembled component wins and any SDK-owned evStore is
 // discarded); otherwise the SDK dual-track wiring is kept as a compatibility
-// fallback. T1.3 (evidence persistence): the persistent evidence store is
+// fallback. Evidence persistence: the persistent evidence store is
 // created only when it will actually be consumed — evolution enabled, an
 // SDK-owned knowledge runtime exists, and the Bootstrap core does not supply
 // its own NewEvolution. This avoids hard-failing startup for a

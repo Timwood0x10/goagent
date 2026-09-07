@@ -19,7 +19,7 @@ type schemaStubBinder struct {
 
 func (b *schemaStubBinder) GetToolSchemas() []resources.ToolSchema { return b.schemas }
 
-// TestObserveToolCalls_AttributesBySchemaShape locks M6: a call that omits an
+// TestObserveToolCalls_AttributesBySchemaShape locks the contract: a call that omits an
 // optional parameter still attributes to the schema-derived ToolClassID
 // (tool#limit,query), not the args-derived shape (tool#query) — otherwise the
 // record misses the L1 node and WindowToolStep stays empty.

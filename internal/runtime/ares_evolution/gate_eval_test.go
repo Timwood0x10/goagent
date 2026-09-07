@@ -1,6 +1,6 @@
 package evolution
 
-// gate_eval_test.go covers the EvalGate (G3) scoring logic that the
+// gate_eval_test.go covers the EvalGate scoring logic that the
 // lifecycle's pass-through path does not exercise: averageScores and the
 // full Check path with a real AgentTestRunner backed by fake executor and
 // evaluator. Previously only the pass-through branch had coverage (via the
@@ -42,7 +42,7 @@ func (f *fakeEvaluator) Evaluate(_ context.Context, _ eval.TestCase, _ eval.Test
 	return []eval.EvalScore{{Metric: "accuracy", Score: f.score}}, nil
 }
 
-// newTestEvalGate builds a fully wired G3 gate: a runner over a canned
+// newTestEvalGate builds a fully wired eval gate: a runner over a canned
 // executor plus a registry containing one evaluator with the given score.
 // The gate config pins EvaluatorName to the fake so the NAMED-evaluator
 // scoring path (including its error branch) is exercised deterministically.
@@ -204,7 +204,7 @@ func TestEvalGate_ScoringPath(t *testing.T) {
 	})
 }
 
-// --- G2 shadow verify gate ---
+// --- shadow verify gate ---
 
 func TestShadowVerifyGate(t *testing.T) {
 	t.Run("no shadow evidence FAILS CLOSED (review blocking item 1)", func(t *testing.T) {
@@ -237,7 +237,7 @@ func TestShadowVerifyGate(t *testing.T) {
 	})
 }
 
-// --- G2 gate registration wiring ---
+// --- shadow gate registration wiring ---
 
 func TestNewStrategyLifecycle_RegistersShadowGateFirst(t *testing.T) {
 	se := NewShadowEvaluator(ShadowEvaluationConfig{Enabled: true, MinSamples: 2, MinWinRate: 0.5})
@@ -249,7 +249,7 @@ func TestNewStrategyLifecycle_RegistersShadowGateFirst(t *testing.T) {
 	)
 
 	// The shadow gate must be prepended so the pipeline order is
-	// G2 shadow → G3 eval, and l.shadow must actually be consumed by the
+	// shadow → eval, and l.shadow must actually be consumed by the
 	// promote pipeline (regression: the evaluator used to be assigned but
 	// never read).
 	require.Len(t, lc.gates, 2)

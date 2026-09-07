@@ -55,7 +55,7 @@ result, err := agent.Run(ctx, "hello")
 | `(*Runtime).GetModel()` | `string` | 当前模型名 |
 | `(*Runtime).GetProvider()` | `string` | 当前 provider |
 | `(*Runtime).KnowledgeStore()` | `knowledge.KnowledgeStore` | 知识存储（未启用时为 nil） |
-| `(*Runtime).Snapshot()` | `system_runtime.Snapshot` | Bootstrap 核心的系统快照 |
+| `(*Runtime).Snapshot()` | `kernel.Snapshot` | Bootstrap 核心的系统快照 |
 
 ---
 
@@ -198,7 +198,7 @@ for chunk := range ch {
 
 ## 多 Agent：平等 capability + 共享调度器
 
-老式 Leader-Sub 编排已不在 SDK 里。多 Agent 现在的模型是：把每个专家按 capability 注册到 Runtime，按 capability 提交任务，由**共享的 `kernelscheduler.Scheduler`** 做匹配和调度（`sdk/task.go`）：
+老式 Leader-Sub 编排已不在 SDK 里。多 Agent 现在的模型是：把每个专家按 capability 注册到 Runtime，按 capability 提交任务，由**共享的 `kernel.Scheduler`** 做匹配和调度（`sdk/task.go`）：
 
 ```go
 // 注册：capability 是 key，agent 以 capability 命名
@@ -221,7 +221,7 @@ result, err := rt.Submit(ctx, sdk.Task{Capability: "researcher", Input: "Researc
 sequenceDiagram
     participant C as Caller
     participant R as Runtime
-    participant S as kernelscheduler.Scheduler
+    participant S as kernel.Scheduler
     participant A as Agent (CapabilityExecutor)
     participant E as agentloop.Engine
     C->>R: Submit(ctx, Task{Capability, Input})
@@ -235,7 +235,7 @@ sequenceDiagram
     R-->>C: *Result
 ```
 
-需要拆分的 Agent 自主决定：SDK 会把 `spawn_agent` / `create_task` 内核 syscall 注册进 tool registry，append 到每个 agent 的工具列表（`sdk/syscall.go`，`wireSyscalls` 在首次 Submit 时执行，`syscallTools`/`syscallKernel` 在首次 Submit 前为 nil）——拆分是 Agent 的认知决策，而不是框架预定义的团队名册。参考示例 `examples/27-peer-spawn-demo`（已存在）。
+需要拆分的 Agent 自主决定：SDK 会把 `spawn_agent` / `create_task` 内核 syscall 注册进 tool registry，append 到每个 agent 的工具列表（`sdk/syscall.go`，`wireSyscalls` 在首次 Submit 时执行，`syscallTools`/`syscallKernel` 在首次 Submit 前为 nil）——拆分是 Agent 的认知决策，而不是框架预定义的团队名册。参考示例 `examples/_fixtures/27-peer-spawn-demo`（已存在）。
 
 ---
 
@@ -290,7 +290,7 @@ graph TD
     Components --> EVO[NewEvolution]
     Components --> MCP[MCP]
     Components --> Events[EventStore]
-    Components --> SRT[system_runtime.Orchestrator]
+    Components --> SRT[kernel.Orchestrator]
     New -->|Close| Close[Runtime.Close]
     Close -- bootstrap 非空时 --> WB[Components.WaitBackground]
 ```
@@ -300,7 +300,7 @@ graph TD
 - **可回退**：`newBootstrapCore` 在配置**不是 Bootstrap 能表达的**（`sqliteStorePath != ""` 或 `len(extraProviders) > 0`，见 `bootstrapCapable`）或装配失败时返回 nil，SDK 退回到自己的接线（`sdk.go` 里那套 wireMemory / wireMCP / wireKnowledge / wireEventBackend）。所以 Bootstrap 的回归不会搞挂 SDK 构造——只是少了一条统一路径。
 - **所有权转移**：成功路径上 bootstrap 的 lifecycle context 的所有权交给 `Runtime`，`Close()` 先 cancel 它、再 `bootstrap.WaitBackground()` 排干后台协程（蒸馏订阅者、GA ticker、LLM suggestion ticker），保证没有协程活过 Close。错误路径上 defer cancel 防 context 泄漏。
 
-`Components` 上还有三个只读的运维方法（`internal/ares_bootstrap/bootstrap.go`）：`Snapshot() system_runtime.Snapshot`、`ComponentStatus(name) (ComponentStatus, bool)`、`IsSystemReady() bool`。SDK 的 `Runtime.Snapshot()` 就是透传 `r.bootstrap.Snapshot()`（bootstrap 为 nil 时返回空快照，调用方无需判 nil）。
+`Components` 上还有三个只读的运维方法（`internal/ares_bootstrap/bootstrap.go`）：`Snapshot() kernel.Snapshot`、`ComponentStatus(name) (ComponentStatus, bool)`、`IsSystemReady() bool`。SDK 的 `Runtime.Snapshot()` 就是透传 `r.bootstrap.Snapshot()`（bootstrap 为 nil 时返回空快照，调用方无需判 nil）。
 
 ---
 

@@ -23,7 +23,7 @@ type StrategyStore interface {
 }
 
 // evidenceStore is the slice of evidence.Store the decision-trail stream
-// needs (evolution loop closure E3). Declared locally to keep the provider's
+// needs (evolution loop closure). Declared locally to keep the provider's
 // dependency surface minimal and testable.
 type evidenceStore interface {
 	Query(ctx context.Context, filter evidence.Filter) ([]evidence.Evidence, error)
@@ -161,7 +161,7 @@ func (p *EvolutionProvider) Stream(ctx context.Context, intent knowledge.Intent)
 			}
 		}
 
-		// E3: emit the promote/rollback decision trail. The strategy store
+		// emit the promote/rollback decision trail. The strategy store
 		// carries LINEAGE (which strategy came from which); this carries the
 		// REASONING (why it was promoted or rolled back, and at what score).
 		// An agent asking "why did we roll back last time" can only be

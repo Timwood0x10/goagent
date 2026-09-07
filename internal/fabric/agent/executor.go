@@ -14,8 +14,8 @@ import (
 // completes the task (Done), yields progress for resumption (Checkpoint), or
 // fails.
 //
-// The interface is defined in the consumer package (agentfabric), per
-// code_rules. Implementations live in agentfabric or are injected via
+// The interface is defined in the consumer package (agentfabric).
+// Implementations live in agentfabric or are injected via
 // CognitionFactory at spawn time.
 type Cognition interface {
 	// ExecuteStep runs one quantum and returns the outcome. The task carries
@@ -33,7 +33,7 @@ type Cognition interface {
 	ExecuteStep(ctx context.Context, task *models.Task) (*StepOutcome, error)
 }
 
-// StepOutcome is the result of one execution quantum (P1.1 Execution Model).
+// StepOutcome is the result of one execution quantum (Execution Model).
 // Semantic parity with sub.StepOutcome so the migration test suite can
 // verify both produce equivalent results.
 type StepOutcome struct {
@@ -57,8 +57,8 @@ type CognitionFactory func(capabilities []string) Cognition
 // CognitionFunc adapts a plain function to the Cognition interface so any
 // executor with the right signature (e.g. an agentsyscall.Executor, or a
 // bound sub.Agent) can be injected as an agent's execution body without a
-// new concrete type (aresos-agentos-plan C1: spawn 的 agent 带执行体).
-// code_rules: the adapter lives in the owner package (agentfabric).
+// new concrete type (spawn 的 agent 带执行体).
+// The adapter lives in the owner package (agentfabric).
 type CognitionFunc func(ctx context.Context, task *models.Task) (*StepOutcome, error)
 
 // ExecuteStep implements Cognition.
@@ -67,19 +67,19 @@ func (f CognitionFunc) ExecuteStep(ctx context.Context, task *models.Task) (*Ste
 }
 
 // ChatClient is the minimal LLM chat surface the cognition bodies need
-// (interface at the consumer, code_rules). It sends chat messages with
+// (interface at the consumer). It sends chat messages with
 // tool support; the optional params map carries per-call overrides
 // (temperature, max_tokens, top_k) from the active evolution strategy so
 // live plan growth can be steered at runtime. (Relocated from the retired
-// chat loop in M4-D; the contract is unchanged.)
+// chat loop; the contract is unchanged.)
 type ChatClient interface {
 	Chat(ctx context.Context, messages []*core.LLMMessage, tools []core.Tool, params map[string]any) (*core.GenerateResponse, error)
 }
 
 // ToolBinder is the minimal tool surface the cognition bodies need
-// (interface at the consumer, code_rules). The planner shows the LLM what
+// (interface at the consumer). The planner shows the LLM what
 // tools exist (schemas); the tool body executes one call per quantum.
-// (Relocated from the retired chat loop in M4-D; the contract is unchanged.)
+// (Relocated from the retired chat loop; the contract is unchanged.)
 type ToolBinder interface {
 	CallTool(ctx context.Context, name string, args map[string]any) (any, error)
 	ListTools() []string
@@ -88,7 +88,7 @@ type ToolBinder interface {
 }
 
 // ExecuteStep runs one quantum of cognitive work through the agent's injected
-// execution body (A1: spawn → ExecuteStep 直接可执行). It delegates to the
+// execution body (spawn → ExecuteStep 直接可执行). It delegates to the
 // Cognition produced by SpawnSpec.CognitionFactory. An agent spawned without
 // a factory returns ErrAgentNotExecutable — it is managed (spawn/kill/
 // recover) but not schedulable.

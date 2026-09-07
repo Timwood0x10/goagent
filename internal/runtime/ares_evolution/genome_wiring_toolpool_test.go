@@ -10,7 +10,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/runtime/ares_evolution/mutation"
 )
 
-// TestBuildMutator_WiresToolPool locks the C6 single-source wiring: when the
+// TestBuildMutator_WiresToolPool locks the tool-pool wiring: when the
 // SystemConfig carries a ToolPool, buildMutator must thread it into the mutator
 // so the elite/random mutation path can actually emit Params["tools"]. Before
 // this, the option was never supplied here — the pool was dead configuration and

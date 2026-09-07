@@ -104,7 +104,7 @@ type LLMJudgeOption func(*LLMJudgeEvaluator)
 // The template may use {{.Input}}, {{.ExpectedOutput}}, and {{.ActualOutput}} as variables.
 // A template that fails to parse makes NewLLMJudgeEvaluator return an error:
 // silently falling back to the default prompt would score candidates against
-// a different prompt than the operator configured (G3 gate integrity).
+// a different prompt than the operator configured (eval gate integrity).
 func WithPrompt(tmpl string) LLMJudgeOption {
 	return func(e *LLMJudgeEvaluator) {
 		parsed, err := template.New("judge").Parse(tmpl)

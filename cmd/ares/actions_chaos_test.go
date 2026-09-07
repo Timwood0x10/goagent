@@ -76,7 +76,7 @@ func newChaosTestKernel(t *testing.T, ctx context.Context, withRecoveryLoop bool
 	handler := &actionHandler{
 		kernel: kh,
 		apiKey: "test-key",
-		// W5 RBAC: chaos operations now require RoleAdmin. Wire the JWT
+		// RBAC: chaos operations now require RoleAdmin. Wire the JWT
 		// middleware (PermWrite) so admin/operator roles are distinguished —
 		// chaos tests mint an admin token via postChaos.
 		auth: ares_security.NewAuthMiddleware([]byte(testActionJWTSecret), ares_security.PermWrite),
@@ -89,7 +89,7 @@ func newChaosTestKernel(t *testing.T, ctx context.Context, withRecoveryLoop bool
 func postChaos(t *testing.T, h *actionHandler, chaosType string) (int, map[string]any) {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, "/api/chaos/"+chaosType, bytes.NewReader([]byte("{}")))
-	// W5: chaos requires RoleAdmin; mint an admin JWT on the shared test secret.
+	// Chaos requires RoleAdmin; mint an admin JWT on the shared test secret.
 	req.Header.Set("Authorization", "Bearer "+testActionJWT(t, ares_security.RoleAdmin))
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
@@ -98,7 +98,7 @@ func postChaos(t *testing.T, h *actionHandler, chaosType string) (int, map[strin
 	return w.Code, body
 }
 
-// TestChaosRandomKillHitsFabricAndEmitsKilled locks the P1 retarget: with the
+// TestChaosRandomKillHitsFabricAndEmitsKilled locks the retarget: with the
 // peer kernel present, /api/chaos/random-kill kills a LIVE AGENT-FABRIC agent
 // (observable via the agent event stream + fabric removal), NOT a legacy
 // manager-pool entry. The death then flows through the kernel's own recovery
@@ -274,7 +274,7 @@ func (e *chaosStubExecutor) ExecuteStep(_ context.Context, task *models.Task) (*
 	return &sub.StepOutcome{Done: true, Result: res}, nil
 }
 
-// TestChaosStopEndpointAuth locks the REVIEW #12 Phase 2 emergency-stop
+// TestChaosStopEndpointAuth locks the emergency-stop
 // contract: the endpoint is disabled without a configured stop_token (503),
 // rejects a wrong X-Chaos-Token (403), and trips the live-chaos kill switch
 // on a valid token.

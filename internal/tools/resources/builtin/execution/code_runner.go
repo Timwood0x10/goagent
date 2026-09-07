@@ -30,7 +30,7 @@ import (
 // CommonJS `require`, so enabling node -e would hand the model an unsandboxed
 // shell (require('child_process')). Re-introduce JS only together with a
 // JS-specific validator (e.g. literal-argument require allowlist plus the
-// node --permission model). See release-readiness T3.
+// node --permission model).
 type CodeRunner struct {
 	*base.BaseTool
 	mu                sync.RWMutex
@@ -503,7 +503,7 @@ func (t *CodeRunner) AddDangerousPattern(pattern string) {
 }
 
 // GetSupportedLanguages returns the list of supported languages. Only Python
-// is supported since the JavaScript path was removed (T3: no JS validator).
+// is supported since the JavaScript path was removed (no JS validator).
 func (t *CodeRunner) GetSupportedLanguages() []string {
 	t.mu.RLock()
 	defer t.mu.RUnlock()

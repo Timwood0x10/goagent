@@ -11,8 +11,8 @@ import (
 	"github.com/Timwood0x10/ares/internal/runtime/evolution/patch"
 )
 
-// defaultEvalEvidenceWindow bounds the staging comparison to recent evidence
-// (E1). Both shadow and baseline sides share the same [since, until] so the
+// defaultEvalEvidenceWindow bounds the staging comparison to recent
+// evidence. Both shadow and baseline sides share the same [since, until] so the
 // delta cannot be distorted by evidence written between two independent
 // queries. One hour covers the judgment window while excluding stale history
 // from previous strategies.
@@ -124,7 +124,7 @@ func (r *deploymentStagingRuntime) Evaluate(ctx context.Context) (shadow float64
 	if r.currentPatchStrategy == "" || activeStrategyID == "" {
 		return r.coldStartScore, r.coldStartScore, nil
 	}
-	// E1: take one time anchor and sample both sides with the SAME
+	// Take one time anchor and sample both sides with the SAME
 	// [since, until] so concurrent evidence writes between two queries cannot
 	// skew the delta. Both bounds are non-zero by construction.
 	until := time.Now()
@@ -258,7 +258,7 @@ func (a *deploymentAdapter) Deploy(ctx context.Context, p patch.RuntimePatch) er
 	if rec != nil && rec.Status != deployment.DeploymentPromoted {
 		return fmt.Errorf("deployment not applied (status %s): %s", rec.Status, rec.Reason)
 	}
-	// E2: post-promotion regression watch. MonitorAndRollback waits the
+	// Post-promotion regression watch. MonitorAndRollback waits the
 	// configured evaluation window, re-samples live fitness, and rolls the
 	// live executor back on regression. A rollback is a normal outcome here,
 	// surfaced as an error so the Coordinator does not record success.

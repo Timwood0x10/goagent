@@ -29,7 +29,7 @@ type Entry struct {
 	Timestamp time.Time
 }
 
-// maxEntries caps the in-memory log (#60): the store had no eviction, so a
+// maxEntries caps the in-memory log: the store had no eviction, so a
 // long-lived process grew entries forever. Oldest entries are evicted first;
 // replay of fully-evicted sequences degrades to "start ID not found", which
 // callers already treat as recoverable.
@@ -40,7 +40,7 @@ const maxEntries = 10000
 type Store struct {
 	mu      sync.RWMutex
 	entries []Entry
-	ids     map[string]struct{} // O(1) duplicate detection (#60); guarded by mu
+	ids     map[string]struct{} // O(1) duplicate detection; guarded by mu
 }
 
 // NewStore creates an empty action store.
@@ -52,7 +52,7 @@ func NewStore() *Store {
 }
 
 // Append records an action. The entry's ID must be non-empty; duplicates are
-// rejected so replay can rely on stable IDs (code_rules idempotency).
+// rejected so replay can rely on stable IDs (idempotency).
 func (s *Store) Append(ctx context.Context, e Entry) error {
 	if e.ID == "" {
 		return errors.New("actionlog: entry ID must not be empty")

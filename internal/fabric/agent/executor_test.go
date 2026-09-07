@@ -12,7 +12,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/core/models"
 )
 
-// stubCognition is a deterministic Cognition for the A1 contract test: it
+// stubCognition is a deterministic Cognition for the contract test: it
 // records the task it ran and returns a fixed outcome, so the test asserts
 // the wiring (spawn → ExecuteStep) without depending on the LLM stack.
 type stubCognition struct {
@@ -26,7 +26,7 @@ func (c *stubCognition) ExecuteStep(_ context.Context, task *models.Task) (*Step
 	return c.out, c.err
 }
 
-// TestSpawnedAgentExecutesQuantum is the A1 acceptance contract test: an
+// TestSpawnedAgentExecutesQuantum is the acceptance contract test: an
 // agent spawned with a CognitionFactory is directly executable — one
 // ExecuteStep call runs one quantum and produces an outcome (the plan's
 // "spawn → 喂 task → 跑一个 quantum → 有结果/checkpoint").
@@ -60,7 +60,7 @@ func TestSpawnedAgentExecutesQuantum(t *testing.T) {
 	}
 }
 
-// TestSpawnRejectsNilCognition locks the N10 contract: a NON-nil
+// TestSpawnRejectsNilCognition locks the contract: a NON-nil
 // CognitionFactory that returns nil is a programming error that must surface
 // at spawn time instead of silently producing a permanently non-executable
 // agent.
@@ -80,7 +80,7 @@ func TestSpawnRejectsNilCognition(t *testing.T) {
 	assert.ErrorIs(t, getErr, ErrAgentNotFound, "failed spawn must not register the agent")
 }
 
-// TestSpawnedAgentYieldCarriesCheckpoint verifies the yield path of the A1
+// TestSpawnedAgentYieldCarriesCheckpoint verifies the yield path of the
 // contract: a quantum that does not complete returns Done=false with a
 // resumable checkpoint — the scheduler's yield→resume protocol depends on it.
 func TestSpawnedAgentYieldCarriesCheckpoint(t *testing.T) {

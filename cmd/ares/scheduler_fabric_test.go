@@ -12,7 +12,7 @@ import (
 )
 
 // recordingCognition is an agentfabric.Cognition that completes every task in
-// one quantum and records the executed task ids (B1: 真实执行体).
+// one quantum and records the executed task ids (真实执行体).
 type recordingCognition struct {
 	mu       sync.Mutex
 	executed []string
@@ -56,8 +56,8 @@ func waitTaskState(t *testing.T, f *taskfabric.Fabric, taskID string, timeout ti
 	return tk.State
 }
 
-// TestKernelSchedulerSchedulesFabricAgents is the B1 acceptance test
-// (aresos-agentos-plan B1): a fabric agent spawned WITH a CognitionFactory is
+// TestKernelSchedulerSchedulesFabricAgents is the acceptance test
+// for the single-source rule: a fabric agent spawned WITH a CognitionFactory is
 // immediately a schedulable candidate — the scheduler executes the task
 // through the agent's injected Cognition, not a phantom. Killing the agent
 // removes it from the candidate pool: a new task requiring the same
@@ -123,8 +123,8 @@ func TestKernelSchedulerSchedulesFabricAgents(t *testing.T) {
 	}
 }
 
-// TestKernelSchedulerFabricKillBeatsStaticRegistration verifies the C1 single-
-// source rule (aresos-agentos-plan C1: scheduler 只认 fabric 动态群体): when
+// TestKernelSchedulerFabricKillBeatsStaticRegistration verifies the single-
+// source rule (scheduler 只认 fabric 动态群体): when
 // the fabric is wired, killing the fabric agent removes it from the candidate
 // pool EVEN IF the same id is still statically registered — the static copy is
 // managed through the fabric, so a killed agent is never resurrected via the
@@ -133,7 +133,7 @@ func TestKernelSchedulerFabricKillBeatsStaticRegistration(t *testing.T) {
 	f := taskfabric.NewFabric()
 	fab := agentfabric.NewFabric()
 	// Static registration of the same id (legacy peer wiring): the sub.Agent
-	// copy is also managed as a fabric agent after C1.
+	// copy is also managed as a fabric agent.
 	static := &w2StubAgent{id: "fab-code", typ: models.AgentType("code")}
 	executors := map[string]CapabilityExecutor{"fab-code": static}
 	tracker := newLoadTracker()
@@ -189,7 +189,7 @@ func TestKernelSchedulerFabricKillBeatsStaticRegistration(t *testing.T) {
 	}
 }
 
-// TestKernelSchedulerSkipsNonExecutableFabricAgents verifies the A1 contract at
+// TestKernelSchedulerSkipsNonExecutableFabricAgents verifies the executa­bility contract at
 // the scheduler boundary: an agent spawned WITHOUT a CognitionFactory is
 // managed but NOT schedulable — the scheduler never offers it as a candidate,
 // so a task requiring its capability is never executed.
@@ -224,7 +224,7 @@ func TestKernelSchedulerSkipsNonExecutableFabricAgents(t *testing.T) {
 	}
 }
 
-// TestKernelSchedulerFabricAgentMatchesAnyCapability verifies the B1 candidate
+// TestKernelSchedulerFabricAgentMatchesAnyCapability verifies that candidate
 // scoring uses the agent's FULL declared capability set — a task matching the
 // second capability is still scheduled to the fabric agent.
 func TestKernelSchedulerFabricAgentMatchesAnyCapability(t *testing.T) {

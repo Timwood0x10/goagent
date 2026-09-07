@@ -33,7 +33,7 @@ func TestNewCodeRunner(t *testing.T) {
 	}
 }
 
-// TestNoJSExecution asserts the T3 removal contract: the code_runner tool must
+// TestNoJSExecution asserts the removal contract: the code_runner tool must
 // not offer or execute JavaScript. The Python-oriented validator (import
 // allowlist + dangerous-pattern scan) does not understand CommonJS `require`,
 // so `node -e` with require('child_process') would be an unsandboxed shell.

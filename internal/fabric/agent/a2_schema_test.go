@@ -7,9 +7,9 @@ import (
 	"github.com/Timwood0x10/ares/internal/agentipc"
 )
 
-// TestCognitiveStateSchemaVersionMigration is the A2 schema migration test
+// TestCognitiveStateSchemaVersionMigration is the schema migration test
 // code rules : DecodeCognitiveState accepts the current version and
-// legacy v0 (pre-A2 zero value), and rejects a future version instead of
+// legacy v0 (zero value), and rejects a future version instead of
 // silently misinterpreting it.
 func TestCognitiveStateSchemaVersionMigration(t *testing.T) {
 	cases := []struct {
@@ -62,7 +62,7 @@ func TestCognitiveStateSchemaVersionMigration(t *testing.T) {
 	}
 }
 
-// TestSetCognitiveStateStampsVersion verifies the A2 boundary contract: a
+// TestSetCognitiveStateStampsVersion verifies the boundary contract: a
 // legacy state (SchemaVersion=0) written via SetCognitiveState is upgraded to
 // the current version, so every stored state carries a version (readable via
 // DecodeCognitiveState without ambiguity).
@@ -109,7 +109,7 @@ func TestRecoverStampsVersion(t *testing.T) {
 	}
 }
 
-// TestIPCIsolationFromContextLayers verifies the third layer boundary (A2):
+// TestIPCIsolationFromContextLayers verifies the third layer boundary:
 // IPC messages travel on the agentipc bus — a storage surface completely
 // separate from the agent's Task Shared and Private layers. A message
 // delivered over IPC must never appear in the receiving agent's ContextView,

@@ -1,9 +1,8 @@
-// Package ares_bootstrap — Runtime Closure Shared Instance Tests (Stage 0).
+// Package ares_bootstrap — Runtime Closure Shared Instance Tests.
 //
 // These tests verify that components which must share a single instance
-// actually do so. Each test documents the shared instance constraint from
-// RUNTIME_COMPONENT_CLOSURE_PLAN_2026-08-04.md §5.2 and checks whether the
-// current Bootstrap wiring satisfies it.
+// actually do so. Each test documents a shared instance constraint and
+// checks whether the current Bootstrap wiring satisfies it.
 //
 //go:build closure
 
@@ -23,13 +22,13 @@ import (
 // TestSharedInstance_EventStore_Identity verifies that Runtime, Memory,
 // and FlightRecorder all reference the same EventStore instance.
 //
-// Constraint from §5.2:
+// Constraint:
 //
 //	Runtime, Memory, Flight, Dashboard/bridge use the same EventStore.
 //
 // Current status: Bootstrap sets comp.EventStore and passes it to Runtime
 // via ProvideRuntime. Memory gets EventStore via SetEventStore during
-// Bootstrap construction (B01 fixed — no more post-Bootstrap bypass in
+// Bootstrap construction (no more post-Bootstrap bypass in
 // serve.go). FlightRecorder gets EventStore via FlightRecorderConfig.
 func TestSharedInstance_EventStore_Identity(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -63,7 +62,7 @@ func TestSharedInstance_EventStore_Identity(t *testing.T) {
 	// comp.EventStore. We can't directly assert pointer equality without
 	// accessing private fields, so this is verified behaviorally.
 
-	// B01 (fixed): Memory's EventStore is wired during Bootstrap construction
+	// Memory's EventStore is wired during Bootstrap construction
 	// (wireMemory → mem.SetEventStore). When memory is enabled, Bootstrap must
 	// have attached the custom store; we verify the manager exists and was
 	// constructed against the injected store by checking comp.EventStore is
@@ -78,7 +77,7 @@ func TestSharedInstance_EventStore_Identity(t *testing.T) {
 // TestSharedInstance_EvidenceStore_Identity verifies that all five genomes
 // and the FlightRecorder reference the same EvidenceStore instance.
 //
-// Constraint from §5.2:
+// Constraint:
 //
 //	Flight, Memory retriever, KnowledgeRuntime, five Genome use same EvidenceStore.
 //
@@ -125,7 +124,7 @@ func TestSharedInstance_EvidenceStore_Identity(t *testing.T) {
 // TestSharedInstance_KnowledgeRuntime_Identity verifies that the
 // KnowledgePatchExecutor and AKF tools share the same KnowledgeRuntime.
 //
-// Constraint from §5.2:
+// Constraint:
 //
 //	KnowledgePatchExecutor and AKF tools use same KnowledgeRuntime.
 //
@@ -158,7 +157,7 @@ func TestSharedInstance_KnowledgeRuntime_Identity(t *testing.T) {
 	// same KnowledgeRuntime. BuildKnowledgeRuntime creates one instance and
 	// ProvideNewEvolution receives it, so identity is structural. Verifying
 	// the executor's private runtime field needs a status API; until then the
-	// shared construction path is asserted above (R09: no silent gap PASS).
+	// shared construction path is asserted above (no silent gap).
 	cancel()
 	comp.WaitBackground()
 }
@@ -166,7 +165,7 @@ func TestSharedInstance_KnowledgeRuntime_Identity(t *testing.T) {
 // TestSharedInstance_StrategyStore_Identity verifies that the GA deployment
 // and the Agent StrategySource reference the same StrategyStore.
 //
-// Constraint from §5.2:
+// Constraint:
 //
 //	GA deployment write and Agent StrategySource read use same StrategyStore.
 //
@@ -211,7 +210,7 @@ func TestSharedInstance_StrategyStore_Identity(t *testing.T) {
 // TestSharedInstance_EmbeddingClient_Identity verifies that the distillation
 // pipeline and the MemoryRetriever share the same EmbeddingClient.
 //
-// Constraint from §5.2:
+// Constraint:
 //
 //	DistillBridge write and StoreProvider/KnowledgeRetriever read use same
 //	KnowledgeStore and namespace.
@@ -256,7 +255,7 @@ func TestSharedInstance_EmbeddingClient_Identity(t *testing.T) {
 // PatchRegistry's executors all reference live runtime targets, not
 // synthetic placeholders.
 //
-// Constraint from §5.2:
+// Constraint:
 //
 //	workflow/scheduler/recovery executor bound to Runtime live DAG/policy,
 //	not synthetic objects entering Ready.
@@ -284,7 +283,7 @@ func TestSharedInstance_PatchRegistry_Identity(t *testing.T) {
 	require.NotNil(t, comp.NewEvolution.PatchReg,
 		"PatchRegistry must exist")
 
-	// F04 (Stage 8, hard assertion): the PatchRegistry's executors must NOT be
+	// Hard assertion: the PatchRegistry's executors must NOT be
 	// bound to a live agent DAG at Bootstrap — the leader's live DAG key is
 	// populated only by the serve entry (buildLeaderLiveDAG, pre-Start). The
 	// synthetic graph stays confined to the "evolution" key, so it can never

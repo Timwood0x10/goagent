@@ -11,8 +11,8 @@ import (
 	"github.com/Timwood0x10/ares/internal/fabric/task"
 )
 
-// evolutionSpawnCognition is the A1 execution body a GA/evolution policy would
-// inject into its spawned agents (F1: GA spawn 真实执行体). It completes every
+// evolutionSpawnCognition is the execution body a GA/evolution policy would
+// inject into its spawned agents (GA spawn 真实执行体). It completes every
 // task in one quantum.
 type evolutionSpawnCognition struct{}
 
@@ -23,9 +23,9 @@ func (evolutionSpawnCognition) ExecuteStep(_ context.Context, task *models.Task)
 }
 
 // TestF1_EvolutionSpawnedAgentIsExecutableAndSchedulable verifies the F1
-// acceptance (aresos-agentos-plan F1: GA spawn 的 agent 能被真实调度执行，
+// acceptance (GA spawn 的 agent 能被真实调度执行，
 // 非 phantom): an evolution policy that spawns agents WITH their execution body
-// (CognitionFactory — the A1 factory) produces REAL cognitive processes that
+// (CognitionFactory) produces REAL cognitive processes that
 // the kernel scheduler selects and executes, not empty shells. The chain is
 // exactly the production one: AdaptPopulation → agents.Spawn → scheduler
 // WithAgentFabric candidate → Schedule → Acquire → RunQuantum → COMPLETED.
@@ -41,7 +41,7 @@ func TestF1_EvolutionSpawnedAgentIsExecutableAndSchedulable(t *testing.T) {
 	go sched.Run(ctx)
 
 	// GA/evolution decides to spawn a "reviewer" capability agent, carrying
-	// its execution body (A1 CognitionFactory).
+	// its execution body (CognitionFactory).
 	adapter := aresrecovery.NewEvolutionAdapter(agents, agents)
 	spawned, err := adapter.AdaptPopulation(ctx, []agentfabric.SpawnSpec{
 		{
@@ -82,8 +82,8 @@ func TestF1_EvolutionSpawnedAgentIsExecutableAndSchedulable(t *testing.T) {
 	}
 }
 
-// TestF1GAInterventionChangesCandidateOrdering is the F1 scheduling-weight
-// acceptance (review P2: TestF1 only verified an agent CAN be selected, not
+// TestF1GAInterventionChangesCandidateOrdering is the scheduling-weight
+// acceptance (the spawn test only verified an agent CAN be selected, not
 // that GA intervention actually REORDERS candidates). Two equally-capable
 // agents, same task capability: before the GA intervention agent-A (higher
 // confidence) wins; after the intervention flips the confidences, agent-B

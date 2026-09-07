@@ -2,7 +2,7 @@
 
 "你怎么知道你的 Agent 改进了？"这个问题一直困扰我们。进化引擎在生成新策略，候选验证在跑保留样例回归——但我们需要的是一种客观方法说"策略 A 比策略 B 好多少"。
 
-评估框架（`internal/ares_eval/`，约 3,000 行）是这个问题的一部分答案。它把"我觉得看起来更好"变成可复现的分数。**需要先说实话：它的规模远小于"评测 Agent 一切能力"的通用框架**，它更准确地说是"给 Agent 输出打分的评估器 + 一个跑保留样例回归的门"。本文只写代码里真实存在的东西。
+评估框架（`internal/runtime/eval/`，约 3,000 行）是这个问题的一部分答案。它把"我觉得看起来更好"变成可复现的分数。**需要先说实话：它的规模远小于"评测 Agent 一切能力"的通用框架**，它更准确地说是"给 Agent 输出打分的评估器 + 一个跑保留样例回归的门"。本文只写代码里真实存在的东西。
 
 ---
 
@@ -22,7 +22,7 @@
 
 ## 真实结构：三个组件
 
-当前 `internal/ares_eval/` 的真实构成是一条很朴素的流水线，没有文档里常见的"Comparison 层""并发 Runner 层"：
+当前 `internal/runtime/eval/` 的真实构成是一条很朴素的流水线，没有文档里常见的"Comparison 层""并发 Runner 层"：
 
 ```mermaid
 graph TD
@@ -44,7 +44,7 @@ graph TD
 `Loader` 从 YAML 加载套件，提供 `Load(path)` 和 `LoadDir(dir)`。它包含一个路径校验 `validateSuitePath`，用来拒绝会穿进系统目录（etc/proc/sys/dev/boot/root）的套件路径。测试用例的字段在 `types.go` 里，注意**不是**旧博客里那个 `Expected/Category/Difficulty`：
 
 ```go
-// internal/ares_eval/types.go
+// internal/runtime/eval/types.go
 type TestCase struct {
     ID             string
     Name           string
@@ -94,7 +94,7 @@ test_cases:
 `runner.go` 只定义接口，**不存在旧博客里的 `Runner` 结构体或 `RunAll/RunScenario`**：
 
 ```go
-// internal/ares_eval/runner.go
+// internal/runtime/eval/runner.go
 type TestRunner interface {
     RunSuite(ctx context.Context, suite TestSuite) ([]TestResult, error)
     RunSingle(ctx context.Context, testCase TestCase) (TestResult, error)
@@ -112,7 +112,7 @@ type AgentExecutor interface {
 核心接口只承诺一件事（`Name()` 不在接口里，是各实现自带的）：
 
 ```go
-// internal/ares_eval/evaluator.go
+// internal/runtime/eval/evaluator.go
 type Evaluator interface {
     Evaluate(ctx context.Context, testCase TestCase, result TestResult) ([]EvalScore, error)
 }
@@ -132,7 +132,7 @@ type Evaluator interface {
 支持三种量表：
 
 ```go
-// internal/ares_eval/llm_judge.go
+// internal/runtime/eval/llm_judge.go
 const (
     ScaleOneToTen  ScaleType = iota + 1 // 1-10
     ScaleOneToFive                       // 1-5
@@ -173,15 +173,15 @@ const (
 
 ```go
 // internal/ares_bootstrap/provide_evolution.go（简化）
-func setupEvaluators(llmClient ares_eval.LLMClient) (*ares_eval.EvaluatorRegistry, error) {
-    judge, err := ares_eval.NewLLMJudgeEvaluator(llmClient,
-        ares_eval.WithChinesePrompt(),
-        ares_eval.WithScale(ares_eval.ScaleOneToTen),
+func setupEvaluators(llmClient eval.LLMClient) (*eval.EvaluatorRegistry, error) {
+    judge, err := eval.NewLLMJudgeEvaluator(llmClient,
+        eval.WithChinesePrompt(),
+        eval.WithScale(eval.ScaleOneToTen),
     )
     if err != nil {
         return nil, err
     }
-    registry := ares_eval.NewEvaluatorRegistry()
+    registry := eval.NewEvaluatorRegistry()
     if err := registry.Register("llm_judge", judge); err != nil {
         return nil, err
     }
@@ -224,6 +224,6 @@ graph TD
 
 ## 诚实收尾
 
-`internal/ares_eval/` 不是一个野心勃勃的"Agent 评测平台"，而是一座小而实的打分库：Loader + Runner + 评估器 + 报告，加上一个把维度诊断桥接进证据库的 `DimensionJudgeBridge`。"比较"这件事的真实答案是 Gate-3 保留样例回归与统计显著性检验，而不是某个 `Comparison` 结构。旧博客吹的 `concurrent_runner.go`、`comparison.go`、HTTP service 层（`/eval/run` 等端点）在代码中**均不存在**，本文已剔除并如实重述。
+`internal/runtime/eval/` 不是一个野心勃勃的"Agent 评测平台"，而是一座小而实的打分库：Loader + Runner + 评估器 + 报告，加上一个把维度诊断桥接进证据库的 `DimensionJudgeBridge`。"比较"这件事的真实答案是 Gate-3 保留样例回归与统计显著性检验，而不是某个 `Comparison` 结构。旧博客吹的 `concurrent_runner.go`、`comparison.go`、HTTP service 层（`/eval/run` 等端点）在代码中**均不存在**，本文已剔除并如实重述。
 
 **最好的评估框架是让"它更好吗？"变成有数字答案的问题。** 感觉不能扩展。可复现的分数可以——但前提是这些分数确实来自你写得出来的那几行代码。

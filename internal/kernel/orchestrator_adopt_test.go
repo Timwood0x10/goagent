@@ -1,4 +1,4 @@
-// Package system_runtime — K1/K3/K4 acceptance tests: Orchestrator.Adopt
+// Package system_runtime — acceptance tests: Orchestrator.Adopt
 // (late registration), GoBackground (managed background loops) and the
 // Shutdown not-stopped report.
 package kernel
@@ -180,7 +180,7 @@ func TestOrchestrator_Adopt_DegradedReadyFailureIsDegraded(t *testing.T) {
 	}
 }
 
-// TestOrchestrator_GoBackground_PanicMarksComponentFailed covers the K3
+// TestOrchestrator_GoBackground_PanicMarksComponentFailed covers the
 // contract: a panicking background loop is contained (the process — here the
 // test — survives), the named component is marked Failed with a readable
 // reason, and the failure is not propagated into the errgroup.
@@ -268,7 +268,7 @@ func TestOrchestrator_GoBackground_ShutdownExitKeepsStopped(t *testing.T) {
 		return ctx.Err()
 	})
 	// Give the loop a moment to block on ctx.Done before shutting down.
-	// (Polling, not a fixed sleep, per code_rules 7.3.)
+	// (Polling, not a fixed sleep.)
 	deadline := time.Now().Add(time.Second)
 	for o.registry.Snapshot().Components[0].State != StateReady {
 		if time.Now().After(deadline) {
@@ -286,7 +286,7 @@ func TestOrchestrator_GoBackground_ShutdownExitKeepsStopped(t *testing.T) {
 	}
 }
 
-// TestOrchestrator_Shutdown_ReportsNonStoppedComponents covers K4: a
+// TestOrchestrator_Shutdown_ReportsNonStoppedComponents covers: a
 // component whose Stop fails stays visible as not-stopped and is named in
 // the Shutdown error.
 func TestOrchestrator_Shutdown_ReportsNonStoppedComponents(t *testing.T) {
@@ -310,7 +310,7 @@ func TestOrchestrator_Shutdown_ReportsNonStoppedComponents(t *testing.T) {
 }
 
 // TestOrchestrator_Shutdown_HappyPathNoReport guards against a regression:
-// a clean teardown must not start reporting unstopped components (the K4
+// a clean teardown must not start reporting unstopped components (the
 // report only fires when something actually failed to stop).
 func TestOrchestrator_Shutdown_HappyPathNoReport(t *testing.T) {
 	rootCtx, cancel := context.WithCancel(context.Background())
@@ -328,7 +328,7 @@ func TestOrchestrator_Shutdown_HappyPathNoReport(t *testing.T) {
 	}
 }
 
-// TestOrchestrator_Snapshot_IncludesAdopted covers K5: the orchestrator
+// TestOrchestrator_Snapshot_IncludesAdopted covers: the orchestrator
 // snapshot lists adopted kernel components with their states.
 func TestOrchestrator_Snapshot_IncludesAdopted(t *testing.T) {
 	rootCtx, cancel := context.WithCancel(context.Background())

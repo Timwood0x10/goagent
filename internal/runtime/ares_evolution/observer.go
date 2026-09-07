@@ -3,10 +3,10 @@
 // agent-stopped events from the EventStore, converts the outcome-bearing
 // ones into normalized [0,1] StrategySample values, and writes them to the
 // EvidenceStore as KindFitness evidence (source="strategy") so the GA
-// scorer and deployment staging can read real runtime fitness (B6 fix).
+// scorer and deployment staging can read real runtime fitness.
 //
 // The lifecycle consumes these samples indirectly: its rollback watch loop
-// reads the aggregator Window over the same evidence (B1 fix). That path is
+// reads the aggregator Window over the same evidence. That path is
 // window-mean based (min-samples gated), which is deliberately preferred
 // over a direct per-sample feed.
 //
@@ -28,7 +28,7 @@ import (
 
 // StrategySample is one runtime execution observation of the currently active
 // strategy. All values are normalized to [0,1] so they are dimensionally
-// consistent with RollbackPolicy thresholds (B1 fix).
+// consistent with RollbackPolicy thresholds.
 type StrategySample struct {
 	// StrategyID is the ID of the active strategy when the sample was taken.
 	StrategyID string
@@ -46,7 +46,7 @@ type StrategySample struct {
 	At time.Time
 }
 
-// TODO(tech-debt): the design doc (ga-runtime-evolution-design-zh.md §4 ①)
+// TODO(tech-debt): the design doc
 // gives StrategySample Latency and CostUSD fields (fed by flight-trace
 // cost/latency). Neither is populated today: task events carry no duration
 // or cost keys (see e.g. agentloop.Engine.emitTaskCompleted's payload), so
@@ -143,7 +143,7 @@ func (o *RuntimeObserver) Start(ctx context.Context) error {
 	o.mu.Unlock()
 
 	go func() {
-		// K3: production background goroutines must not die silently or take
+		// Production background goroutines must not die silently or take
 		// the process down on a bug — recover, log, and exit cleanly.
 		defer func() {
 			if r := recover(); r != nil {
@@ -198,7 +198,7 @@ func (o *RuntimeObserver) processEvent(ctx context.Context, evt *ares_events.Eve
 }
 
 // evidenceKeyStrategyID is the evidence payload key carrying the strategy
-// attribution (evolution loop closure E1). It is read from task events by
+// attribution. It is read from task events by
 // eventToSample and written into every fitness/decision payload, so promote
 // attribution stays consistent across producers.
 const evidenceKeyStrategyID = "strategy_id"
@@ -265,7 +265,7 @@ func (o *RuntimeObserver) eventToSample(evt *ares_events.Event) (StrategySample,
 
 // writeEvidence writes a KindFitness evidence record (source="strategy") so
 // the GA scorer and deployment staging can read real runtime fitness. This
-// fixes B6: staging Evaluate now has a multi-dimensional evidence source
+// gives staging Evaluate a multi-dimensional evidence source
 // including the "strategy" dimension.
 func (o *RuntimeObserver) writeEvidence(ctx context.Context, sample StrategySample) {
 	if o.evStore == nil {

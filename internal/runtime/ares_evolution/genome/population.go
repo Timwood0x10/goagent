@@ -632,7 +632,7 @@ func (p *Population) ScoreAgents(scorer func(*mutation.Strategy) float64) {
 		} else if i < len(scores) {
 			// Population changed during the scoring window (e.g. a concurrent
 			// evolve replaced p.Agents): the score is stale for this slot and
-			// is silently dropped (#58). Log it so the loss is observable —
+			// is silently dropped. Log it so the loss is observable —
 			// ID matching prevents writing the score onto the WRONG agent,
 			// but the drop itself was previously invisible.
 			el.WarnContext(context.Background(), "score dropped: population changed during scoring",

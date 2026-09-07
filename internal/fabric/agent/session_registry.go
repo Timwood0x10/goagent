@@ -12,7 +12,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
 )
 
-// SessionRegistry is the per-session L2 graph lifecycle manager (M2-②).
+// SessionRegistry is the per-session L2 graph lifecycle manager.
 // It owns one L2Graph per SessionID, created on first reference and released
 // when the session terminates. The registry solves the wiring gap the design
 // document calls out: CognitionFactory (executor.go:53) is called once at
@@ -24,7 +24,7 @@ import (
 // CompileCoordinator subscribes to the graph's MutableDAG for incremental
 // compilation, the plannerCognition grows tool nodes into it, and the reaper
 // harvests terminal fabric tasks when the session is released. The graph
-// holds topology + Metadata only (§2.2 decision C: execution facts live in
+// holds topology + Metadata only (execution facts live in
 // the fabric task envelopes).
 //
 // Thread safety: every method is safe for concurrent use. The internal map
@@ -41,7 +41,7 @@ type sessionEntry struct {
 	graph   *L2Graph
 	stopSub func() // stops the CompileCoordinator's graph-event subscription
 	// lastAccessNano is the unix-nano time of the last InitSession/GetSession
-	// touch (P0-1a idle TTL). Atomic so the read path keeps its shared lock;
+	// touch (idle TTL). Atomic so the read path keeps its shared lock;
 	// the idle sweeper releases entries nobody has touched within the window.
 	lastAccessNano atomic.Int64
 }
@@ -94,7 +94,7 @@ func (r *SessionRegistry) InitSession(
 	if sessionID == "" {
 		return nil, fmt.Errorf("agentfabric: session registry: session id is required")
 	}
-	// P0-1b: the deterministic ID builders (SessionRootID/SessionNodeID)
+	// The deterministic ID builders (SessionRootID/SessionNodeID)
 	// embed the session ID between "sess/" and the next slash, and
 	// SessionIDFromNode reverse-parses at that first slash. A session ID
 	// containing "/" would make the reaper's keep-set resolve a task back
@@ -141,7 +141,7 @@ func (r *SessionRegistry) GetSession(sessionID string) (*L2Graph, error) {
 	if !ok {
 		return nil, fmt.Errorf("%w: %q", ErrSessionNotFound, sessionID)
 	}
-	// Every lookup is proof of life (P0-1a): the planner touches its
+	// Every lookup is proof of life: the planner touches its
 	// session on each quantum, so an actively running session can never
 	// age into the idle sweep no matter how long it runs.
 	entry.lastAccessNano.Store(time.Now().UnixNano())
@@ -152,7 +152,7 @@ func (r *SessionRegistry) GetSession(sessionID string) (*L2Graph, error) {
 // compile subscription and removes the entry so future references fail
 // fast. Called when the session's answer node completes (the terminal
 // event) or the session is abandoned. The fabric tasks are NOT deleted here
-// — that is the reaper's job (M2-⑤); Release only drops the graph handle so
+// — that is the reaper's job; Release only drops the graph handle so
 // no new nodes can be grown into a finished session.
 func (r *SessionRegistry) ReleaseSession(sessionID string) error {
 	r.mu.Lock()
@@ -183,14 +183,14 @@ func (r *SessionRegistry) SessionIDs() []string {
 }
 
 // DefaultSessionIdleTTL is the idle window after which SweepExpired releases
-// a session nobody has touched (P0-1a). It must comfortably exceed the
+// a session nobody has touched. It must comfortably exceed the
 // longest legitimate session (plan depth × quantum time), because every
 // quantum touches its session through GetSession — 30 minutes is two orders
 // of magnitude above any realistic single session.
 const DefaultSessionIdleTTL = 30 * time.Minute
 
-// SweepExpired releases every session whose last touch is older than idle
-// (P0-1a). Without it the only release points are "answer completed" and
+// SweepExpired releases every session whose last touch is older than the
+// idle window. Without it the only release points are "answer completed" and
 // "admission rolled back", so an abandoned session (client gone, planner
 // loop stuck, answer quantum dying before its release) lives forever — and
 // the reaper keep-set, which unconditionally protects live sessions, pins
@@ -243,7 +243,7 @@ const sessionIDPrefix = "sess/"
 
 // SessionTaskPrefix returns the task-ID stem shared by every node of a
 // session (root and tool nodes alike). Whole-session housekeeping — e.g.
-// the targeted harvest on re-admission of a released ID (P0-1c) — filters
+// the targeted harvest on re-admission of a released ID — filters
 // on it instead of re-deriving the "sess/" format at the call site.
 func SessionTaskPrefix(sessionID string) string {
 	return sessionIDPrefix + sessionID + "/"

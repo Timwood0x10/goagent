@@ -12,7 +12,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/kernel"
 )
 
-// This file implements the H1/H2 merge (aresos-agentos-plan H1/H2: merge SDK
+// This file implements the SDK/kernel path merge (merge SDK
 // and kernel two paths — sdk.Runtime.Submit goes through the Task Fabric and the
 // shared kernelscheduler, not a divergent direct-run path). The SDK is a
 // peer-runtime facade over the SAME scheduling engine the kernel uses:
@@ -84,7 +84,7 @@ func (r *Runtime) ensureScheduler() {
 		r.sched = kernel.New(r.sdkFabric, r.sdkExecutors, nil)
 		r.sched.PollInterval = 20 * time.Millisecond
 		go r.sched.Run(r.schedCtx)
-		// D1: the SDK is a peer-runtime facade — wire the same kernel
+		// the SDK is a peer-runtime facade — wire the same kernel
 		// syscalls (spawn_agent/create_task) into the tool registry so SDK
 		// users can autonomously decompose tasks. Registered after sched
 		// exists because the syscall Kernel needs the shared fabric + sched.
@@ -94,7 +94,7 @@ func (r *Runtime) ensureScheduler() {
 
 // submitThroughScheduler creates the task in the fabric and waits for the
 // scheduler to drive it to a terminal state, then restores the result. It is
-// the H1/H2 merged dispatch path: the shared scheduler (not a direct agent
+// the merged dispatch path: the shared scheduler (not a direct agent
 // call) owns capability matching and execution.
 func (r *Runtime) submitThroughScheduler(ctx context.Context, t Task) (*Result, error) {
 	r.ensureScheduler()
@@ -119,7 +119,7 @@ func (r *Runtime) submitThroughScheduler(ctx context.Context, t Task) (*Result, 
 	}); err != nil {
 		return nil, fmt.Errorf("sdk submit: %w", err)
 	}
-	// B32: reclaim the task on EVERY exit path. The two terminal branches
+	// reclaim the task on EVERY exit path. The two terminal branches
 	// below delete explicitly (to read the result first); this defer covers
 	// timeout / ctx cancellation / unexpected returns so a long-lived SDK
 	// session cannot leak abandoned tasks in the fabric.
@@ -156,7 +156,7 @@ func (r *Runtime) submitThroughScheduler(ctx context.Context, t Task) (*Result, 
 			}
 			switch tk.State {
 			case taskfabric.StateCompleted:
-				// B32: the deferred Delete reclaims the task on every path.
+				// the deferred Delete reclaims the task on every path.
 				return r.resultFromFabric(tk)
 			case taskfabric.StateFailed:
 				return nil, fmt.Errorf("sdk submit: task %s failed", taskID)
@@ -186,7 +186,7 @@ func (r *Runtime) resultFromFabric(tk *taskfabric.Task) (*Result, error) {
 				// (e.g. a JSON round-trip once the fabric persists) — do NOT
 				// silently return an empty Result and lose the output. Surface
 				// it so the caller sees a real error instead of a blank
-				// success (code_rules: no silent degradation).
+				// success (no silent degradation).
 				return nil, fmt.Errorf("sdk submit: result checkpoint has unexpected type %T (expected *Result); output lost across a serialization boundary", raw)
 			}
 		}
@@ -206,7 +206,7 @@ func (r *Runtime) ensureExecutor(capability string) kernel.CapabilityExecutor {
 	if capability == "" {
 		capability = "agent"
 	}
-	// P1-1: check the scheduler's registry first (execMu-guarded). An agent
+	// check the scheduler's registry first (execMu-guarded). An agent
 	// added via AddNode (not RegisterAgent) is registered here by
 	// registerGraphAgents before the round starts, so we must NOT skip this
 	// check even when agentByCapability has no entry.
@@ -216,7 +216,7 @@ func (r *Runtime) ensureExecutor(capability string) kernel.CapabilityExecutor {
 	// Auto-create on demand: a runtime never refuses a well-formed task.
 	agent := r.NewAgent(capability)
 	ex := &sdkAgentExecutor{agent: agent}
-	// P1-1: register through sched.RegisterExecutorIfAbsent so the check
+	// register through sched.RegisterExecutorIfAbsent so the check
 	// (already registered?) and the set happen atomically under the single
 	// execMu write lock. Two concurrent Submits for the same unregistered
 	// capability otherwise both miss LookupExecutor and double-write, silently

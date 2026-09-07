@@ -1,12 +1,12 @@
 // eval_gate_wiring.go builds the PRODUCTION G3 eval-suite gate: an
 // AgentTestRunner whose executor runs regression test cases THROUGH the
 // candidate strategy (its prompt template), scored by the registered LLM
-// evaluators (llm_judge). This closes review item B.2 — the gate used to be
+// evaluators (llm_judge). The gate used to be
 // constructed with a nil runner and an empty suite, making it a permanent
 // pass-through while the docs claimed a four-gate pipeline.
 //
 // Configuration contract (evolution.gates.eval_suite, a file path;
-// evolution.gates.eval_strict, E3):
+// evolution.gates.eval_strict):
 //   - unset → NO G3 gate is built (honest absence, not a fake pass-through);
 //     the pipeline degrades to G2 shadow (+ G1 guardrails at the scheduler).
 //     With eval_strict the absence itself FAILS bootstrap — an unwired
@@ -87,7 +87,7 @@ func (e *llmEvalExecutor) Execute(ctx context.Context, input string) (string, []
 // Absent inputs (no registry/client/suite) mean the gate is intentionally
 // not configured: with strict=false it returns errEvalGateNotConfigured and
 // bootstrap runs without G3 (the documented degradation, not a fake
-// pass-through); with strict=true (evolution.gates.eval_strict, E3) the
+// pass-through); with strict=true (evolution.gates.eval_strict) the
 // absence itself fails bootstrap — an unwired gate must not silently pass
 // every candidate. A CONFIGURED suite that cannot be loaded always fails
 // (fail closed — see the package comment).
@@ -127,7 +127,7 @@ func buildEvalGate(
 		gateCfg.MinScore = minScore
 	}
 	// StrictMode also governs the gate's own Check: once built, a runtime
-	// loss of infrastructure rejects instead of passing (E3).
+	// loss of infrastructure rejects instead of passing.
 	gateCfg.StrictMode = strict
 	gate := evolution.NewEvalGate(registry, runner, *suite, gateCfg,
 		evolution.WithEvalGateBeforeRun(exec.setCandidate),

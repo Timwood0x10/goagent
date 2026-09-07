@@ -1,10 +1,10 @@
-// Package ares_config — evolution loop closure (E2) config tests.
+// Package ares_config — evolution loop closure config tests.
 //
 // Verifies the EvolutionRollbackConfig tri-state semantics: the rollback safety
 // net defaults ON (a nil Enabled pointer = armed, because the promote path
 // relies on it) and can only be armed off by an explicit `enabled: false`. It
 // also locks that an explicit `rollback.enabled: false` YAML file actually
-// parses to IsEnabled()==false — the path the E2 plan claims was hard-coded to
+// parses to IsEnabled()==false — the path that was hard-coded to
 // true in an earlier revision.
 package ares_config
 
@@ -38,7 +38,7 @@ func TestEvolutionRollbackConfig_IsEnabled(t *testing.T) {
 }
 
 // TestEvolutionRollbackConfig_YAMLDisabled honors the `rollback.enabled: false`
-// YAML path — the case that was hard-coded to true before E2.
+// YAML path — the case that was previously hard-coded to true.
 func TestEvolutionRollbackConfig_YAMLDisabled(t *testing.T) {
 	dir := t.TempDir()
 	path := dir + "/evolution.yaml"

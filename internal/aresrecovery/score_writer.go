@@ -7,7 +7,7 @@ import (
 )
 
 // StrategyScoreWriter is the write-back interface for the zero-LLM feedback
-// loop (C2.3). It abstracts the evolution system's StrategyStore so the
+// loop. It abstracts the evolution system's StrategyStore so the
 // aresrecovery package does not need to import the evolution package (which
 // would create a circular dependency). The wiring layer (cmd/ares) adapts
 // the evolution.StrategyStore into this interface.
@@ -26,7 +26,7 @@ type StrategyScoreWriter interface {
 }
 
 // ScoredFeedbackAdapter extends EvolutionFeedbackAdapter with zero-LLM
-// score write-back (C2.3). It wraps the existing confidence-injection
+// score write-back. It wraps the existing confidence-injection
 // behavior and adds a periodic write of the deterministic scorer's
 // aggregate score to the StrategyScoreWriter, so the active strategy's
 // Score field tracks real execution outcomes without any LLM call.
@@ -69,7 +69,7 @@ func (a *ScoredFeedbackAdapter) Apply(ctx context.Context) int {
 	if a.inner != nil {
 		updated = a.inner.Apply(ctx)
 	}
-	// C2.3: write the deterministic aggregate score back to the active
+	// Write the deterministic aggregate score back to the active
 	// strategy's Score field. This is the zero-LLM path: the score comes
 	// from execution attribution, not from an LLM evaluator.
 	if a.writer != nil && a.inner != nil && a.inner.source != nil {
@@ -84,7 +84,7 @@ func (a *ScoredFeedbackAdapter) Apply(ctx context.Context) int {
 }
 
 // RunScoredFeedbackLoop periodically runs the scored feedback adapter. It
-// is the C2.3 replacement for RunEvolutionFeedbackLoop: it does everything
+// is the scored replacement for RunEvolutionFeedbackLoop: it does everything
 // the unscored loop did (confidence injection) plus the zero-LLM score
 // write-back. Apply is idempotent.
 //

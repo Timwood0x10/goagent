@@ -136,7 +136,7 @@ func TestCommandTool_ExecuteOversizedOutput(t *testing.T) {
 	for i := range bigOutput {
 		bigOutput[i] = 'x'
 	}
-	// B3 contract: the exec closure itself rejects over-cap output with an
+	// the exec closure itself rejects over-cap output with an
 	// error (single-point enforcement) — it never returns partial bytes.
 	bigExec := func(_ context.Context, name string, _ []string) ([]byte, error) {
 		return nil, fmt.Errorf("command %q output exceeds %d bytes; refusing to return partial output", name, maxCommandOutputBytes)

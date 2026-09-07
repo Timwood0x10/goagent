@@ -10,7 +10,8 @@ import (
 	"github.com/Timwood0x10/ares/internal/tools/resources/core"
 )
 
-// Capability Fabric tool names exposed to the agent. They close the design §10
+// Capability Fabric tool names exposed to the agent. They close the
+// discover-load-execute
 // main loop (Discover Skill -> Load on Demand -> Execute): the LLM sees the
 // resident Level-0 metadata block, calls skill_search to rank candidates,
 // skill_load to fetch a SKILL.md body, and skill_activate to lazily connect the
@@ -27,7 +28,7 @@ const (
 	// ToolSkillList returns every indexed skill's metadata (unfiltered).
 	ToolSkillList = "skill_list"
 	// ToolSkillExperience queries the learned-source relevance prior: the best
-	// historically successful skill for a task pattern (design §11). Read-only.
+	// historically successful skill for a task pattern. Read-only.
 	ToolSkillExperience = "skill_experience"
 
 	// schemaTypeObject is the JSON schema type for the tool parameter objects.

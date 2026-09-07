@@ -40,7 +40,7 @@ func (m *ProductionMemoryManager) CreateTask(ctx context.Context, sessionID, use
 	taskID := "task_" + strconv.FormatInt(time.Now().UnixNano(), 10)
 
 	// Tenant scope flows via explicit tenantID parameters on repository
-	// methods (REVIEW #36 Phase 1); see the Phase 2 note in CreateConversation.
+	// methods; see the tenant-scope note in CreateConversation.
 	tenantID := m.getCurrentTenantID()
 
 	// Create task result record (NO embedding, only for execution history)
@@ -76,9 +76,9 @@ func (m *ProductionMemoryManager) CreateTaskWithID(ctx context.Context, taskID, 
 	}
 
 	// Tenant scope flows via explicit tenantID parameters on repository
-	// methods (REVIEW #36 Phase 1); the session-based SetTenantContext was
+	// methods; the session-based SetTenantContext was
 	// removed — its SET LOCAL evaporated under autocommit on a pooled
-	// connection, providing no isolation (REVIEW #36 Phase 2).
+	// connection, providing no isolation.
 	tenantID := m.getCurrentTenantID()
 
 	taskResult := &storage_models.TaskResult{
@@ -116,9 +116,9 @@ func (m *ProductionMemoryManager) UpdateTaskOutput(ctx context.Context, taskID, 
 	}
 
 	// Tenant scope flows via explicit tenantID parameters on repository
-	// methods (REVIEW #36 Phase 1); the session-based SetTenantContext was
+	// methods; the session-based SetTenantContext was
 	// removed — its SET LOCAL evaporated under autocommit on a pooled
-	// connection, providing no isolation (REVIEW #36 Phase 2).
+	// connection, providing no isolation.
 	tenantID := m.getCurrentTenantID()
 
 	// Get existing task
@@ -148,9 +148,9 @@ func (m *ProductionMemoryManager) UpdateTaskOutput(ctx context.Context, taskID, 
 // Note: This retrieves stored task result and converts to Task format.
 func (m *ProductionMemoryManager) DistillTask(ctx context.Context, taskID string) (*models.Task, error) {
 	// Tenant scope flows via explicit tenantID parameters on repository
-	// methods (REVIEW #36 Phase 1); the session-based SetTenantContext was
+	// methods; the session-based SetTenantContext was
 	// removed — its SET LOCAL evaporated under autocommit on a pooled
-	// connection, providing no isolation (REVIEW #36 Phase 2).
+	// connection, providing no isolation.
 	tenantID := m.getCurrentTenantID()
 
 	// Get task result
@@ -200,9 +200,9 @@ func (m *ProductionMemoryManager) StoreDistilledTask(ctx context.Context, taskID
 	}
 
 	// Tenant scope flows via explicit tenantID parameters on repository
-	// methods (REVIEW #36 Phase 1); the session-based SetTenantContext was
+	// methods; the session-based SetTenantContext was
 	// removed — its SET LOCAL evaporated under autocommit on a pooled
-	// connection, providing no isolation (REVIEW #36 Phase 2).
+	// connection, providing no isolation.
 	tenantID := m.getCurrentTenantID()
 
 	// Extract problem and solution from distilled payload.
@@ -273,9 +273,9 @@ func (m *ProductionMemoryManager) SearchSimilarTasks(ctx context.Context, query 
 	}
 
 	// Tenant scope flows via explicit tenantID parameters on repository
-	// methods (REVIEW #36 Phase 1); the session-based SetTenantContext was
+	// methods; the session-based SetTenantContext was
 	// removed — its SET LOCAL evaporated under autocommit on a pooled
-	// connection, providing no isolation (REVIEW #36 Phase 2).
+	// connection, providing no isolation.
 	tenantID := m.getCurrentTenantID()
 
 	// Create search request

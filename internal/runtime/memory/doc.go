@@ -1,4 +1,4 @@
-// Package memory is the ARES memory service (convergence Phase 3).
+// Package memory is the ARES memory service.
 //
 // It owns two complementary stores under one module: per-session working
 // memory (sessions, retrieval pipelines, RAG, embedding workers) and the

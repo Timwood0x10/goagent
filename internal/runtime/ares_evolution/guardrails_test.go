@@ -662,7 +662,8 @@ func TestValidateToolSet(t *testing.T) {
 	})
 }
 
-// TestValidateToolSetKnownTools covers §8.6-3: a whitelist naming tools that are
+// TestValidateToolSetKnownTools covers the known-tools guard: a whitelist
+// naming tools that are
 // not registered is NOT a narrower tool set. At runtime it intersects to zero and
 // the executors fall back to the FULL set, so such a strategy silently becomes
 // the broadest one. The guardrail must catch that at selection time.

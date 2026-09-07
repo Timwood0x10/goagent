@@ -21,7 +21,7 @@ func (o *recordingObserver) OnCollaboration(out feedback.CollaborationOutcome) {
 	o.got = append(o.got, out)
 }
 
-// TestRequest_ObservesCollaborationOutcomes is the Step Y.2 acceptance: every
+// TestRequest_ObservesCollaborationOutcomes is the collaboration-receipts acceptance: every
 // collaboration attempt with an observable receipt produces exactly one record,
 // and the outcome distinguishes the four cases evolution needs to tell apart
 // (answered / handler failed / no reply in time / target does not exist).
@@ -142,7 +142,8 @@ func TestRequest_CallerCancellationIsNotScored(t *testing.T) {
 	}
 }
 
-// TestSend_ObservesDeliveryReceipts is the production-path half of Step Y.2.
+// TestSend_ObservesDeliveryReceipts is the production-path half of the
+// collaboration channel.
 // Send — not Request — is what the peer bridge actually uses
 // (cmd/ares/evolution_ipc.go routes every peer message through it), so without
 // this the collaboration channel would record nothing in a real deployment while
@@ -242,8 +243,8 @@ func TestSend_PanickingHandlerWritesNoFalseSuccess(t *testing.T) {
 	}
 }
 
-// TestRequest_HandlerPanicIsContained is the P1-3 fix contract (deep review
-// 2026-09-03). Before the fix, a panic in a registered handler ran on the bus's
+// TestRequest_HandlerPanicIsContained locks the panic-containment contract.
+// Before the fix, a panic in a registered handler ran on the bus's
 // own goroutine with no recover boundary, so one buggy or third-party handler
 // terminated the entire process. The test asserts all three properties of
 // containment: the process survives, the caller gets ErrHandlerPanic, and other
@@ -308,8 +309,8 @@ func TestRequest_HandlerPanicDoesNotBurnTheTimeout(t *testing.T) {
 	}
 }
 
-// TestRequest_HandlerPanicIsObservedAsFailure ties the P1-3 fix to the Step Y.2
-// channel: a panicking peer is the strongest possible evidence that asking it
+// TestRequest_HandlerPanicIsObservedAsFailure ties panic containment to the
+// collaboration channel: a panicking peer is the strongest possible evidence that asking it
 // was a bad choice, so the collaboration record must exist and must not be a
 // success.
 func TestRequest_HandlerPanicIsObservedAsFailure(t *testing.T) {
@@ -334,8 +335,8 @@ func TestRequest_HandlerPanicIsObservedAsFailure(t *testing.T) {
 }
 
 // TestRequest_HandlerPanicWithLoggerIsReported locks the observability half:
-// containment must not be silent. The bus prints nothing on its own
-// (code_rules §9.1), so the panic reaches operators only through the injected
+// containment must not be silent. The bus prints nothing on its own,
+// so the panic reaches operators only through the injected
 // logger — and a fix that swallowed the panic entirely would leave the failure
 // undiagnosable.
 func TestRequest_HandlerPanicWithLoggerIsReported(t *testing.T) {
@@ -356,7 +357,7 @@ func TestRequest_HandlerPanicWithLoggerIsReported(t *testing.T) {
 	if !strings.Contains(logged, "handler panicked") {
 		t.Errorf("log missing the panic report: %q", logged)
 	}
-	// Context keys, not a concatenated message (code_rules §9.2): an operator
+	// Context keys, not a concatenated message: an operator
 	// needs to know WHICH collaboration died.
 	for _, key := range []string{"from=asker", "to=panicky", "topic=verify"} {
 		if !strings.Contains(logged, key) {
@@ -366,7 +367,7 @@ func TestRequest_HandlerPanicWithLoggerIsReported(t *testing.T) {
 }
 
 // TestRequest_NoObserverIsUnchanged locks the default: without an observer the
-// bus behaves exactly as before Step Y.2 (this is what keeps `make gate`
+// bus behaves exactly as before the channel existed (this is what keeps `make gate`
 // unchanged when the channel is not armed).
 func TestRequest_NoObserverIsUnchanged(t *testing.T) {
 	bus := NewBus()

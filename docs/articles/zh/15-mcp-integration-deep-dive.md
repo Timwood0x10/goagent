@@ -5,7 +5,7 @@
 > 直到有一天，产品经理跑过来说："用户想接他们自己的数据库查询工具，不用你写代码那种。"
 > 我愣住了。现有的架构根本没考虑过"工具从外面来"这件事。
 
-这篇文章和系列里其他篇目一样，只讲我在 `internal/ares_mcp/` 里**真正读到、能给你看源码**的东西。
+这篇文章和系列里其他篇目一样，只讲我在 `internal/runtime/protocol/mcp/` 里**真正读到、能给你看源码**的东西。
 凡是代码里对不上号的，我都直接砍掉或者标注（待核实），不编故事。
 
 ## 一、工具注册的困境
@@ -76,7 +76,7 @@ sequenceDiagram
     Server-->>Client: {content: [{type:"text", text:"..."}], isError:false}
 ```
 
-在 `internal/ares_mcp/jsonrpc.go` 里，消息模型长这样：
+在 `internal/runtime/protocol/mcp/jsonrpc.go` 里，消息模型长这样：
 
 ```go
 type JSONRPCMessage struct {
@@ -94,7 +94,7 @@ type JSONRPCMessage struct {
 `MCPClient.receiveLoop` 会把收到的消息按类型分发——响应派给对应 pending channel，通知异步处理：
 
 ```go
-// internal/ares_mcp/client.go
+// internal/runtime/protocol/mcp/client.go
 func (c *MCPClient) receiveLoop() error {
 	for {
 		msg, err := c.transport.Receive(c.ctx)
@@ -127,7 +127,7 @@ func (c *MCPClient) receiveLoop() error {
 
 ## 三、Transport 层：两条路，一个接口
 
-MCP 协议不管消息怎么传，只定义 JSON-RPC 格式。传消息是 Transport 层的事。`internal/ares_mcp/transport.go` 只定义了个 4 方法的接口：
+MCP 协议不管消息怎么传，只定义 JSON-RPC 格式。传消息是 Transport 层的事。`internal/runtime/protocol/mcp/transport.go` 只定义了个 4 方法的接口：
 
 ```go
 type Transport interface {
@@ -171,7 +171,7 @@ graph TB
 外部工具以子进程启动，ares 通过 stdin 写入请求、stdout 读取响应：
 
 ```go
-// internal/ares_mcp/transport_stdio.go
+// internal/runtime/protocol/mcp/transport_stdio.go
 type StdioConfig struct {
 	Command string            `yaml:"command" json:"command"`
 	Args    []string          `yaml:"args" json:"args"`
@@ -194,7 +194,7 @@ t.stdout.Buffer(make([]byte, 0, stdoutBufferSize), stdoutBufferSize) // stdoutBu
 有些 MCP 服务器是远程 Web 服务，用 SSE（Server-Sent Events）：
 
 ```go
-// internal/ares_mcp/transport_sse.go
+// internal/runtime/protocol/mcp/transport_sse.go
 type SSEConfig struct {
 	URL     string            `yaml:"url" json:"url"`
 	Headers map[string]string `yaml:"headers" json:"headers"`
@@ -306,7 +306,7 @@ ConfidenceMax    = 100  // ARES 自身 registry、已验证
 
 ## 五、MCPManager：多服务器的生命线
 
-单个 `MCPClient` 只连一个服务器。多个服务器的连接、工具注册/注销、热更新，全在 `MCPManager`（`internal/ares_mcp/manager.go`）：
+单个 `MCPClient` 只连一个服务器。多个服务器的连接、工具注册/注销、热更新，全在 `MCPManager`（`internal/runtime/protocol/mcp/manager.go`）：
 
 ```go
 type MCPManager struct {
@@ -367,7 +367,7 @@ MCP 客户端声明了 `Tools: ListChanged: true` 能力。服务器发 `notific
 
 ### 5.3 Skill 懒连接（这个是真的接上了）
 
-`internal/ares_skills/catalog.go` 声明了 `MCPConnector` 接口（就一个 `ConnectServer`），`*ares_mcp.MCPManager` 恰好满足它：
+`internal/runtime/protocol/skills/catalog.go` 声明了 `MCPConnector` 接口（就一个 `ConnectServer`），`*ares_mcp.MCPManager` 恰好满足它：
 
 ```go
 type MCPConnector interface {
@@ -409,7 +409,7 @@ type MCPServerStatus struct {
 `MCPTool` 是整个集成的关键适配器。它实现了 `core.Tool` 接口（文件末尾有编译期断言 `var _ core.Tool = (*MCPTool)(nil)`），实际执行时把调用转发给 MCP 服务器：
 
 ```go
-// internal/ares_mcp/mcp_tool.go
+// internal/runtime/protocol/mcp/mcp_tool.go
 type MCPTool struct {
 	*base.BaseTool
 	client     *MCPClient
@@ -566,7 +566,7 @@ mcp:
 除了 `MCPManager` 批量管理，MCP 工具还能量产：
 
 ```go
-// internal/ares_mcp/factory.go
+// internal/runtime/protocol/mcp/factory.go
 type MCPToolFactory struct {
 	manager *MCPManager
 }
@@ -589,10 +589,10 @@ func (f *MCPToolFactory) Create(config map[string]interface{}) (core.Tool, error
 
 ## 十一、Server 端：ares 自己也能当 MCP 服务器
 
-到目前为止都在说"ares 作为 MCP 客户端"。但 `internal/ares_mcp/server.go` 里还有另一面——ares 自己也能作为 MCP 服务器，把自己的能力暴露给其他 MCP 客户端：
+到目前为止都在说"ares 作为 MCP 客户端"。但 `internal/runtime/protocol/mcp/server.go` 里还有另一面——ares 自己也能作为 MCP 服务器，把自己的能力暴露给其他 MCP 客户端：
 
 ```go
-// internal/ares_mcp/server.go
+// internal/runtime/protocol/mcp/server.go
 type MCPServer struct {
 	info              Implementation
 	capabilities      ServerCapabilities
@@ -609,7 +609,7 @@ type MCPServer struct {
 
 它注册三种能力：Tools（`ToolHandler`）、Resources（`ResourceHandler`/`ResourceTemplate`）、Prompts（`PromptHandler`）。通过 `transport_server.go` 里的 `ServerTransport` 接客户端，支持 stdio 和 SSE 两种 server transport。
 
-这意味着 ares 既可以是 MCP 生态的消费者（调用别人的工具），也可以是生产者（暴露自己的能力）。`internal/ares_skills/e2e_mcp_test.go` 里就有一个真实用例：起一个 serve `MCPServer` 的 stdio 子进程，再用 `MCPManager` 的 stdio transport 连它，验证"连接→注册→调用"整条链路。
+这意味着 ares 既可以是 MCP 生态的消费者（调用别人的工具），也可以是生产者（暴露自己的能力）。`internal/runtime/protocol/skills/e2e_mcp_test.go` 里就有一个真实用例：起一个 serve `MCPServer` 的 stdio 子进程，再用 `MCPManager` 的 stdio transport 连它，验证"连接→注册→调用"整条链路。
 
 ---
 
@@ -649,20 +649,20 @@ type MCPServer struct {
 
 | 文件 | 职责 |
 |------|------|
-| `internal/ares_mcp/client.go` | MCP 客户端：传输接送、握手、工具发现、工具调用、通知处理 |
-| `internal/ares_mcp/manager.go` | 多服务器管理：连接生命周期、工具注册/注销、热更新、状态查询 |
-| `internal/ares_mcp/mcp_tool.go` | `MCPTool` 适配器：MCP 工具 → `core.Tool` |
-| `internal/ares_mcp/schema.go` | `ConvertJSONSchema`：JSON Schema → ParameterSchema |
-| `internal/ares_mcp/jsonrpc.go` | JSON-RPC 2.0 消息模型、编解码、消息分类 |
-| `internal/ares_mcp/transport.go` | `Transport` 接口（Start/Send/Receive/Close） |
-| `internal/ares_mcp/transport_stdio.go` | Stdio 传输：子进程 stdin/stdout 通信 |
-| `internal/ares_mcp/transport_sse.go` | SSE 传输：HTTP Server-Sent Events + endpoint 同 host 校验 |
-| `internal/ares_mcp/factory.go` | `MCPToolFactory`：工厂模式创建 MCP 工具 |
-| `internal/ares_mcp/server.go` | MCP 服务端：ares 作为 MCP 服务器 |
-| `internal/ares_mcp/types.go` | MCP 协议类型定义 |
+| `internal/runtime/protocol/mcp/client.go` | MCP 客户端：传输接送、握手、工具发现、工具调用、通知处理 |
+| `internal/runtime/protocol/mcp/manager.go` | 多服务器管理：连接生命周期、工具注册/注销、热更新、状态查询 |
+| `internal/runtime/protocol/mcp/mcp_tool.go` | `MCPTool` 适配器：MCP 工具 → `core.Tool` |
+| `internal/runtime/protocol/mcp/schema.go` | `ConvertJSONSchema`：JSON Schema → ParameterSchema |
+| `internal/runtime/protocol/mcp/jsonrpc.go` | JSON-RPC 2.0 消息模型、编解码、消息分类 |
+| `internal/runtime/protocol/mcp/transport.go` | `Transport` 接口（Start/Send/Receive/Close） |
+| `internal/runtime/protocol/mcp/transport_stdio.go` | Stdio 传输：子进程 stdin/stdout 通信 |
+| `internal/runtime/protocol/mcp/transport_sse.go` | SSE 传输：HTTP Server-Sent Events + endpoint 同 host 校验 |
+| `internal/runtime/protocol/mcp/factory.go` | `MCPToolFactory`：工厂模式创建 MCP 工具 |
+| `internal/runtime/protocol/mcp/server.go` | MCP 服务端：ares 作为 MCP 服务器 |
+| `internal/runtime/protocol/mcp/types.go` | MCP 协议类型定义 |
 | `internal/ares_bootstrap/provide_mcp.go` | `ProvideMCP`/`SetupMCP`：配置 → MCPManager |
 | `internal/ares_bootstrap/skills_wiring.go` | `wireSkills`：把 MCPManager 接成 Skill 的懒连接 |
-| `internal/ares_skills/catalog.go` | `Catalog`：`SetMCPConnector` / `Activate` 懒连接 |
+| `internal/runtime/protocol/skills/catalog.go` | `Catalog`：`SetMCPConnector` / `Activate` 懒连接 |
 | `cmd/ares/mcp.go` | `setupMCP`：MCP 工具桥接进 internalReg + public registry |
 | `cmd/ares/tools.go` | `newToolBinder`：Registry → `sub.ToolBinder` |
 | `internal/discovery/` | 可选的发现引擎（未接到 Manager，见文中标注） |

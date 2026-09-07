@@ -102,7 +102,7 @@ func TestWeightedFairScheduler_EmptyReady(t *testing.T) {
 	}
 }
 
-// TestWeightedFairScheduler_CountersStayBounded reproduces the R11 bug: the
+// TestWeightedFairScheduler_CountersStayBounded reproduces the bug: the
 // previous implementation incremented every ready node's counter on each Select
 // and never decremented, so counters grew without limit (roughly linearly with
 // the number of calls). With the bounded DRR fix, every counter must stay

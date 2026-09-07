@@ -60,7 +60,7 @@ func (r *Runtime) RunGraph(ctx context.Context, g *Graph) (*GraphResult, error) 
 		maxIter = defaultGraphMaxIterations
 	}
 
-	// Apply graph-level timeout (design §6): derive a child context so
+	// Apply graph-level timeout: derive a child context so
 	// in-flight nodes are cancelled when the deadline expires.
 	runCtx := ctx
 	if snap.timeout > 0 {
@@ -310,7 +310,7 @@ func (r *Runtime) registerGraphAgents(snap graphSnapshot) {
 		if n.agent == nil {
 			continue
 		}
-		// P1-1: check and register through the scheduler's own registry
+		// check and register through the scheduler's own registry
 		// (execMu-guarded) — no direct map write.
 		if _, ok := r.sched.LookupExecutor(n.agentName); ok {
 			continue // already registered (e.g. via RegisterAgent) — keep it

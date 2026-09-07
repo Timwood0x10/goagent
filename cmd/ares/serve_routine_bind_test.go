@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// Contract for the serve bind address (release-readiness T1): the config's
+// Contract for the serve bind address (release readiness): the config's
 // server.host is the REAL bind address, never a wildcard by accident. The
 // introspect read side is unauthenticated, so an empty host must fall back to
 // loopback and a wildcard host must survive round-trip so operators can opt in

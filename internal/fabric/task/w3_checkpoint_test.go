@@ -18,7 +18,7 @@ import (
 // failingEventStore is a test-only EventStore wrapper that injects failures
 // into Append calls. It wraps a real MemoryEventStore but returns an error
 // when the failNext flag is set (or failAlways is set). This is used by the
-// W3 store-fault tests to verify that must-persist event append failures are
+// store-fault tests to verify that must-persist event append failures are
 // logged — not silently swallowed (the old behavior was `_ = err`).
 type failingEventStore struct {
 	inner      *ares_events.MemoryEventStore
@@ -77,7 +77,7 @@ func stopLogCapture() {
 	logCapture = nil
 }
 
-// TestW3MustPersistEventFailureIsLogged verifies the W3 durability fix: when
+// TestW3MustPersistEventFailureIsLogged verifies the durability fix: when
 // the EventStore append fails for a must-persist event (TaskCreated,
 // TaskCheckpointed, TaskCompleted, TaskFailed, TaskExpired), the failure is
 // LOGGED — not silently swallowed. The old code did `_ = err`, which meant a
@@ -85,7 +85,7 @@ func stopLogCapture() {
 // operator.
 //
 // The test does NOT verify the in-memory state machine rolls back — by design
-// the in-memory state stays authoritative within a process (W3 §7.3.2: "禁止
+// the in-memory state stays authoritative within a process ("禁止
 // 静默吞错", but the transition is not rolled back). The gap is made visible
 // via the log.
 func TestW3MustPersistEventFailureIsLogged(t *testing.T) {
@@ -201,7 +201,7 @@ func TestW3MustPersistEventClassification(t *testing.T) {
 }
 
 // TestW3CheckpointEnvelopeRoundTrip verifies the versioned checkpoint schema
-// (W3 §7.3.3: 固化 checkpoint schema): a CheckpointEnvelope can be marshaled
+// (固化 checkpoint schema): a CheckpointEnvelope can be marshaled
 // to JSON and unmarshaled back, and DecodeCheckpoint extracts the fields
 // correctly from the round-tripped form. This is the cross-restart protocol
 // stability test.
@@ -275,7 +275,7 @@ func TestW3DecodeCheckpointRejectsFutureVersion(t *testing.T) {
 // TestW3DecodeCheckpointHandlesNilAndRaw verifies DecodeCheckpoint handles
 // edge cases gracefully: nil checkpoint, a plain map (raw step checkpoint
 // without the schema_version key), and a non-map value (e.g. an int). These
-// represent pre-W3 checkpoints or minimally-wrapped progress markers.
+// represent legacy checkpoints or minimally-wrapped progress markers.
 func TestW3DecodeCheckpointHandlesNilAndRaw(t *testing.T) {
 	// nil → zero value.
 	dc, err := DecodeCheckpoint(nil)
@@ -339,7 +339,7 @@ func TestW3EncodeDecodeRoundTrip(t *testing.T) {
 
 // TestW3MarshalCheckpointWrapsRawValue verifies that MarshalCheckpoint wraps a
 // non-envelope value in a versioned envelope before serializing — the
-// serialized form always carries the schema version (W3: 固化协议).
+// serialized form always carries the schema version (固化协议).
 func TestW3MarshalCheckpointWrapsRawValue(t *testing.T) {
 	raw, err := MarshalCheckpoint(map[string]any{"step": 5})
 	if err != nil {

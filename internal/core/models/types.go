@@ -69,7 +69,7 @@ const (
 	AgentStatusOffline  AgentStatus = "offline"
 )
 
-// D5: ParseAgentStatus removed as dead code (only tests referenced it).
+// ParseAgentStatus removed as dead code (only tests referenced it).
 // AgentStatus constants are retained for SQL scan compatibility.
 
 // PriceRange represents budget range.
@@ -78,7 +78,7 @@ type PriceRange struct {
 	Max float64 `json:"max"`
 }
 
-// D5: NewPriceRange removed as dead code (only tests referenced it).
+// NewPriceRange removed as dead code (only tests referenced it).
 // PriceRange type retained for SQL scan compatibility.
 
 // IsValid checks if the price range is valid.

@@ -300,7 +300,7 @@ func (c *Client) GetModel() string {
 	return ""
 }
 
-// D13: NewClientFromEnv removed (0 production calls — use NewClient with Config directly).
+// NewClientFromEnv removed (0 production calls — use NewClient with Config directly).
 // StreamChunk represents a single chunk in a streaming response.
 type StreamChunk struct {
 	Content string
@@ -332,7 +332,7 @@ func (c *Client) GenerateStream(ctx context.Context, prompt string) (<-chan Stre
 
 	// Derive a cancellable stream context so the wrapper goroutine can stop
 	// the underlying provider stream (and free its HTTP connection) when the
-	// caller abandons the returned channel without cancelling ctx (M6).
+	// caller abandons the returned channel without cancelling ctx.
 	streamCtx, cancelStream := context.WithCancel(ctx)
 
 	// Apply rate limiter before making the API call.

@@ -11,7 +11,7 @@ import (
 
 // TestIsBlockedIP verifies that isBlockedIP classifies private, loopback,
 // link-local, and unspecified IPs as blocked — including IPv4-mapped IPv6
-// addresses that previously bypassed the loopback/private checks (H4).
+// addresses that previously bypassed the loopback/private checks.
 func TestIsBlockedIP(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -42,7 +42,7 @@ func TestIsBlockedIP(t *testing.T) {
 }
 
 // TestSSRFDialControl exercises the connect-time validation directly, without
-// any network. This is the H5 mechanism: the dialer's Control callback fires
+// any network. This is the connect-time mechanism: the dialer's Control callback fires
 // with the resolved IP and re-runs isBlockedIP, closing the DNS-rebinding
 // TOCTOU window.
 func TestSSRFDialControl(t *testing.T) {

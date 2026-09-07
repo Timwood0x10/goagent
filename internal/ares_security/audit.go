@@ -11,8 +11,8 @@ import (
 // shape, independent of which component wrote it.
 //
 // The token itself is never logged — only the decoded identity (subject,
-// role) and the decision. This is the "complete, modular audit logging" that
-// closes the P0 gap: previously the auth decision was the only audited event,
+// role) and the decision. This is the "complete, modular audit logging":
+// previously the auth decision was the only audited event,
 // and it was hard-wired inside AuthMiddleware.
 type AuditLogger struct {
 	l *slog.Logger

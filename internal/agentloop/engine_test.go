@@ -1175,12 +1175,12 @@ func (s *errorEventSink) callCount() int {
 	return s.calls
 }
 
-// TestEngine_ToolWhitelistFiltersLLMTools is the C5 third-executor wiring
-// assertion. The agentloop ReAct loop previously handed ALL active tools to the
-// LLM regardless of any Params["tools"] whitelist — unlike the two peer
-// executors (chat_cognition.go, sub/executor.go), so this was the only path
-// that ignored the tool-selection knob. With ToolWhitelist set, the tools
-// passed to Generate must be exactly the whitelist intersection.
+// TestEngine_ToolWhitelistFiltersLLMTools asserts the third-executor wiring:
+// the agentloop ReAct loop previously handed ALL active tools to the LLM
+// regardless of any Params["tools"] whitelist — unlike the peer executors,
+// so this was the only path that ignored the tool-selection knob. With
+// ToolWhitelist set, the tools passed to Generate must be exactly the
+// whitelist intersection.
 func TestEngine_ToolWhitelistFiltersLLMTools(t *testing.T) {
 	allTools := []core.Tool{
 		{Type: "function", Function: core.FunctionDefinition{Name: "web_search"}},

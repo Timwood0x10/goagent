@@ -1,10 +1,10 @@
 //go:build e2e
 
-// Live LLM canary for the L2 execution path (M4-B2): the pinned prompt runs
+// Live LLM canary for the L2 execution path: the pinned prompt runs
 // the FULL L2 stack (planner → subscription → real scheduler → router → echo
 // tools) against a REAL model, asserting the grown tool sequence is
 // non-vacuous and the session terminates with model-produced content.
-// (M4-D: the legacy ReAct arm is gone with the chat loop; this file is now
+// (The legacy ReAct arm is gone with the chat loop; this file is now
 // a live L2 smoke test, not a parity comparison.)
 //
 // Build tag: e2e — needs a REAL LLM key and runs locally only
@@ -17,7 +17,7 @@
 // touch the repo). Tools are echo-only (zero side effects): the LLM genuinely
 // decides, the scheduler genuinely executes, nothing real happens.
 //
-// NOTE (M4-D): the retired CompareDualPath harness ran its DAG arm without
+// NOTE: the retired CompareDualPath harness ran its DAG arm without
 // executing tool tasks. A live model plans from history — unreadable
 // predecessors would degenerate every later round — so the live canary runs
 // the full stack with the scheduler executing each grown node.

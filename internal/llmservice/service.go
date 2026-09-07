@@ -347,7 +347,7 @@ func (s *Service) buildPrompt(messages []*core.LLMMessage) string {
 
 // sanitizeRole strips characters that could break the [role]: prefix format
 // or inject fake message boundaries. Only alphanumeric, dash, underscore,
-// and dot are kept (B14: role separator whitelist).
+// and dot are kept (role separator whitelist).
 func sanitizeRole(role string) string {
 	if role == "" {
 		return "unknown"

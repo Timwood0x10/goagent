@@ -13,7 +13,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/fabric/task"
 )
 
-// reviveHarness is the A2 acceptance rig: a real kernel loop (scheduler +
+// reviveHarness is the revival acceptance rig: a real kernel loop (scheduler +
 // event-driven recovery with background sweeps) over a controllable clock.
 type reviveHarness struct {
 	fabric   *taskfabric.Fabric
@@ -126,7 +126,7 @@ func (h *reviveHarness) expireLeasedTask(t *testing.T, ctx context.Context, id s
 	h.advance(7 * time.Minute) // past the 5-minute lease TTL
 }
 
-// TestRevivalRestoresCognitionUnderSameIdentity is the A2 core acceptance:
+// TestRevivalRestoresCognitionUnderSameIdentity is the core revival acceptance:
 // a dead agent whose death snapshot exists is revived IN PLACE — same id,
 // restored cognition — and its bound executor drives the requeued task to
 // completion. The consumed snapshot must be cleared afterwards.
@@ -198,7 +198,7 @@ func TestRevivalFallsBackToReplacementWhenExhausted(t *testing.T) {
 
 // TestRevivalWithoutSnapshotUsesReplacement covers arbitration priority 2's
 // no-snapshot branch: deaths without prior cognition go straight to the
-// generic replacement path (no shell revival), matching pre-A2 behavior.
+// generic replacement path (no shell revival), matching the older behavior.
 func TestRevivalWithoutSnapshotUsesReplacement(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

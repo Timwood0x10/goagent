@@ -18,13 +18,13 @@ import (
 )
 
 // DefaultMaxPlanDepth is the default growth-depth upper bound for an L2
-// session graph (M2-④: 生长深度上界护栏). It caps how many plan-tool rounds a
+// session graph (生长深度上界护栏). It caps how many plan-tool rounds a
 // session can run before the planner is forced to answer — preventing
 // unbounded graph growth from a runaway LLM that keeps requesting tools.
 const DefaultMaxPlanDepth = 10
 
 // PlannerDeps carries the plannerCognition's dependencies, injected at
-// construction time (M2-①). The planner reads predecessor outputs from the
+// construction time. The planner reads predecessor outputs from the
 // fabric (by node ID = task ID join), calls the LLM once, and grows tool/plan
 // nodes into the L2 graph — it does NOT execute tools (the scheduler does).
 type PlannerDeps struct {
@@ -38,16 +38,16 @@ type PlannerDeps struct {
 	// the graph by the task's SessionID.
 	Sessions *SessionRegistry
 	// Fabric is the task fabric used to read predecessor outputs by
-	// node-ID = task-ID join (§2.2 decision C: node does not store Output).
+	// node-ID = task-ID join (the node does not store Output).
 	Fabric FabricReader
-	// L1DAG is the L1 ToolClass capability graph (M5). The planner reads
+	// L1DAG is the L1 ToolClass capability graph. The planner reads
 	// each tool's enabled/budget/prior metadata before growing an L2 tool
 	// node — enabled=false blocks growth, budget=N caps instances per
 	// session. Nil = no L1 graph (constraints default to permissive).
 	L1DAG *engine.MutableDAG
 	// MaxDepth caps the plan-tool growth depth (0 = DefaultMaxPlanDepth).
 	MaxDepth int
-	// StrategySource is the optional live evolution strategy (M4-D: the
+	// StrategySource is the optional live evolution strategy (the
 	// planner is the strategy actuator after ReAct — prompt template + LLM
 	// param overrides steer plan growth the way they steered the chat loop).
 	// Nil = no steering (same degrade contract as the retired chat body).
@@ -58,14 +58,14 @@ type PlannerDeps struct {
 
 // FabricReader is the minimal fabric surface the planner needs: read a task's
 // checkpoint to extract its predecessor's output. Interface at the consumer
-// (code_rules §5.2) so the planner stays decoupled from the fabric package.
+// so the planner stays decoupled from the fabric package.
 type FabricReader interface {
 	// Task returns a snapshot of the task (ErrTaskNotFound when unknown).
 	Task(id string) (*taskfabric.Task, error)
 }
 
 // plannerCognition grows the L2 session graph by one plan-tool round per
-// quantum (M2-①). It is the replacement for the ReAct loop's "chatStep":
+// quantum. It is the replacement for the ReAct loop's "chatStep":
 // instead of executing tools inside a cognition, it grows tool nodes into
 // the L2 graph and lets the scheduler execute them as first-class tasks.
 //
@@ -81,7 +81,7 @@ type FabricReader interface {
 //  5. If the LLM returns no tool calls: grow an answer node carrying the
 //     final response. Done:true — the session terminates.
 //
-// The planner NEVER executes tools (§2.1: "plannerCognition 自己不执行工具，
+// The planner NEVER executes tools ("plannerCognition 自己不执行工具，
 // 只生长图"). Execution is the scheduler's job — tool nodes are dispatched
 // to toolCognition through the same fabric → scheduler → routerCognition
 // path as every other node.
@@ -90,12 +90,12 @@ type plannerCognition struct {
 	binder   ToolBinder
 	sessions *SessionRegistry
 	fabric   FabricReader
-	l1       *engine.MutableDAG // L1 ToolClass graph (M5), nil = permissive
+	l1       *engine.MutableDAG // L1 ToolClass graph, nil = permissive
 	maxDepth int
-	strategy agents.StrategySource // live evolution strategy (M4-D actuator), nil = unsteered
+	strategy agents.StrategySource // live evolution strategy, nil = unsteered
 	logger   *slog.Logger
 	// forcedAnswers counts quanta that hit the growth-depth guard and were
-	// forced into an answer node (M4-B2 canary metric: the depth-exhaustion
+	// forced into an answer node (canary metric: the depth-exhaustion
 	// rate). One shared planner serves every session, so the counter is
 	// process-wide, not per-session.
 	forcedAnswers atomic.Uint64
@@ -104,7 +104,7 @@ type plannerCognition struct {
 var _ Cognition = (*plannerCognition)(nil)
 
 // ForcedAnswers reports how many quanta hit the growth-depth guard and were
-// forced into an answer node (M4-B2 canary metric: the depth-exhaustion
+// forced into an answer node (canary metric: the depth-exhaustion
 // rate). One shared planner serves every session, so the count is
 // process-wide. A rising rate under canary means the depth cap is binding
 // real sessions, not just runaways.
@@ -115,7 +115,7 @@ func (c *plannerCognition) ForcedAnswers() uint64 {
 	return c.forcedAnswers.Load()
 }
 
-// NewPlannerCognition constructs the L2 graph-growing Cognition (M2-①).
+// NewPlannerCognition constructs the L2 graph-growing Cognition.
 // A nil deps.ChatClient or nil deps.Sessions is a construction error: the
 // planner cannot grow without an LLM to decide what to grow, and cannot
 // find its graph without a session registry.
@@ -158,11 +158,10 @@ func NewPlannerCognition(deps PlannerDeps) (Cognition, error) {
 const planMetadataKey = sessionMetadataKey
 
 // roleTool is the LLM message role for tool outputs. Extracted as a
-// constant because it appears 3+ times across the agentfabric package
-// (planner_cognition.go + chat_cognition.go).
+// constant because it appears several times in the planner cognition.
 const roleTool = "tool"
 
-// L1 ToolClass metadata keys (M5). These mirror the cmd/ares constants so
+// L1 ToolClass metadata keys. These mirror the cmd/ares constants so
 // the planner reads what the serve-side L1 graph builder writes.
 const (
 	l1MetaEnabled = "enabled"
@@ -220,7 +219,7 @@ func (c *plannerCognition) ExecuteStep(ctx context.Context, task *models.Task) (
 	}
 
 	// Determine the current plan-tool growth depth and check the guard
-	// (M2-④: 生长深度上界护栏). PlanDepth counts plan nodes grown by
+	// (生长深度上界护栏). PlanDepth counts plan nodes grown by
 	// growToolNodes — the initial plan quantum has depth 0.
 	depth := g.PlanDepth()
 	if depth >= c.maxDepth {
@@ -238,7 +237,7 @@ func (c *plannerCognition) ExecuteStep(ctx context.Context, task *models.Task) (
 		return nil, fmt.Errorf("agentfabric: planner cognition: assemble context: %w", err)
 	}
 
-	// M5: inject L1 prior hints as a system message (prompt-only, never a
+	// Inject L1 prior hints as a system message (prompt-only, never a
 	// growth block). Deterministic order; absent when no priors are set.
 	if priors := c.l1Priors(); len(priors) > 0 {
 		prompt = append(prompt, &core.LLMMessage{
@@ -247,7 +246,7 @@ func (c *plannerCognition) ExecuteStep(ctx context.Context, task *models.Task) (
 		})
 	}
 
-	// M4-D: steer plan growth with the live evolution strategy (the planner
+	// Steer plan growth with the live evolution strategy (the planner
 	// is the strategy actuator after ReAct). Mirrors the retired chat loop's
 	// renderPromptAndParams: template override rides a system message
 	// (prompt-only, never a growth block), param overrides ride the LLM
@@ -303,8 +302,8 @@ func (c *plannerCognition) ExecuteStep(ctx context.Context, task *models.Task) (
 	return &StepOutcome{Done: true, Result: result}, nil
 }
 
-// activeStrategy fetches the currently-deployed evolution strategy, if any
-// (M4-D actuator read). Errors are logged and ignored so a missing store
+// activeStrategy fetches the currently-deployed evolution strategy, if any.
+// Errors are logged and ignored so a missing store
 // never breaks plan growth — same degrade contract as the retired chat loop.
 func (c *plannerCognition) activeStrategy(ctx context.Context) *agents.ActiveStrategy {
 	if c.strategy == nil {
@@ -321,7 +320,8 @@ func (c *plannerCognition) activeStrategy(ctx context.Context) *agents.ActiveStr
 // assembleContext builds the LLM message list from the predecessor path:
 // the session prompt (root output) + the outputs of every tool node on the
 // path from root to this plan node. Outputs are read from the fabric task
-// envelopes by node ID = task ID join (§2.2 decision C).
+// envelopes by node ID = task ID join (nodes carry no Output of
+// their own).
 func (c *plannerCognition) assembleContext(ctx context.Context, task *models.Task, g *L2Graph) ([]*core.LLMMessage, error) {
 	// Read the session prompt from the root task's envelope.
 	rootID := g.Root()
@@ -432,7 +432,7 @@ func (c *plannerCognition) readNodeOutput(nodeID string) (string, error) {
 
 // growToolNodes grows one tool node per LLM tool call, then grows a new plan
 // node depending on all of them. Each tool node carries its args in the
-// arg. namespace (D3) and the session_id in Metadata (so ProjectStep
+// arg. namespace and the session_id in Metadata (so ProjectStep
 // propagates it to the envelope).
 //
 // The predecessor for the first tool node is the current plan node when it
@@ -441,9 +441,9 @@ func (c *plannerCognition) readNodeOutput(nodeID string) (string, error) {
 // only the root exists at session start). Tools within one round are chained
 // sequentially (the next depends on the previous).
 //
-// M5: before growing each tool node, the planner checks the L1 ToolClass
-// graph's enabled/budget metadata. enabled=false skips the node (§6
-// constraint point: "节点长不长出来"). budget=N caps how many instances
+// Before growing each tool node, the planner checks the L1 ToolClass
+// graph's enabled/budget metadata. enabled=false skips the node
+// (constraint point: "节点长不长出来"). budget=N caps how many instances
 // of this ToolClass can exist in the L2 graph per session. A nil L1 graph
 // means no constraints (permissive default).
 //
@@ -469,7 +469,7 @@ func (c *plannerCognition) growToolNodes(
 	for seq, tc := range toolCalls {
 		toolName := tc.Function.Name
 
-		// M5: check L1 constraints before growing the node.
+		// Check L1 constraints before growing the node.
 		if !c.isToolEnabled(toolName) {
 			c.logger.Warn("planner: tool disabled by L1 constraint; skipping",
 				"tool", toolName, "session", sessionID)
@@ -573,8 +573,8 @@ func (c *plannerCognition) toolBudgetRemaining(g *L2Graph, toolName string) bool
 	return count < budget
 }
 
-// l1ToolPrior returns the L1 ToolClass "prior" hint for the given tool (M5).
-// Empty means no hint. prior is prompt-only (§6): it never blocks growth,
+// l1ToolPrior returns the L1 ToolClass "prior" hint for the given tool.
+// Empty means no hint. prior is prompt-only: it never blocks growth,
 // only guides the LLM. Reads through NodeMetadata (locked copy).
 func (c *plannerCognition) l1ToolPrior(toolName string) string {
 	if c.l1 == nil {
@@ -590,7 +590,7 @@ func (c *plannerCognition) l1ToolPrior(toolName string) string {
 
 // l1Priors collects the non-empty prior hints for every known tool schema,
 // sorted by tool name for determinism. Used to inject evolution guidance
-// into the planner prompt (§6: prior只进提示词).
+// into the planner prompt (prior只进提示词).
 func (c *plannerCognition) l1Priors() []string {
 	if c.l1 == nil || c.binder == nil {
 		return nil

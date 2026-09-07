@@ -7,8 +7,8 @@ import (
 	"github.com/Timwood0x10/ares/internal/core/models"
 )
 
-// TestSpawnLoadsExperiencePrior verifies the G1 contract
-// (aresos-agentos-plan G1: Memory Distill 挂到 agent 生命周期): a spawned
+// TestSpawnLoadsExperiencePrior verifies the contract
+// (Memory Distill 挂到 agent 生命周期): a spawned
 // agent loads the distilled prior experience as its initial cognitive context.
 // The prior is readable via the standard CognitiveState path, so a fresh agent
 // of the same capability starts with reusable experience instead of a blank
@@ -50,8 +50,8 @@ func TestSpawnLoadsExperiencePrior(t *testing.T) {
 }
 
 // TestSpawnWithoutPriorStartsBlank verifies the zero-value contract
-// code_rules: an ExperiencePrior of nil leaves the agent with an
-// empty cognitive state — the pre-G1 behavior is unchanged.
+// An ExperiencePrior of nil leaves the agent with an
+// empty cognitive state — the legacy behavior is unchanged.
 func TestSpawnWithoutPriorStartsBlank(t *testing.T) {
 	ctx := context.Background()
 	f := NewFabric()
@@ -70,8 +70,8 @@ func TestSpawnWithoutPriorStartsBlank(t *testing.T) {
 	}
 }
 
-// TestSpawnPriorCoexistsWithCognition verifies the G1 prior does not interfere
-// with the A1 execution body: an agent that carries both a prior and an
+// TestSpawnPriorCoexistsWithCognition verifies the prior does not interfere
+// with the execution body: an agent that carries both a prior and an
 // injected Cognition can run a quantum — Memory Distill feeds the execution
 // loop (as initial context), it does not replace it.
 func TestSpawnPriorCoexistsWithCognition(t *testing.T) {

@@ -99,7 +99,7 @@ func (p *MemoryProvider) Stream(ctx context.Context, intent knowledge.Intent) (<
 		// A nil searcher means the provider was wired without a backing search
 		// engine (e.g. memory distillation enabled before the vector index is
 		// ready). Degrade to an empty stream instead of nil-pointer panicking the
-		// process (code_rules: a single component must not kill the
+		// process (a single component must not kill the
 		// kernel). Log-free by design: callers treat an empty stream as "no
 		// memories".
 		if p.searcher == nil {

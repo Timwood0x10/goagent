@@ -1,4 +1,4 @@
-// Package introspect — chaos read-model (monitoring.md #12 Phase 3).
+// Package introspect — chaos read-model.
 //
 // The chaos subsystem (cmd/ares/serve_chaos.go) runs independently of the
 // panel: a shadow sandbox loop verifies recovery capability against scratch
@@ -154,7 +154,7 @@ const (
 // agent-kill → lease-expire → recovery scenario and returns the outcome.
 // RecoverFromAgentDeath re-acquires the requeued task for a replacement agent,
 // so the reliable recovered signal is the recover.all outcome's count, not the
-// task state. (Moved from dashboard.go in M4-D: the Dashboard self-contained
+// task state. (Moved from the retired dashboard.go: the Dashboard self-contained
 // runtime was example-only; the sandbox verifier is shared chaos machinery.)
 func runShadowSandbox(ctx context.Context) ShadowResult {
 	scratchTasks := taskfabric.NewFabric()

@@ -131,7 +131,7 @@ func NewFailoverClient(configs []*Config, timeout time.Duration, rate float64, b
 	return fc, nil
 }
 
-// D13: NewFailoverScorer removed (deprecated alias, 0 production calls).
+// NewFailoverScorer removed (deprecated alias, 0 production calls).
 
 // clientKey returns a unique key for cooldown tracking.
 func (fc *FailoverClient) clientKey(c *Client) string {
@@ -250,7 +250,7 @@ func (fc *FailoverClient) Generate(ctx context.Context, prompt string) (string, 
 //
 // The stream itself runs under the caller's context (a streaming-specific
 // deadline), NOT the request-level fc.timeout: a fixed 30s request timeout
-// would cut long outputs off mid-stream (H8). fc.timeout is only used to
+// would cut long outputs off mid-stream. fc.timeout is only used to
 // bound the wait for the FIRST chunk, which covers the connection/handshake
 // phase so a silent provider still fails over.
 //
@@ -273,7 +273,7 @@ func (fc *FailoverClient) GenerateStream(ctx context.Context, prompt string) (<-
 			continue
 		}
 
-		// N6: per-attempt context so a silent provider can be cancelled and
+		// per-attempt context so a silent provider can be cancelled and
 		// failed over without tearing down the caller's overall context.
 		attemptCtx, attemptCancel := context.WithCancel(ctx)
 		ch, err := client.GenerateStream(attemptCtx, prompt)
@@ -303,8 +303,8 @@ func (fc *FailoverClient) GenerateStream(ctx context.Context, prompt string) (<-
 		// The first chunk must arrive within fc.timeout (handshake bound).
 		// A timeout here is a FAILED attempt, not a success: the wrapped
 		// stream is cancelled and the next provider is tried, so a silent
-		// provider cannot surface as an empty successful stream (N6: stream
-		// timeout false-success).
+		// provider cannot surface as an empty successful stream (a stream
+		// timeout must not read as a false success).
 		// Use a stoppable timer, not time.After: the time.After timer goroutine
 		// would otherwise linger until fc.timeout after a successful handshake,
 		// leaking a timer per stream attempt (review finding).
@@ -496,7 +496,7 @@ func (fc *FailoverClient) ActiveProviders() []string {
 	return active
 }
 
-// D13: FailoverScorer deprecated alias removed (use FailoverClient directly).
+// FailoverScorer deprecated alias removed (use FailoverClient directly).
 
 // Ensure FailoverClient satisfies the common Generate and Chat interfaces.
 var _ interface {

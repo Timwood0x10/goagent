@@ -109,7 +109,7 @@ type llmService interface {
 //	ares := sdk.NewRuntime(opts...)       // ares = new ARES runtime
 //	defer ares.Close()
 //
-//	// H1: 极简闭环 — 注册平等 capability agent，按 capability 提交任务。
+//	// 极简闭环 — 注册平等 capability agent，按 capability 提交任务。
 //	ares.RegisterAgent("coder", sdk.WithInstruction("You fix code."))
 //	result, _ := ares.Submit(ctx, sdk.Task{Capability: "coder", Input: "hello"})
 //
@@ -143,7 +143,7 @@ type Runtime struct {
 	// stops Bootstrap's background goroutines before WaitBackground drains them.
 	bootstrapCancel context.CancelFunc
 	// evidencePool, when non-nil, is a PostgreSQL pool created for the
-	// evidence store (T1.3). Closed in Close() to prevent connection leaks.
+	// evidence store. Closed in Close() to prevent connection leaks.
 	// Typed as *postgres.Pool (not io.Closer) so a nil pool stays a nil
 	// pointer — assigning a nil *postgres.Pool to an interface would make
 	// the interface non-nil and Close() would dereference a nil db.
@@ -164,10 +164,10 @@ type Runtime struct {
 	// AKG distiller or knowledge store is unavailable.
 	akgBridge *adapter.DistillBridge
 	// agentByCapability maps a capability to the agent registered to handle it
-	// (H1: 极简 SDK 调度面 — RegisterAgent/Submit). Guarded by agentMu.
+	// (极简 SDK 调度面 — RegisterAgent/Submit). Guarded by agentMu.
 	agentByCapability map[string]*Agent
 	agentMu           sync.Mutex
-	// ---- shared scheduler (H1/H2 merge) ----
+	// ---- shared scheduler (SDK/kernel merge) ----
 	// sdkExecutors maps capability → the shared-scheduler executor wrapping
 	// the registered agent. Guarded by agentMu (same lock as
 	// agentByCapability). The map is passed BY REFERENCE to the shared
@@ -182,7 +182,7 @@ type Runtime struct {
 	schedCtx    context.Context
 	schedCancel context.CancelFunc
 	// agentsFabric is the runtime's Agent Fabric, backing spawn_agent syscalls
-	// (D1: SDK now wires the same kernel syscalls as peer mode). Created in
+	// (the SDK wires the same kernel syscalls as peer mode). Created in
 	// ensureScheduler alongside sdkFabric; nil until the first Submit.
 	agentsFabric *agentfabric.Fabric
 	// syscallTools are the LLM-facing spawn_agent/create_task definitions
@@ -324,7 +324,7 @@ func New(opts ...Option) (*Runtime, error) {
 	// ---- Stage 9 (SDK unification): keep the SDK's own KnowledgeRuntime
 	// (its providers carry the live memSearcher/embedding backends) and bind
 	// the Bootstrap NewEvolution's KnowledgePatchExecutor to THAT instance via
-	// UpdateLiveKnowledgeRuntime. This satisfies §5.2 (KnowledgePatchExecutor
+	// UpdateLiveKnowledgeRuntime. This satisfies the sharing rule (KnowledgePatchExecutor
 	// and AKF tools share one runtime) without replacing the SDK runtime with
 	// the Bootstrap one, whose memory provider has no searcher.
 	if bootstrapComp != nil && bootstrapComp.NewEvolution != nil && kw.rt != nil {
@@ -341,7 +341,7 @@ func New(opts ...Option) (*Runtime, error) {
 	// ---- Evolution hot-update + evidence store ----
 	// Stage 8: reuse the Bootstrap-assembled NewEvolution when available;
 	// otherwise keep the SDK dual-track wiring as a compatibility fallback.
-	// (wireSDKEvolution owns the T1.3 evidence-persistence gating.)
+	// (wireSDKEvolution owns the evidence-persistence gating.)
 	evoComponents, pgPool, err := wireSDKEvolution(cfg, kw, bootstrapComp)
 	if err != nil {
 		return nil, err
@@ -397,7 +397,7 @@ func New(opts ...Option) (*Runtime, error) {
 // Close releases all resources held by the Runtime (LLM connections, memory
 // store, MCP connections). Call once when the Runtime is no longer needed.
 func (r *Runtime) Close() {
-	// Stop the shared scheduler's drain loop first (H1/H2 merge): it runs on
+	// Stop the shared scheduler's drain loop first (SDK/kernel merge): it runs on
 	// its own context so a Submit in flight is cancelled before the executor
 	// agents and stores it depends on are torn down.
 	if r.schedCancel != nil {
@@ -425,7 +425,7 @@ func (r *Runtime) Close() {
 		}
 		r.bootstrap.WaitBackground()
 	}
-	// Close the evidence PostgreSQL pool to prevent connection leaks (T1.3).
+	// Close the evidence PostgreSQL pool to prevent connection leaks.
 	// The pool is nil when no Postgres was configured, so this is a safe no-op.
 	if r.evidencePool != nil {
 		_ = r.evidencePool.Close()

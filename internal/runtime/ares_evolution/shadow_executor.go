@@ -4,7 +4,7 @@
 // buffered copies of recent real tasks inside an isolated, side-effect-free
 // runner, and writes one shadow-marked fitness evidence record per executed
 // arm. The paired scores flow back to the ShadowSampler, which records them
-// as the G2 gate's comparisons — this is what makes the verdict
+// as the shadow gate's comparisons — this is what makes the verdict
 // candidate-specific, the property replay-only evidence can never provide
 // for a never-executed candidate.
 //
@@ -35,7 +35,7 @@ import (
 // source: every live-fitness consumer (the rollback window, deployment
 // staging) aggregates source="strategy", and a shadow record — an isolated,
 // tool-less execution — measures the strategy under a different standard.
-// Mixing the two would corrupt live-fitness verdicts. The G2 comparisons
+// Mixing the two would corrupt live-fitness verdicts. The shadow comparisons
 // flow through the ShadowSampler directly, so nothing reads this source
 // back except audits.
 const shadowEvidenceSource = "strategy_shadow"

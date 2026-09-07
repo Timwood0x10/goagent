@@ -1531,7 +1531,7 @@ func (a *aliveHeartbeatAgent) Heartbeat(context.Context) error { return nil }
 func (a *aliveHeartbeatAgent) IsAlive() bool { return true }
 
 // TestManager_HealthCheck_DetectsDeadHeartbeatAndResurrects is the health-poll
-// coverage gap from the v0.3.0 code review (observation 5): the background
+// coverage gap found in code review: the background
 // health check must detect a dead heartbeater and trigger resurrection via
 // NotifyAgentDead → factory. It exercises healthCheck() directly rather than
 // waiting on the ticker, keeping the test fast and deterministic.

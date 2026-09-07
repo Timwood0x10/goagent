@@ -54,7 +54,7 @@ func pollSkipped(t *testing.T, recorder *SkillOutcomeRecorder, want int64) {
 // TestSkillOutcomeRecorderRecordsSuccess verifies a successful task whose
 // UsedExperienceID names a skill persists a success-rate 1.0 prior into the
 // catalog's Experience store, and the skill_experience tool can query it back
-// (the record side of the design §11 loop).
+// (the record side of the experience feedback loop).
 func TestSkillOutcomeRecorderRecordsSuccess(t *testing.T) {
 	cat := buildTestCatalog(t)
 	store := ares_events.NewMemoryEventStore()

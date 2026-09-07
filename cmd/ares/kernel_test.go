@@ -149,8 +149,8 @@ func TestEnableKernelExecutionRunsFabricPath(t *testing.T) {
 	tracker := newLoadTracker()
 
 	// Attach the submit-only new path and disable shadow. The dispatch now
-	// SUBMITS the task; the kernelScheduler is the single executor (GAP #2:
-	// no double-path acquire race).
+	// SUBMITS the task; the kernelScheduler is the single executor (no
+	// double-path acquire race).
 	enableKernelExecution(kernel, f)
 	flag.Set(agentipc.PolicyTaskFabric)
 
@@ -200,11 +200,11 @@ func TestEnableKernelExecutionRunsFabricPath(t *testing.T) {
 	}
 }
 
-// TestRunKernelRecoveryLoopEventDriven verifies the event-driven recovery loop
-// (code-review-2025-01-16 #2): task lifecycle events on the shared EventStore
+// TestRunKernelRecoveryLoopEventDriven verifies the event-driven recovery loop:
+// task lifecycle events on the shared EventStore
 // drive the recovery chain instead of a command loop. Publishing an
-// EventTaskExpired event triggers the kernel's requeue-only recovery (v0.3.0
-// review Bug 1 fix): the expired task returns to READY, UNOWNED — NOT re-leased
+// EventTaskExpired event triggers the kernel's requeue-only recovery
+// (a review Bug 1 fix): the expired task returns to READY, UNOWNED — NOT re-leased
 // to a phantom replacement agent that no registered executor can drive. The
 // kernelScheduler (which owns execution) picks up the READY task and resumes
 // from its preserved checkpoint.
@@ -283,7 +283,7 @@ func (s *flakyQuotaSource) callCount() int {
 	return s.calls
 }
 
-// TestRunKernelQuotaLoopSurvivesBlockedApply (C1): a quota Apply that hangs on
+// TestRunKernelQuotaLoopSurvivesBlockedApply: a quota Apply that hangs on
 // the policy store must be bounded by the loop's per-apply timeout — the loop
 // must keep ticking instead of spinning forever on a single blocked Apply.
 func TestRunKernelQuotaLoopSurvivesBlockedApply(t *testing.T) {
@@ -315,7 +315,7 @@ func TestRunKernelQuotaLoopSurvivesBlockedApply(t *testing.T) {
 	<-done
 }
 
-// TestKernelDispatchReleasesResultSubscription (C2): after Dispatch returns,
+// TestKernelDispatchReleasesResultSubscription: after Dispatch returns,
 // the waitCtx-bounded result subscription must be released. Subscribing with
 // the raw parent ctx would leave every completed Dispatch's subscription — and
 // its cleanup goroutine — alive until the parent context is cancelled,
@@ -361,7 +361,7 @@ func TestToModelTaskPreservesMetaAcrossYieldCheckpoint(t *testing.T) {
 	}
 }
 
-// TestRetryPolicyAllowsOneRetry verifies the v0.3.0 review Bug 2 fix:
+// TestRetryPolicyAllowsOneRetry verifies the retry-budget semantics:
 // submitFabricTask now grants ONE real retry (MaxRetries counts total
 // attempts, so 2 = first attempt + one retry). A transient failure requeues
 // the task to READY; only the second failure finalizes FAILED.
@@ -410,7 +410,7 @@ func TestRetryPolicyAllowsOneRetry(t *testing.T) {
 	}
 }
 
-// TestSchedulerPriorityPreemption verifies the v0.3.0 review wiring fix:
+// TestSchedulerPriorityPreemption verifies the priority wiring:
 // fabric.Preempt is exercised from the scheduler — a RUNNING low-priority task
 // is cooperatively handed back to READY (checkpoint preserved) when a READY
 // high-priority task arrives, freeing the executor for the next drain.
@@ -478,8 +478,8 @@ func TestSchedulerPriorityPreemption(t *testing.T) {
 	}
 }
 
-// TestTaskFromPayloadRestoresJSONUserProfile verifies the v0.3.0 review Bug 3
-// (kernel side) fix: a user_profile that survived a JSON round-trip arrives as
+// TestTaskFromPayloadRestoresJSONUserProfile verifies (kernel side) that
+// a user_profile that survived a JSON round-trip arrives as
 // a plain map, not a *models.UserProfile. taskFromPayload must still restore it
 // so the executor never degrades to executeByType.
 func TestTaskFromPayloadRestoresJSONUserProfile(t *testing.T) {
@@ -505,7 +505,7 @@ func TestTaskFromPayloadRestoresJSONUserProfile(t *testing.T) {
 }
 
 // checkpointStubAgent is a sub.Agent stub that records the checkpoint it
-// observes on resume, so the W1 recovery E2E test can assert that a
+// observes on resume, so the recovery E2E test can assert that a
 // replacement executor sees the dead agent's preserved checkpoint.
 type checkpointStubAgent struct {
 	id         string
@@ -563,7 +563,7 @@ func (a *checkpointStubAgent) getCheckpoint() any {
 	return a.checkpoint
 }
 
-// TestW1RecoveryClosureE2E verifies the W1 production-grade recovery闭环:
+// TestW1RecoveryClosureE2E verifies the production-grade recovery闭环:
 //
 //	Task → executor A executes quantum#1 (writes checkpoint) → A crashes
 //	(lease expiry) → recovery loop → replacement executor A' registered →
@@ -645,7 +645,7 @@ func TestW1RecoveryClosureE2E(t *testing.T) {
 	// so the recovery loop must spawn a replacement.
 	hasCapable := func(taskID string) bool { return sched.HasCapableExecutor(taskID) }
 
-	// Start the recovery loop with the W1 full recovery chain.
+	// Start the recovery loop with the full recovery chain.
 	go runKernelRecoveryLoop(ctx, nil, recovery, kernelLoopConfig{
 		RecoverySweepInterval: 50 * time.Millisecond,
 		RecoverySweepTimeout:  5 * time.Second,
@@ -763,7 +763,7 @@ func TestW1UnregisterExecutor(t *testing.T) {
 	}
 }
 
-// TestSetupPeerRegistryRetainsOnKernel locks the N4 contract: the peer
+// TestSetupPeerRegistryRetainsOnKernel locks the retention contract: the peer
 // registry built by setupPeerRegistry must be retained on the kernel handle
 // instead of being discarded after construction.
 func TestSetupPeerRegistryRetainsOnKernel(t *testing.T) {
@@ -775,7 +775,7 @@ func TestSetupPeerRegistryRetainsOnKernel(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, reg, "setupPeerRegistry must return a usable registry")
 	// The construction site must retain the registry on the kernel handle
-	// (N4) so it stays reachable for direct peer messaging / capability
+	// so it stays reachable for direct peer messaging / capability
 	// discovery.
 	if kernel.peerRegistry != reg {
 		t.Fatal("peer registry must be retained on the kernel handle (N4)")

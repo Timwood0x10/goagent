@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// --- E2: shadowGateMode three-branch invariant ---
+// --- shadowGateMode three-branch invariant ---
 
-// TestShadowGateMode_ThreeBranches is the table-driven unit test for the E2
+// TestShadowGateMode_ThreeBranches is the table-driven unit test for the
 // G2 registration decision. Every verification posture must map to exactly one
 // (register, reason) pair, and the reason strings are fixed-vocabulary so the
 // startup log, the gate-skipped metric and the lifecycle snapshot all agree.
@@ -70,7 +70,7 @@ func TestShadowGateMode_ThreeBranches(t *testing.T) {
 }
 
 // TestShadowGateMode_SafetyFloorWhenBothVerificationMissing is the INDEPENDENT
-// case for the E2 safety invariant: when neither preregistration verification
+// case for the safety invariant: when neither preregistration verification
 // (scorer) nor post-deployment verification (rollback) is armed, the G2 gate
 // must STILL be registered and fail-closed. This is the guard that makes
 // "no gate" a state the system can never silently fall into.

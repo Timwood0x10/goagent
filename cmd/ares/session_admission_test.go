@@ -21,7 +21,7 @@ func admissionKernel() (*kernelHandle, *taskfabric.Fabric) {
 	}, fabric
 }
 
-// TestSessionKeepSet pins the reaper keep predicate (P0-1): the session
+// TestSessionKeepSet pins the reaper keep predicate: the session
 // registry is the single authority — tasks of live sessions are kept, tasks
 // of released sessions are harvestable, and IDs that are not session-scoped
 // are never kept (the reaper's prefix filter plus grace handle those).
@@ -54,7 +54,7 @@ func TestSessionKeepSet(t *testing.T) {
 	}
 }
 
-// TestSubmitPeerTask_AdmitsSessionFirst pins M4-B2 admission: a session-scoped
+// TestSubmitPeerTask_AdmitsSessionFirst pins session admission: a session-scoped
 // submission registers the session and compiles its root BEFORE the user
 // task is created, so the planner's first quantum finds a live graph.
 func TestSubmitPeerTask_AdmitsSessionFirst(t *testing.T) {
@@ -112,7 +112,7 @@ func TestSubmitPeerTask_ResubmitReusesSession(t *testing.T) {
 	}
 }
 
-// TestSubmitPeerTask_SessionlessAutoAdmits pins the M4-D single path: without
+// TestSubmitPeerTask_SessionlessAutoAdmits pins the single path: without
 // a session_id the submission is auto-admitted into a fresh session — the
 // task is always ares/plan with a live graph behind it. There is no
 // session-less legacy submission anymore.
@@ -185,7 +185,7 @@ func TestSubmitPeerTask_AdmissionFailureCreatesNothing(t *testing.T) {
 	}
 }
 
-// TestSubmitPeerTask_RejectsSlashSessionID pins P0-1b: a client-supplied
+// TestSubmitPeerTask_RejectsSlashSessionID pins the boundary guard: a client-supplied
 // session_id containing "/" would break the reaper keep-set's reverse parse
 // (a live session's history becomes harvestable mid-flight), so admission
 // fails fast at the boundary and creates nothing.
@@ -223,7 +223,8 @@ func completeFabricTask(t *testing.T, fabric *taskfabric.Fabric, id string) {
 	}
 }
 
-// TestSubmitPeerTask_ResubmitAfterReleaseStartsClean pins P0-1c: after a
+// TestSubmitPeerTask_ResubmitAfterReleaseStartsClean pins the clean-restart
+// contract: after a
 // session is released, a resubmission under the SAME id (the natural client
 // "continue the chat") must not adopt the previous turn's terminal root or
 // inherit same-named node tasks — the stale tasks are harvested and the
@@ -282,7 +283,7 @@ func TestSubmitPeerTask_ResubmitAfterReleaseStartsClean(t *testing.T) {
 }
 
 // TestSubmitPeerTask_LiveRootRetryStillAdopts pins the other side of
-// P0-1c: a NON-terminal root left by a failed admission retry is still
+// the contract: a NON-terminal root left by a failed admission retry is still
 // adopted — harvesting only applies to a released session's terminal tasks.
 func TestSubmitPeerTask_LiveRootRetryStillAdopts(t *testing.T) {
 	ctx := context.Background()

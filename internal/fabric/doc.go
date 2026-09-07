@@ -7,6 +7,6 @@
 //   - workflow/engine (MutableDAG: the single task graph + L1 evolution surface)
 //   - planprojection (graph→task incremental compilation)
 //
-// Phase 2b: the original packages have been migrated into internal/fabric/
+// The original packages have been migrated into internal/fabric/
 // sub-packages. Package names are preserved to minimize import churn.
 package fabric

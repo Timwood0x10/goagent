@@ -128,7 +128,7 @@ func (s *MemoryStore) Append(_ context.Context, e Evidence) error {
 // Results are ordered by timestamp descending (newest first) to match the
 // Store contract; Limit is applied AFTER sorting so callers asking for the
 // top N receive the most recent N, not the oldest N. Expired records (those
-// whose TTL has elapsed since Append) are excluded (N9: TTL was previously
+// whose TTL has elapsed since Append) are excluded (TTL was previously
 // a dead field).
 func (s *MemoryStore) Query(_ context.Context, filter Filter) ([]Evidence, error) {
 	s.mu.RLock()
@@ -149,7 +149,7 @@ func (s *MemoryStore) Query(_ context.Context, filter Filter) ([]Evidence, error
 		if !filter.Until.IsZero() && e.Timestamp.After(filter.Until) {
 			continue
 		}
-		// N9: skip expired records (zero TTL means no expiry).
+		// Skip expired records (zero TTL means no expiry).
 		if e.TTL > 0 && now.Sub(e.Timestamp) > e.TTL {
 			continue
 		}

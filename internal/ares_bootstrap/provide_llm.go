@@ -32,7 +32,7 @@ func ProvideLLM(cfg ares_config.LLMConfig) (*LLMComponents, error) {
 		return nil, fmt.Errorf("bootstrap: LLM client: %w", err)
 	}
 
-	// W1 observability wiring: register the Prometheus ARES_* metrics so the
+	// Observability wiring: register the Prometheus ARES_* metrics so the
 	// /metrics scrape endpoint (serveIntrospect) returns real counters, and
 	// attach a REAL recording tracer (MetricsTracer) so every LLM call
 	// increments counters and attributes cost — a NoopTracer here left all
@@ -46,7 +46,7 @@ func ProvideLLM(cfg ares_config.LLMConfig) (*LLMComponents, error) {
 	client.SetTracer(observability.NewMetricsTracer(metrics, dashboard))
 
 	// Register the LLM provider in the compat layer for ecosystem access.
-	// B31: Dispatch to the correct adapter based on provider name instead of
+	// Dispatch to the correct adapter based on provider name instead of
 	// always using openai.New. For unknown providers, fall back to openai
 	// (which covers openai-compatible endpoints like openrouter/azure).
 	provider := cfg.Provider

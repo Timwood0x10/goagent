@@ -5,7 +5,7 @@
 > 我当时就在想：Agent 的记忆不是"有没有"的问题，是"能不能找到对的"的问题。
 > 一个没有检索能力的 Agent，就是一个金鱼——7 秒记忆，永远在发明轮子。
 
-> 说明：本文基于实际代码（重点阅读 `internal/storage/postgres/services` 整条检索管线、`internal/storage/postgres/repositories` 的向量/关键词仓库层、`internal/ares_memory/context/memory_retriever.go` 的 RAG 召回、`internal/ares_experience/ranking_service.go` 的经验排序，以及 `internal/ares_skills` 的 FTS5/关键词检索）。每个符号、每条流程都是我在这份代码里实际读到的。凡是"配置了但实际没接线"或"我拿不准"的部分，我会标（待核实），不替它吹。
+> 说明：本文基于实际代码（重点阅读 `internal/storage/postgres/services` 整条检索管线、`internal/storage/postgres/repositories` 的向量/关键词仓库层、`internal/runtime/memory/context/memory_retriever.go` 的 RAG 召回、`internal/runtime/memory/experience/ranking_service.go` 的经验排序，以及 `internal/runtime/protocol/skills` 的 FTS5/关键词检索）。每个符号、每条流程都是我在这份代码里实际读到的。凡是"配置了但实际没接线"或"我拿不准"的部分，我会标（待核实），不替它吹。
 
 ---
 
@@ -24,7 +24,7 @@
 老一版这篇文章说"`RetrievalService` 那个混合搜索引擎写好了但一直没接线（`advancedRetrieval` 在 API 层恒为 nil），现在用的只是一个纯向量的 `SimpleRetrievalService`"。我这次实际翻代码，**这个说法是反的**，这里必须更正：
 
 - **代码里根本没有 `api/retrieval/service.go` 这个文件**。整个 `api/` 下只有 `api/embedding`、`api/experience`、`api/knowledge`、`api/discovery` 等，**没有 retrieval 包**。两条检索服务都住在 `internal/storage/postgres/services/` 下。
-- **真正被接进生产的是 `RetrievalService`，不是 `SimpleRetrievalService`**。`internal/ares_memory/production_manager.go` 里 `services.NewRetrievalService(...)` 显式构造了它，并由 `internal/ares_memory/production_manager_tasks.go` 的 `ProductionMemoryManager.SearchSimilarTasks(ctx, query, limit)` 在实际运行时调用 `retrievalService.Search(...)`。
+- **真正被接进生产的是 `RetrievalService`，不是 `SimpleRetrievalService`**。`internal/runtime/memory/production_manager.go` 里 `services.NewRetrievalService(...)` 显式构造了它，并由 `internal/runtime/memory/production_manager_tasks.go` 的 `ProductionMemoryManager.SearchSimilarTasks(ctx, query, limit)` 在实际运行时调用 `retrievalService.Search(...)`。
 - **`SimpleRetrievalService` 反而是"写了但没有任何非测试代码调用"的那一个**。全仓 grep `NewSimpleRetrievalService` 只有它自己那个文件在定义，没有调用方（待核实：没有搜索到生产接线）。
 - 此外还有一条独立、也确实接线了的 **RAG 向量召回路径**：`internal/ares_bootstrap/retriever_wiring.go` 的 `wireRetrievers` 把 `MemoryRetriever`（对蒸馏经验做向量检索）和 `KnowledgeRetriever`（对 AKG 知识做混合检索）注入 MemoryManager，`EnableRAG=true` 时通过 `manager_rag.go` 的 `runRetrieval` 触发。
 
@@ -209,7 +209,7 @@ Score = baseScore · QueryWeight · [SourceWeight，多源才生效] · SubSourc
 
 这节的"找相关记忆"，代码里有两条：
 
-### 7.1 RankingService（`internal/ares_experience/ranking_service.go`）
+### 7.1 RankingService（`internal/runtime/memory/experience/ranking_service.go`）
 `Rank` 输入一批 `*Experience` + 对应的 `baseScores`（语义分），输出按 FinalScore 降序：
 
 ```
@@ -226,7 +226,7 @@ FinalScore = SemanticScore + UsageBoost + RecencyBoost + exp.Score
 
 在 `RetrievalService.Search` 里 `applyExperienceRanking`（`retrieval_search.go`）调 `rankingService.Rank`，再用 `conflictResolver.Resolve` 处理冲突组，最后会把 `FinalScore` 写回 `exp.Score` 透传到结果——代码注释专门点出：如果不写回，重排会按接近 0 的 raw score 乱序、`MinScore>0` 时经验结果会被过滤掉，排名的意义上不了线。
 
-### 7.2 MemoryRetriever（RAG，`internal/ares_memory/context/memory_retriever.go`）
+### 7.2 MemoryRetriever（RAG，`internal/runtime/memory/context/memory_retriever.go`）
 这是给 LLM 增强上下文用的那条：`Retrieve(input, topK)`：
 1. 空输入短路返回空
 2. `topK<=0` → `DefaultTopK=5`
@@ -263,7 +263,7 @@ sequenceDiagram
 
 ## 八、Skills 检索：Discovery 关键词 + FTS5（另一条"找东西"的链）
 
-检索不只有向量。技能/能力目录的发现是纯文本侧的（详见本系列 28 篇的 Capability Fabric），这里只对齐两条真实检索原语（`internal/ares_skills`）：
+检索不只有向量。技能/能力目录的发现是纯文本侧的（详见本系列 28 篇的 Capability Fabric），这里只对齐两条真实检索原语（`internal/runtime/protocol/skills`）：
 
 **1. 关键词打分（`discovery.go` `keywordSearch` + `matchScore`）**
 - `splitTerms` 小写 + 空白切分 + 去标点 + 去重

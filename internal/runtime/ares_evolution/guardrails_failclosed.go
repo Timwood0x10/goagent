@@ -1,10 +1,10 @@
 package evolution
 
-// failClosedCode is the guardrail event code for the fail-closed state (C3.1).
+// failClosedCode is the guardrail event code for the fail-closed state.
 const failClosedCode GuardrailErrorCode = "G1_CONSTRUCTION_FAILED"
 
-// NewFailClosedGuardrails creates a G1 guardrail that always blocks. Used
-// when the real guardrail construction fails (C3.1) so the system fails
+// NewFailClosedGuardrails creates a guardrail gate that always blocks. Used
+// when the real guardrail construction fails so the system fails
 // closed instead of silently allowing all candidates.
 //
 // Returns a guardrail configured with MaxStagnantGenerations=1 so it
@@ -22,8 +22,8 @@ func NewFailClosedGuardrails() *EvolutionGuardrails {
 	return g
 }
 
-// ErrCodeG1ConstructionFailed is the guardrail event code emitted when G1
-// construction fails and the system enters fail-closed mode (C3.1).
+// ErrCodeG1ConstructionFailed is the guardrail event code emitted when
+// guardrail construction fails and the system enters fail-closed mode.
 //
 // This is exported so the bootstrap layer and metrics can reference it
 // consistently.

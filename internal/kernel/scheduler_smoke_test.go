@@ -136,7 +136,7 @@ func (s *closedChannelEventStore) StreamVersion(context.Context, string) (int64,
 	return 0, nil
 }
 
-// TestSchedulerClosedEventChannelFallsBackToPolling locks the N5 contract: a
+// TestSchedulerClosedEventChannelFallsBackToPolling locks the contract: a
 // subscription channel closed by the event store must disable the event case
 // and fall back to pure polling — the loop keeps draining on the poll ticker
 // instead of busy-spinning on the closed channel.

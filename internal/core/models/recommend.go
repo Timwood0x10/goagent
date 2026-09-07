@@ -41,5 +41,5 @@ type RecommendItem struct {
 	Metadata         map[string]any `json:"metadata"`
 }
 
-// D5: NewRecommendResult, AddItem, CalculateScore removed as dead code
+// NewRecommendResult, AddItem, CalculateScore removed as dead code
 // (only tests referenced them). Struct retained for SQL scan compatibility.

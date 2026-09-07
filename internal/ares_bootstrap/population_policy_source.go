@@ -13,7 +13,7 @@ import (
 
 // population policy param keys read from the active evolution strategy's Params
 // map. The evolution system evolves these values; the Kernel enforces them
-// through aresrecovery.PopulationAdapter (P6: Runtime Adaptation).
+// through aresrecovery.PopulationAdapter.
 const (
 	// populationSpawnParam ("population.spawn") is a list of spawn specs
 	// (each a map with identity/capabilities) that the evolution system

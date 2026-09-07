@@ -21,9 +21,9 @@
 
 模块名看起来都是"experience / memory"，但代码里是三条互不相干的管线，别混着看：
 
-1. **经验蒸馏**（`internal/ares_experience`）：把**任务执行结果**（TaskResult）蒸馏成可复用、可排序、可反馈的 `Experience`。这是本文的主角。
-2. **Memory 蒸馏**（`internal/ares_memory/distillation` + `pipeline.go`）：把**一段对话**蒸馏成分类后的 `Memory`（knowledge/preference/interaction/profile），并生成报告、做推送。
-3. **Skill 先验**（`internal/ares_skills`）：把「任务模式 → skill 相关度」记成先验，供调度器当置信度来源用。
+1. **经验蒸馏**（`internal/runtime/memory/experience`）：把**任务执行结果**（TaskResult）蒸馏成可复用、可排序、可反馈的 `Experience`。这是本文的主角。
+2. **Memory 蒸馏**（`internal/runtime/memory/distillation` + `pipeline.go`）：把**一段对话**蒸馏成分类后的 `Memory`（knowledge/preference/interaction/profile），并生成报告、做推送。
+3. **Skill 先验**（`internal/runtime/protocol/skills`）：把「任务模式 → skill 相关度」记成先验，供调度器当置信度来源用。
 
 它们共享了"经验（experience）"这个词，但输入、输出、生命周期都不同。下面逐个讲，**只讲我从代码里读到的**。
 
@@ -66,7 +66,7 @@ func HandleTaskCompletedForDistillation(ctx context.Context, svc *aresexp.Distil
 }
 ```
 
-输入结构体 `TaskResult` 定义在 `internal/ares_experience/task_result.go`：
+输入结构体 `TaskResult` 定义在 `internal/runtime/memory/experience/task_result.go`：
 
 ```go
 type TaskResult struct {
@@ -84,7 +84,7 @@ type TaskResult struct {
 
 ### 2.2 主流程：Distill
 
-蒸馏服务 `DistillationService`（`internal/ares_experience/distillation_service.go`）的核心方法是 `Distill`，流水线如下：
+蒸馏服务 `DistillationService`（`internal/runtime/memory/experience/distillation_service.go`）的核心方法是 `Distill`，流水线如下：
 
 ```mermaid
 flowchart LR
@@ -161,7 +161,7 @@ type EmbeddingTask struct {
 
 ### 2.3 领域模型：Experience 长什么样
 
-蒸馏服务的产出是 `internal/ares_experience/ranked_experience.go` 里定义的领域 `Experience`（与存储行结构一致）：
+蒸馏服务的产出是 `internal/runtime/memory/experience/ranked_experience.go` 里定义的领域 `Experience`（与存储行结构一致）：
 
 ```go
 type Experience struct {
@@ -307,7 +307,7 @@ func (c *ConflictResolver) Configure(problemSimilarityThreshold float64) error {
 }
 ```
 
-> 阈值默认是 `0.9`，可通过 `Configure` 覆盖。注意：这与 `internal/ares_memory/distillation` 里 `DistillationConfig.ConflictThreshold = 0.85` 是**两套不同的冲突机制**——一个是经验排序层（ares_experience），一个是对话蒸馏层（ares_memory/distillation）。别混。
+> 阈值默认是 `0.9`，可通过 `Configure` 覆盖。注意：这与 `internal/runtime/memory/distillation` 里 `DistillationConfig.ConflictThreshold = 0.85` 是**两套不同的冲突机制**——一个是经验排序层（ares_experience），一个是对话蒸馏层（ares_memory/distillation）。别混。
 
 ---
 
@@ -326,7 +326,7 @@ bootstrap 构建了一个 `evolution.FuncGuidanceProvider`，把经验库变成 
 
 ### 6.2 路径 B：注入新 agent 的认知上下文（Spawn prior）
 
-`internal/agentfabric/lifecycle.go` 里，`SpawnSpec` 有个字段 `ExperiencePrior any`：
+`internal/fabric/agent/lifecycle.go` 里，`SpawnSpec` 有个字段 `ExperiencePrior any`：
 
 ```go
 type SpawnSpec struct {
@@ -355,14 +355,14 @@ if spec.ExperiencePrior != nil {
 
 ## 七、Memory 蒸馏：把对话变成分类记忆
 
-如果说上面是"任务级"蒸馏，那么 `internal/ares_memory/distillation` 负责的是"对话级"蒸馏。入口 `Distiller.DistillConversation` 内部是一个多阶段编排（`distiller.go` 里真实存在这些 phase）：
+如果说上面是"任务级"蒸馏，那么 `internal/runtime/memory/distillation` 负责的是"对话级"蒸馏。入口 `Distiller.DistillConversation` 内部是一个多阶段编排（`distiller.go` 里真实存在这些 phase）：
 
 ```
 extractPhase → classifyAndScorePhase → topNBeforeConflictPhase
             → embedPhase → resolveConflictsPhase → finalTopNPhase
 ```
 
-配合 `internal/ares_memory/pipeline.go` 里的 `Pipeline` 协调器，形成一条端到端流水线：
+配合 `internal/runtime/memory/pipeline.go` 里的 `Pipeline` 协调器，形成一条端到端流水线：
 
 ```mermaid
 flowchart LR
@@ -445,7 +445,7 @@ const (
 
 ## 八、会话与任务记忆：Suite 底层三件套
 
-`ProductionMemoryManager` 借力 `internal/ares_memory/context` 里的两个内存型存储：
+`ProductionMemoryManager` 借力 `internal/runtime/memory/context` 里的两个内存型存储：
 
 - `SessionMemory`：以 `map[string]*SessionData` 存会话，`SessionData{SessionID, UserID, Messages, Context, AccessedAt, CreatedAt}`。后台 `StartCleanup` 按 TTL/2 周期性清理过期会话；`Cleanup` 每次最多清 100 个（避免长期持锁）。
 - `TaskMemory`：以 `map[string]*TaskData` 存任务，`TaskData` 里还有 `Steps []StepRecord` / `Results []ResultRecord` 的执行明细。`TaskMemory.Distill` 把任务打成 `models.Task`（input/output/context），供上层「轻量提取」。
@@ -472,7 +472,7 @@ const (
 
 ## 九、MemoryManager 抽象与 Production 实现
 
-经验蒸馏（ares_experience）走的是独立体验；而真正统一记忆访问的抽象是 `MemoryManager`（`internal/ares_memory/manager.go`），接口三块：
+经验蒸馏（ares_experience）走的是独立体验；而真正统一记忆访问的抽象是 `MemoryManager`（`internal/runtime/memory/manager.go`），接口三块：
 
 - **会话**：CreateSession / AddMessage / GetMessages / AddStructuredMessage / BuildPromptMessages / BuildContext / DeleteSession
 - **任务**：CreateTask / CreateTaskWithID / UpdateTaskOutput / DistillTask / StoreDistilledTask / SearchSimilarTasks
@@ -506,7 +506,7 @@ type EvidenceCollector interface {
 
 ## 十一、Skill 先验：任务模式 → 相关度（相关但不等于"蒸馏"）
 
-第三个叫"experience"的东西在 `internal/ares_skills`。它跟上面的蒸馏不是一回事：这是**先验学习（Learned Source）**，只 bias 未来 skill 发现的排序，不自动调用 skill。
+第三个叫"experience"的东西在 `internal/runtime/protocol/skills`。它跟上面的蒸馏不是一回事：这是**先验学习（Learned Source）**，只 bias 未来 skill 发现的排序，不自动调用 skill。
 
 - `Experience.Record(skill, taskPattern, successRate)`：记 {skill, 任务模式, 成功率}，重复录制会覆盖成功率；记录数封顶 `maxRecords=1000`，超了淘汰最旧的。
 - `Experience.BestMatch(taskPattern)`：按**关键词重叠**算匹配分（短模式用包含判定，长模式分词后按重叠比例打分，阈值 `matchScoreThreshold=0.5`），返回最高成功率的先验。

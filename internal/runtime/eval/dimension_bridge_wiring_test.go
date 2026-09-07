@@ -112,7 +112,7 @@ func (f *failingWiringStore) Aggregate(_ context.Context, _ evidence.Filter, _ e
 func TestEvaluate_DimensionBridge_PayloadDecodable(t *testing.T) {
 	ctx := context.Background()
 	store := evidence.NewMemoryStore()
-	// efficiency must be ≥ ceil(2*2/3)=2 to pass (#45): the fixture previously
+	// efficiency must be ≥ ceil(2*2/3)=2 to pass: the fixture previously
 	// used 1/2, which only passed under the truncated integer threshold while
 	// its evidence item said "failed" — the exact inconsistency the unified
 	// float threshold removes.
@@ -143,7 +143,8 @@ func TestEvaluate_DimensionBridge_PayloadDecodable(t *testing.T) {
 	require.NotEmpty(t, decoded.Dimensions, "payload must carry per-dimension scores")
 }
 
-// TestDimensionVerdictItemConsistency locks the REVIEW #45 contract: a
+// TestDimensionVerdictItemConsistency locks the verdict/evidence consistency
+// contract: a
 // dimension's Pass flag and its evidence-item status are derived from the SAME
 // clamped score and the SAME float threshold, so they can never contradict.
 func TestDimensionVerdictItemConsistency(t *testing.T) {

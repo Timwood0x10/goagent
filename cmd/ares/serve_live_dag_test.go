@@ -41,7 +41,7 @@ func TestBuildLiveAgentDAG_FromPeers(t *testing.T) {
 	assert.Equal(t, "write", byID["writer"].AgentType)
 }
 
-// TestBuildLiveAgentDAG_CarriesLegacyDependencies pins that pre-C1 sub-agent
+// TestBuildLiveAgentDAG_CarriesLegacyDependencies pins that legacy sub-agent
 // dependency declarations survive the normalization into real DAG edges —
 // recovery/workflow patches then act on the topology the operator declared.
 func TestBuildLiveAgentDAG_CarriesLegacyDependencies(t *testing.T) {
@@ -111,7 +111,7 @@ func TestUpdateLiveDAG_WiredFromServeShape(t *testing.T) {
 	assert.Equal(t, engine.RecoveryFailFast, step.RecoveryPolicy.Strategy)
 }
 
-// TestBuildToolClassDAG_FromSchemas pins the L1 ToolClass contract (M5):
+// TestBuildToolClassDAG_FromSchemas pins the L1 ToolClass contract:
 // one node per tool schema, ID = toolName#argShape, Metadata carries
 // enabled/budget/prior.
 func TestBuildToolClassDAG_FromSchemas(t *testing.T) {
@@ -153,7 +153,7 @@ func TestBuildToolClassDAG_FromSchemas(t *testing.T) {
 	assert.Equal(t, "0", byID["search#q"].Metadata["budget"])
 }
 
-// TestBuildToolClassDAG_ArgShapeNormalizesByKey pins §1 L1: the argShape
+// TestBuildToolClassDAG_ArgShapeNormalizesByKey pins the L1 normalization: the argShape
 // is the sorted key set, not the values, so the same tool with different
 // parameter values collapses into one ToolClass node. Two different key
 // sets produce two nodes.
@@ -188,7 +188,7 @@ func TestBuildToolClassDAG_EmptySchemasReturnsError(t *testing.T) {
 	assert.Nil(t, dag)
 }
 
-// TestSetToolClassDAG_InjectsIntoEvolution pins M5-②: the L1 ToolClass DAG
+// TestSetToolClassDAG_InjectsIntoEvolution pins the injection: the L1 ToolClass DAG
 // is injected into the evolution components but NOT compiled into taskfabric.
 func TestSetToolClassDAG_InjectsIntoEvolution(t *testing.T) {
 	newEvol, err := ares_bootstrap.ProvideNewEvolution(nil, nil, nil, evidence.NewMemoryStore())

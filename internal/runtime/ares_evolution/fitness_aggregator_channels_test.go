@@ -162,7 +162,7 @@ func TestAggregator_StagingPathIgnoresUnattributedChannelEvidence(t *testing.T) 
 }
 
 // appendToolStepFitness writes a tool_call fitness record carrying a
-// process-level tool_step_id (Y1 C3), so the aggregator can scope below the
+// process-level tool_step_id, so the aggregator can scope below the
 // per-strategy bucket to "this strategy calling the tool THIS way".
 func appendToolStepFitness(t *testing.T, store evidence.Store, id, strategyID, toolStepID string, value float64) {
 	t.Helper()
@@ -186,7 +186,8 @@ func appendToolStepFitness(t *testing.T, store evidence.Store, id, strategyID, t
 	}
 }
 
-// TestAggregator_WindowToolStepSeparatesProcesses is the C3 acceptance: under
+// TestAggregator_WindowToolStepSeparatesProcesses is the process-attribution
+// acceptance: under
 // the SAME strategy, two tool steps (same tool, different argument shapes) must
 // produce distinguishable fitness reads. Before process-level attribution both
 // shapes blended into one undifferentiated tool_call signal — the GA could

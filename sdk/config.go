@@ -67,7 +67,7 @@ type MemoryFileConfig struct {
 	Enabled     bool `yaml:"enabled"`
 	MaxHistory  int  `yaml:"max_history"`
 	MaxSessions int  `yaml:"max_sessions"`
-	// EnableDistillation tri-state: nil defaults to true (P0-3 decision),
+	// EnableDistillation tri-state: nil defaults to true,
 	// mirroring ares_config.MemoryConfig so SDK yaml and serve yaml agree.
 	EnableDistillation    *bool `yaml:"enable_distillation"`
 	DistillationThreshold int   `yaml:"distillation_threshold"`
@@ -83,8 +83,8 @@ type MemoryFileConfig struct {
 	RAGMinScore float64 `yaml:"rag_min_score"`
 }
 
-// DistillationEnabled reports the tri-state: nil defaults to true (P0-3
-// decision), mirroring ares_config.MemoryConfig so SDK yaml and serve yaml
+// DistillationEnabled reports the tri-state: nil defaults to true,
+// mirroring ares_config.MemoryConfig so SDK yaml and serve yaml
 // agree.
 func (m *MemoryFileConfig) DistillationEnabled() bool {
 	return m.EnableDistillation == nil || *m.EnableDistillation

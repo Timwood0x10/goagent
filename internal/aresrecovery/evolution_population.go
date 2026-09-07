@@ -11,7 +11,7 @@ import (
 )
 
 // PopulationPolicy is the evolution-produced agent population decision for one
-// point in time (P6: Runtime Adaptation — agent population). The Evolution
+// point in time (Runtime Adaptation: agent population). The Evolution
 // system computes the desired population delta; the Kernel enforces it through
 // the existing spawn/retire primitives.
 //
@@ -33,7 +33,7 @@ type PopulationPolicySource interface {
 }
 
 // PopulationAdapter is the Kernel-side adapter that applies evolution's agent
-// population decisions (P6: Runtime Adaptation). It wraps the EvolutionAdapter
+// population decisions (Runtime Adaptation). It wraps the EvolutionAdapter
 // with a policy source so the kernel loop can periodically call AdaptPopulation
 // without understanding evolution semantics.
 //
@@ -97,7 +97,7 @@ const evolutionApplyInterval = time.Minute
 const evolutionApplyTimeout = 30 * time.Second
 
 // RunKernelEvolutionLoop periodically applies the evolution population policy
-// to the Agent Fabric (P6: Runtime Adaptation — agent population). It applies
+// to the Agent Fabric (Runtime Adaptation: agent population). It applies
 // once at startup so an already-deployed policy is effective immediately,
 // then re-applies on a fixed interval — Apply is idempotent (an empty policy
 // is a no-op).

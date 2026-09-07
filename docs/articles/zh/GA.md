@@ -25,9 +25,9 @@ GA 采用三层实现 + 一层对外 API：
 
 | 层 | 目录 | 职责 |
 |---|---|---|
-| 核心层 | `internal/ares_evolution/genome` | 基因/种群、选择、交叉、多样性、适应度、多目标、NSGA-II |
-| 变异层 | `internal/ares_evolution/mutation` | 参数/提示词/工具变异、引导变异、自适应概率分配 |
-| 编排层 | `internal/ares_evolution` | DreamCycle 双模式编排、调度器、守卫、适配器、反馈、评分管线 |
+| 核心层 | `internal/runtime/ares_evolution/genome` | 基因/种群、选择、交叉、多样性、适应度、多目标、NSGA-II |
+| 变异层 | `internal/runtime/ares_evolution/mutation` | 参数/提示词/工具变异、引导变异、自适应概率分配 |
+| 编排层 | `internal/runtime/ares_evolution` | DreamCycle 双模式编排、调度器、守卫、适配器、反馈、评分管线 |
 | 公共 API | `api/evolution` | 对外暴露的进化接口封装 |
 
 三者关系：`genome.Population` 是 GA 的运算核心（不感知外部业务），`mutation` 提供遗传算子，`DreamCycle` / `GenomePopulationAdapter` 负责把 GA 接入系统事件流并驱动其运行。
@@ -36,7 +36,7 @@ GA 采用三层实现 + 一层对外 API：
 
 ## 2. 基因（基因组）数据结构
 
-基因（一个个体 / 一条策略）定义为 `mutation.Strategy`（[types.go](../../../internal/ares_evolution/mutation/types.go)），核心字段：
+基因（一个个体 / 一条策略）定义为 `mutation.Strategy`（[types.go](../../../internal/runtime/ares_evolution/mutation/types.go)），核心字段：
 
 | 字段 | 说明 |
 |---|---|
@@ -63,7 +63,7 @@ GA 采用三层实现 + 一层对外 API：
 
 ## 3. 种群初始化
 
-`NewPopulation`（[population.go](../../../internal/ares_evolution/genome/population.go#L101-L151)）：
+`NewPopulation`（[population.go](../../../internal/runtime/ares_evolution/genome/population.go#L101-L151)）：
 1. 从 base 策略克隆出 `root` 个体（`StrategyMutationType=MutationRoot`，`MutationDesc="root strategy"`）。
 2. 若目标种群大小 `Size > 1`，用变异器对 root 克隆批量变异，补齐 `Size-1` 个初始变体。
 3. 使用确定性随机源 `rand.New(rand.NewSource(seed))` 保证可复现；`seed=0` 时用 `time.Now().UnixNano()`。
@@ -75,7 +75,7 @@ GA 采用三层实现 + 一层对外 API：
 
 ## 4. 主进化循环 doEvolve
 
-`doEvolve`（[population.go](../../../internal/ares_evolution/genome/population.go#L258-L428)）是核心循环，流程为：
+`doEvolve`（[population.go](../../../internal/runtime/ares_evolution/genome/population.go#L258-L428)）是核心循环，流程为：
 
 ```
 validate → lock → 按分数排序 → 选存活者 → 保精英 → 促进prompt多样性 →
@@ -103,7 +103,7 @@ validate → lock → 按分数排序 → 选存活者 → 保精英 → 促进p
 
 ## 5. 选择算子（7 种）
 
-选择器实现 `Selection` 接口（`Select(ctx, population, n)`），由 `buildSelector` 按 `SelectionStrategy` 分发（[selection.go](../../../internal/ares_evolution/genome/selection.go)）：
+选择器实现 `Selection` 接口（`Select(ctx, population, n)`），由 `buildSelector` 按 `SelectionStrategy` 分发（[selection.go](../../../internal/runtime/ares_evolution/genome/selection.go)）：
 
 | 策略 key | 实现 | 说明 |
 |---|---|---|
@@ -121,7 +121,7 @@ validate → lock → 按分数排序 → 选存活者 → 保精英 → 促进p
 
 ## 6. 交叉算子（3 种）
 
-交叉在 `genome.Crossover`（[crossover.go](../../../internal/ares_evolution/genome/crossover.go)），参数重组方式由 `WithCrossoverType` 配置：
+交叉在 `genome.Crossover`（[crossover.go](../../../internal/runtime/ares_evolution/genome/crossover.go)），参数重组方式由 `WithCrossoverType` 配置：
 
 | 类型 | 实现 | 说明 |
 |---|---|---|
@@ -142,7 +142,7 @@ validate → lock → 按分数排序 → 选存活者 → 保精英 → 促进p
 
 ### 7.1 概率分配（70/15/15）
 
-`Mutator.Mutate`（[mutator.go](../../../internal/ares_evolution/mutation/mutator.go#L86-L196)）按概率为每个子代选择变异类型：
+`Mutator.Mutate`（[mutator.go](../../../internal/runtime/ares_evolution/mutation/mutator.go#L86-L196)）按概率为每个子代选择变异类型：
 
 | 池可用情况 | 参数变异 | 提示词变异 | 工具变异 |
 |---|---|---|---|
@@ -151,7 +151,7 @@ validate → lock → 按分数排序 → 选存活者 → 保精英 → 促进p
 | 仅 tool 池 | 0.80 | 0.00 | 0.20 |
 | 均无池 | 1.00 | 0.00 | 0.00 |
 
-池为空时该类型概率被重分配。`AdaptiveDistribution`（[adaptive_distribution.go](../../../internal/ares_evolution/mutation/adaptive_distribution.go)）可基于历史胜负动态调整这三类概率（参数 0.30–0.90、提示词 0.05–0.50、工具 0.05–0.50，含探索下限 0.03、学习率 0.10）。
+池为空时该类型概率被重分配。`AdaptiveDistribution`（[adaptive_distribution.go](../../../internal/runtime/ares_evolution/mutation/adaptive_distribution.go)）可基于历史胜负动态调整这三类概率（参数 0.30–0.90、提示词 0.05–0.50、工具 0.05–0.50，含探索下限 0.03、学习率 0.10）。
 
 ### 7.2 参数变异子算子
 
@@ -174,7 +174,7 @@ validate → lock → 按分数排序 → 选存活者 → 保精英 → 促进p
 
 ## 8. 自适应与多样性机制
 
-集中在 [adaptive.go](../../../internal/ares_evolution/genome/adaptive.go) 与 [population_guard.go](../../../internal/ares_evolution/genome/population_guard.go)。
+集中在 [adaptive.go](../../../internal/runtime/ares_evolution/genome/adaptive.go) 与 [population_guard.go](../../../internal/runtime/ares_evolution/genome/population_guard.go)。
 
 ### 8.1 多样性指标（v2）
 
@@ -203,7 +203,7 @@ validate → lock → 按分数排序 → 选存活者 → 保精英 → 促进p
 
 ## 9. 适应度评估与打分
 
-- 哨兵值 `ScoreUnevaluated = -1.0`，`IsScoreEvaluated(score) = score >= 0`（[score.go](../../../internal/ares_evolution/genome/score.go)）。
+- 哨兵值 `ScoreUnevaluated = -1.0`，`IsScoreEvaluated(score) = score >= 0`（[score.go](../../../internal/runtime/ares_evolution/genome/score.go)）。
 - `Population.ScoreAgents(scorer)`：在读写锁外调用外部 scorer（可能阻塞数秒的 LLM/IO），捕获 panic 标记为未评估，写回分数并重置 `SelectionScore`，随后更新 `bestEver` / Pareto 前沿。
 - `ScoreAgentsMulti(scorer)`：多目标打分，同时写 `DimensionScores` 与聚合 `Score`。
 - 打分来源多样：`scoring` 提供 `TieredScorer`（缓存 + 预算门控 LLM + 启发式）、`MemoryAwareScorer`（证据加分 + 成本/时延惩罚）、`CachedScorer`、`BatchScorer`（批量预填缓存）。
@@ -212,36 +212,36 @@ validate → lock → 按分数排序 → 选存活者 → 保精英 → 促进p
 
 ## 10. DreamCycle 编排（GA / ES 双模式）
 
-[DreamCycle](../../../internal/ares_evolution/dream_cycle.go) 是进化中枢，`EvolutionMode` 二选一：
+[DreamCycle](../../../internal/runtime/ares_evolution/dream_cycle.go) 是进化中枢，`EvolutionMode` 二选一：
 
 | 模式 | 流程 |
 |---|---|
 | `ModeEvolutionStrategy`（默认，(1+λ)） | 变异当前策略 → 竞技场测试候选 → 部署最优 |
 | `ModeGeneticAlgorithm` | 打分种群 → 选择/交叉/变异（一代）→ 部署最优 |
 
-`Run()` 的主流程（[dream_cycle.go](../../../internal/ares_evolution/dream_cycle.go#L284-L343)）：
+`Run()` 的主流程（[dream_cycle.go](../../../internal/runtime/ares_evolution/dream_cycle.go#L284-L343)）：
 1. `runMu` 串行化，防止重复进化（EV-01）。
 2. 10 分钟超时控制。
 3. 检查 `Enabled`、冷却时间（默认 5 分钟）、任务数下限（默认 10）。
 4. 委托 `scheduler.ShouldEvolve()` 判断是否进化。
 5. 按 `EvolutionMode` 路由到 `runGAEvolution` 或 `runESEvolution`。
 
-GA 路径 `runGAEvolution`（[dream_cycle_ga.go](../../../internal/ares_evolution/dream_cycle_ga.go#L40-L117)）：
+GA 路径 `runGAEvolution`（[dream_cycle_ga.go](../../../internal/runtime/ares_evolution/dream_cycle_ga.go#L40-L117)）：
 1. 终止条件：超 `MaxGenerations` 或 `BestEverScore ≥ TargetFitness`。
 2. `ScoreAgents(buildGAScorer)`：scorer 用竞技场 tester 对未评估个体跑回归（baseline 为当前最优）。
 3. `Evolve` 或 `EvolveSteadyState` 跑一代。
 4. `BestStrategy()` 取最优，记录血统，`deployWinner` 部署。
 
-`deployWinner`（[dream_cycle.go](../../../internal/ares_evolution/dream_cycle.go#L486-L606)）统一处理 GA/ES 的部署后逻辑：守卫后置检查 → 影子评估（ShadowEvaluator）→ 尺寸校验 → `ActiveStrategyManager.Deploy` → 指标埋点 → 记录 hint outcome。
+`deployWinner`（[dream_cycle.go](../../../internal/runtime/ares_evolution/dream_cycle.go#L486-L606)）统一处理 GA/ES 的部署后逻辑：守卫后置检查 → 影子评估（ShadowEvaluator）→ 尺寸校验 → `ActiveStrategyManager.Deploy` → 指标埋点 → 记录 hint outcome。
 
 ---
 
 ## 11. 与其他模块的协作闭环
 
 ### 11.1 事件驱动调度（ares_callbacks）
-`EvolutionScheduler.Register()`（[scheduler.go](../../../internal/ares_evolution/scheduler.go#L297-L320)）订阅 `ares_callbacks.EventAgentEnd`。`OnAgentEnd` 在任务完成时触发，异步经 errgroup 运行 Adapter（`adapter.Run`）。
+`EvolutionScheduler.Register()`（[scheduler.go](../../../internal/runtime/ares_evolution/scheduler.go#L297-L320)）订阅 `ares_callbacks.EventAgentEnd`。`OnAgentEnd` 在任务完成时触发，异步经 errgroup 运行 Adapter（`adapter.Run`）。
 
-`shouldEvolve` 判定（[scheduler.go](../../../internal/ares_evolution/scheduler.go#L336-L399)）：
+`shouldEvolve` 判定（[scheduler.go](../../../internal/runtime/ares_evolution/scheduler.go#L336-L399)）：
 - 最小间隔保护（默认 5 分钟）。
 - 三种触发模式：`TriggerOnIdle`（分数退化 ≥15% 或累计 ≥100 条触发周期探索）、`TriggerOnThreshold`、`TriggerOnDemand`。
 - 分数窗口 `scoreWindowSize=50`，可靠性最少 20 条。
@@ -250,7 +250,7 @@ GA 路径 `runGAEvolution`（[dream_cycle_ga.go](../../../internal/ares_evolutio
 打分复用 `TesterInterface.Run`（`findWinner` 的两阶段：QuickReject N=5 → 全量 N=50，errgroup 并行 + 自适应批量）。GA 的 `buildGAScorer` 也调用同一 tester 以 `CandidateScore` 作为适应度。
 
 ### 11.3 系统组装闭环（GenomePopulationAdapter）
-`GenomePopulationAdapter`（[genome_wiring.go](../../../internal/ares_evolution/genome_wiring.go)）实现 `AdapterRunner`，把 `genome.Population` 接入调度器。其 `Run`（[genome_wiring_run.go](../../../internal/ares_evolution/genome_wiring_run.go#L45-L102)）：
+`GenomePopulationAdapter`（[genome_wiring.go](../../../internal/runtime/ares_evolution/genome_wiring.go)）实现 `AdapterRunner`，把 `genome.Population` 接入调度器。其 `Run`（[genome_wiring_run.go](../../../internal/runtime/ares_evolution/genome_wiring_run.go#L45-L102)）：
 ```
 buildRunScorer → 前置守卫 → EvolveAfterScoring →
 recordOutcomes(反馈闭环) → 后置守卫 → submitToCoordinator → deployBestStrategy
@@ -268,13 +268,13 @@ recordOutcomes(反馈闭环) → 后置守卫 → submitToCoordinator → deploy
 `submitToCoordinator` 将进化结果生成为 diff patches，`Source=SourceGA`、`Reason="GA: population evolution result"`、`Priority=6`，提交 `coordinator.Submit` 并 `Evaluate`。协调器经 FitnessGenome 聚合适应度（0-100 缩放）做 apply/reject/delay/drop 决策，通过 PatchExecutors 落地到运行中 agent 的 DAG、调度器、知识配置。
 
 ### 11.7 守卫（Guardrails）
-`EvolutionGuardrails`（[guardrails.go](../../../internal/ares_evolution/guardrails.go)）：
+`EvolutionGuardrails`（[guardrails.go](../../../internal/runtime/ares_evolution/guardrails.go)）：
 - **前置** `PreEvolveCheck`：未评估个体占比 >50% → Critical 停止；停滞超阈值 → Warning。
 - **后置** `PostEvolveCheck`：基线回退 → Critical 停止；改进跟踪 / 停滞计数；血统集中度超 `MaxLineageShare`（默认 0.8）→ Warning。
 - 事件机器可读（`ErrCode*`），支持 `ToGuardrailError` 供自动回滚/降级。
 
 ### 11.8 可观测性
-`MetricsRecorder`（`RecordEvolutionDeploy/Shadow/SetEvolutionScore`）、`ares_observability.PrometheusMetrics`、`recordEvolutionGuardrail`、结构化日志（`logger.New("genome"/"adapter")`）、`report_hook` 与 `report_saver` 记录进化轨迹。
+`MetricsRecorder`（`RecordEvolutionDeploy/Shadow/SetEvolutionScore`）、`observability.PrometheusMetrics`、`recordEvolutionGuardrail`、结构化日志（`logger.New("genome"/"adapter")`）、`report_hook` 与 `report_saver` 记录进化轨迹。
 
 ### 11.9 晋升子系统
 `promotion` 的 `DefaultPromoter` 依据成功率和置信度对策略做 champion/非 champion 晋升与降级，作为 GA 进化之外的策略生命周期管理。

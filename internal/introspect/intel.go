@@ -1,8 +1,8 @@
 // Package introspect — intelligence engine (migrated from internal/dashboard).
 //
 // The engine observes agent behavior, computes health scores, detects
-// anomalies, and generates actionable insights (monitoring.md §5: intelligence
-// is MIGRATED, not rewritten — the algorithm is unchanged). It is fed from the
+// anomalies, and generates actionable insights (migrated from the old
+// monitoring engine, not rewritten — the algorithm is unchanged). It is fed from the
 // shared event stream via FeedIntel and queried by the serve control plane
 // (/api/health, /api/anomalies, /api/insights).
 package introspect
@@ -576,7 +576,7 @@ func severity(l HealthLevel) int {
 const evErrKind = "error"
 
 // FeedIntel feeds one bus event into the intelligence engine using the same
-// mapping as the migrated dashboard.EventBridge (monitoring.md Phase 4):
+// mapping as the migrated dashboard.EventBridge:
 // restart/error/latency/tick observations drive health scoring.
 func FeedIntel(intel *Engine, evt *ares_events.Event) {
 	if intel == nil || evt == nil {

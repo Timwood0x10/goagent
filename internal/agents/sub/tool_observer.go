@@ -1,4 +1,4 @@
-// tool_observer.go closes the second half of N-11 (closure plan Step Y.3): tool
+// tool_observer.go closes the tool-channel half: tool
 // calls now produce an evolution feature, not only a distillation side note.
 //
 // Before this file a tool's success or failure reached `emitSubTaskResult` (the
@@ -15,7 +15,7 @@
 // leave the other blind, which is how the tool channel came to be a gap in the
 // first place.
 //
-// The observer interface is declared here, at the consumer (code_rules), and
+// The observer interface is declared here, at the consumer, and
 // this package never imports the evolution layer:
 // ares_evolution.ChannelFeedbackRecorder satisfies it structurally.
 package sub
@@ -56,8 +56,8 @@ type observedToolBinder struct {
 }
 
 // ObserveToolCalls wraps a binder so each tool invocation is reported to the
-// observer (Step Y.3). A nil binder or nil observer returns the binder
-// unchanged: an unobserved binder is the pre-Step-Y behavior, and returning a
+// observer. A nil binder or nil observer returns the binder
+// unchanged: an unobserved binder is the historical behavior, and returning a
 // wrapper with a nil observer would only add an indirection that measures
 // nothing.
 //
@@ -94,7 +94,7 @@ func (b *observedToolBinder) CallTool(ctx context.Context, name string, args map
 	return result, err
 }
 
-// toolClassIDForCall builds the M6 attribution key: toolName#schemaShape,
+// toolClassIDForCall builds the attribution key: toolName#schemaShape,
 // where schemaShape comes from the tool's DECLARED schema (shared
 // resources.ToolArgShape) — the same derivation the L1 graph builder and
 // the planner constraint check use. A call that omits an optional parameter
@@ -116,7 +116,7 @@ func (b *observedToolBinder) toolClassIDForCall(name string, args map[string]any
 	return toolStepID(name, args)
 }
 
-// toolStepID builds the process-level attribution key (Y1 C3): toolName#argShape,
+// toolStepID builds the process-level attribution key: toolName#argShape,
 // where argShape is the sorted set of argument KEY names (values dropped). This
 // mirrors ares_events.ToolArgShape but accepts a decoded map (the binder hands
 // the observer a struct, not the raw JSON string), so the recorder and the

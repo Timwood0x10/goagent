@@ -1,5 +1,5 @@
-// Package protocol groups the ARES external-protocol adapters
-// (convergence Phase 3). Each subpackage keeps its own package identity;
+// Package protocol groups the ARES external-protocol adapters.
+// Each subpackage keeps its own package identity;
 // this directory only maps the territory:
 //
 //	mcp    – MCP client/server, tool bridging (package ares_mcp)

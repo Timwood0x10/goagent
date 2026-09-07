@@ -11,18 +11,18 @@ import (
 )
 
 // knownUnwired lists event constants that are intentionally not emitted by
-// any production code path yet (capability reservations). The G3 contract is
+// any production code path yet (capability reservations). The contract is
 // "every SUBSCRIBED event must have an emitter" — these constants have no
 // subscriber, so they are inert, not silently broken.
 var knownUnwired = map[EventType]bool{
-	EventHandoff:          true, // leader-sub handoff retired (C1)
+	EventHandoff:          true, // leader-sub handoff retired
 	EventSubTaskScheduled: true, // superseded by the Task Fabric READY state
 	EventSubTaskStarted:   true, // superseded by EventTaskStarted
 	EventSubAgentFailed:   true, // agent deaths flow through agentfabric events
 	EventMemoryDistilled:  true, // distillation writes via the experience repo
 }
 
-// TestEventContract_SubscribedMustHaveEmitter is the G3 gate: for every event
+// TestEventContract_SubscribedMustHaveEmitter is the gate: for every event
 // constant that production code SUBSCRIBES to, there must exist at least one
 // production emitter (a literal reference to the same string, or Emit with
 // the constant). This prevents a repeat of the EventSubTaskResult silent

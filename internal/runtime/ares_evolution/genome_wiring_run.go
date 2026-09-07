@@ -47,7 +47,7 @@ func (a *GenomePopulationAdapter) Run(ctx context.Context) error {
 	a.runMu.Lock()
 	defer a.runMu.Unlock()
 
-	// Mark the generation window for the live-chaos pause gate (#12 Phase 2).
+	// Mark the generation window for the live-chaos pause gate.
 	a.running.Store(true)
 	defer a.running.Store(false)
 
@@ -92,7 +92,7 @@ func (a *GenomePopulationAdapter) Run(ctx context.Context) error {
 		a.submitToCoordinator(ctx)
 	}
 
-	// Submit the best-evolved strategy to the lifecycle orchestrator (B2 fix).
+	// Submit the best-evolved strategy to the lifecycle orchestrator.
 	// When a StrategyLifecycle is wired, it runs the verify-gate pipeline
 	// before promoting to ACTIVE. When no lifecycle is wired, fall back to
 	// the legacy direct-deploy path (backward compatible).
@@ -137,7 +137,7 @@ func (a *GenomePopulationAdapter) buildRunScorer(ctx context.Context) genome.Sco
 	// heuristicScorer is the fallback for when the tiered/memory-aware
 	// scorer fails at runtime: we degrade to the adapter-level heuristic
 	// instead of returning a constant 50.0, which would make every failed
-	// strategy look identically average (M3).
+	// strategy look identically average.
 	heuristicScorer := buildScorer(a.scorer)
 
 	// Reset per-generation budget at the start of each cycle.
@@ -294,7 +294,7 @@ func (a *GenomePopulationAdapter) runPostGuardrails(ctx context.Context) error {
 	return nil
 }
 
-// toolSetRejected reports whether the C6 tool-set guardrail rejects a
+// toolSetRejected reports whether the tool-set guardrail rejects a
 // strategy's evolved tool whitelist. It closes the genome-path gap left by the
 // dream_cycle-only wiring: the genome adapter promotes its own winner (lifecycle
 // submit / direct deploy) without ever passing through findWinner, so an
@@ -346,7 +346,7 @@ func (a *GenomePopulationAdapter) deployBestStrategy(ctx context.Context) {
 		log.DebugContext(ctx, "no evaluated strategy to deploy", "method", "deployBestStrategy")
 		return
 	}
-	// C6: the direct-deploy path bypasses the lifecycle verify gates, so the
+	// The direct-deploy path bypasses the lifecycle verify gates, so the
 	// tool-set guardrail must be checked here too — otherwise disabling the
 	// lifecycle would silently disable the guard.
 	if a.toolSetRejected(ctx, best) {
@@ -604,7 +604,7 @@ func computeLineageShares(agents []*mutation.Strategy) map[string]int {
 }
 
 // GenerationActive reports whether an adapter-driven evolution run is
-// currently executing (live-chaos GA quiet-window probe, #12 Phase 2).
+// currently executing (live-chaos GA quiet-window probe).
 func (a *GenomePopulationAdapter) GenerationActive() bool {
 	return a != nil && a.running.Load()
 }

@@ -1,5 +1,5 @@
 // shadow_gate_wiring.go decides whether the PRODUCTION G2 shadow gate is
-// registered (evolution loop closure E2). It mirrors eval_gate_wiring.go's
+// registered. It mirrors eval_gate_wiring.go's
 // honest-absence contract: an absent gate is reported, never silently
 // substituted with a pass-through pretending to be verification.
 //
@@ -9,8 +9,8 @@
 //	POST-deployment verification is armed.
 //
 // Concretely — no independent scorer means no shadow evidence can exist, so
-// a registered G2 would reject every candidate forever (measured in 0.3.1:
-// only the seed strategy ever promotes, and asm.Previous() stays nil so
+// a registered G2 would reject every candidate forever (measured: only
+// the seed strategy ever promotes, and asm.Previous() stays nil so
 // automatic rollback is ALSO unreachable). In that state the honest options
 // are (a) let canary + rollback carry the risk, or (b) refuse to promote at
 // all — which one applies depends on whether rollback is actually armed,

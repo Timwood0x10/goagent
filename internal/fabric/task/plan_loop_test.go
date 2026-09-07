@@ -47,7 +47,7 @@ func failTask(t *testing.T, f *Fabric, id string) {
 	}
 }
 
-// waitFor polls cond with a timeout — the code_rules §7.3 sanctioned
+// waitFor polls cond with a timeout — the sanctioned
 // alternative to sleep-based synchronization.
 func waitFor(t *testing.T, desc string, cond func() bool) {
 	t.Helper()

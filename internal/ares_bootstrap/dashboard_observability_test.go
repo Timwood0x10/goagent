@@ -10,7 +10,7 @@ import (
 
 // TestEvolutionTrajectoryProvider verifies the tracer adapter renders recorded
 // generations as JSON-friendly values enriched with change attribution
-// (M3-3) and human-feedback combined fitness (M3-2), and nil input yields nil
+// and human-feedback combined fitness, and nil input yields nil
 // (endpoint disabled).
 func TestEvolutionTrajectoryProvider(t *testing.T) {
 	if got := NewEvolutionTrajectoryProvider(nil, nil); got != nil {

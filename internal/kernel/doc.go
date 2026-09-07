@@ -1,4 +1,4 @@
-// Package kernel is the ARES scheduling kernel (convergence Phase 1: the
+// Package kernel is the ARES scheduling kernel (the
 // former kernelscheduler, kernelctx, and system_runtime, unified).
 //
 // It is the ONLY place scheduling decisions are made: quantum-based task

@@ -205,7 +205,7 @@ func seedEvidence(ctx context.Context, t *testing.T, s *MemoryStore, n int) {
 	}
 }
 
-// TestMemoryStore_TTLExpiry locks the N9 contract: the TTL field is honored —
+// TestMemoryStore_TTLExpiry locks the TTL contract: the TTL field is honored —
 // a record whose (timestamp + TTL) has elapsed is excluded from Query (zero
 // TTL means no expiry).
 func TestMemoryStore_TTLExpiry(t *testing.T) {

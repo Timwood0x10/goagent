@@ -88,8 +88,8 @@ func TestSpawnAgentCreatesAgentInFabric(t *testing.T) {
 	}
 }
 
-// TestSpawnAgentInjectsExecutableCognition verifies the C1 upgrade
-// (aresos-agentos-plan C1: spawn 的 agent 带执行体): when an executor factory
+// TestSpawnAgentInjectsExecutableCognition verifies the upgrade
+// (spawn 的 agent 带执行体): when an executor factory
 // is wired, the agent spawned by the syscall carries a real Cognition from
 // birth — Agent.Executable() reports true and a quantum can be executed
 // through the fabric — not just a provenance record. The same executor
@@ -182,7 +182,7 @@ func TestSpawnAgentRejectsEmptyCapability(t *testing.T) {
 	}
 }
 
-// TestSpawnAgentRejectsNonRoutableCapability locks the M4-D single-path
+// TestSpawnAgentRejectsNonRoutableCapability locks the single-path
 // gate: a spawned peer only receives L2-router quanta, so a legacy
 // capability must fail fast instead of yielding a permanently idle peer.
 func TestSpawnAgentRejectsNonRoutableCapability(t *testing.T) {
@@ -193,7 +193,7 @@ func TestSpawnAgentRejectsNonRoutableCapability(t *testing.T) {
 	}
 }
 
-// TestCreateTaskRejectsNonRoutableCapability locks the M4-D single-path
+// TestCreateTaskRejectsNonRoutableCapability locks the single-path
 // gate on the create_task syscall: same fail-fast contract as SpawnAgent.
 func TestCreateTaskRejectsNonRoutableCapability(t *testing.T) {
 	kernel := NewKernel(nil, taskfabric.NewFabric(), nil, nil)
@@ -277,7 +277,7 @@ func TestCreateTaskRejectsEmptyCapability(t *testing.T) {
 
 // TestSpawnAgentEnforcesContextCaller verifies the Kernel overrides any
 // LLM-supplied ParentID with the tool-context caller — parentage can never be
-// forged by a spawned agent's arguments (plan D1-5: provenance is enforced by
+// forged by a spawned agent's arguments (provenance is enforced by
 // the Kernel, not trusted from LLM params).
 func TestSpawnAgentEnforcesContextCaller(t *testing.T) {
 	agents := agentfabric.NewFabric()
@@ -487,7 +487,7 @@ func TestAskAgent_BoundToBinder(t *testing.T) {
 	}
 }
 
-// TestCreatePlanCompilesBatchIntoFabric verifies the W9 create_plan syscall:
+// TestCreatePlanCompilesBatchIntoFabric verifies the create_plan syscall:
 // a valid multi-step plan compiles into an all-READY batch with dependencies
 // intact and Kernel-stamped origins.
 func TestCreatePlanCompilesBatchIntoFabric(t *testing.T) {
@@ -526,7 +526,7 @@ func TestCreatePlanRejectsEmptySteps(t *testing.T) {
 	}
 }
 
-// TestCreatePlanRejectsNonRoutableCapability locks the M4-D single-path
+// TestCreatePlanRejectsNonRoutableCapability locks the single-path
 // gate on batch submission: a step no executor can serve fails the whole
 // batch atomically (nothing is created on error).
 func TestCreatePlanRejectsNonRoutableCapability(t *testing.T) {

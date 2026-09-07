@@ -9,7 +9,7 @@ import "errors"
 // agent is killed or retired, so the budget reflects live agents only.
 //
 // Only resource keys present in the budget are enforced; resources without a
-// budget entry are carried as hints (pre-P5 behavior) and never rejected.
+// budget entry are carried as hints (legacy behavior) and never rejected.
 // Non-numeric hint values (e.g. {"gpu": "a100"}) are ignored for accounting.
 
 // ErrResourceQuotaExceeded is returned by Spawn when the requested resources
@@ -37,8 +37,8 @@ func (f *Fabric) WithResourceBudget(budget map[string]float64) *Fabric {
 	return f
 }
 
-// UpdateResourceBudget dynamically replaces the resource budget (v0.3.0 M2-2:
-// evolution-driven resource allocation — the Evolution system adjusts CPU /
+// UpdateResourceBudget dynamically replaces the resource budget
+// (evolution-driven resource allocation — the Evolution system adjusts CPU /
 // memory quota weights at runtime without recreating the fabric). Existing
 // allocations are NOT retroactively rejected: the new budget applies to
 // future spawn admission checks. A nil or empty map disables enforcement.

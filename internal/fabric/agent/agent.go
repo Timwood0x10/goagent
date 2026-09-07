@@ -51,7 +51,7 @@ type Agent struct {
 	// SpawnedAt is when the agent was created via spawn.
 	SpawnedAt time.Time
 
-	// resources is the agent's P5 resource claim (name → amount), recorded at
+	// resources is the agent's resource claim (name → amount), recorded at
 	// spawn for quota accounting and released on kill/retire. Guarded by
 	// Fabric.mu (the registry lock), not a.mu: it is only read/written under
 	// the fabric lock during spawn/kill/retire.
@@ -61,19 +61,19 @@ type Agent struct {
 	cognitive      CognitiveState
 	privateContext map[string]any
 	taskContext    map[string]any // shared task state (read-only view for the agent)
-	// cognition is the agent's execution body (A1: 执行能力注入统一 Agent).
+	// cognition is the agent's execution body (执行能力注入统一 Agent).
 	// Nil means the agent has no execution capability yet — it can be managed
 	// (spawn/kill/recover) but cannot run a quantum until injected via
 	// SpawnSpec.CognitionFactory. Guarded by mu.
 	cognition Cognition
-	// governance is the P3 budget state (see governance.go). Nil when the
+	// governance is the budget state (see governance.go). Nil when the
 	// agent was spawned without budgets.
 	governance *governanceState
 }
 
 // CognitiveStateSchemaVersion is the current CognitiveState schema version.
 // Bump when CognitiveState fields change; DecodeCognitiveState handles
-// migration from prior versions. (A2: 带版本的结构.)
+// migration from prior versions. (带版本的结构.)
 const CognitiveStateSchemaVersion = 1
 
 // CognitiveState is the agent's independent cognitive content (design §13:
@@ -87,7 +87,7 @@ const CognitiveStateSchemaVersion = 1
 // (legacy), which DecodeCognitiveState accepts as compatible.
 type CognitiveState struct {
 	// SchemaVersion is the state's schema version. Set by SetCognitiveState
-	// and Recover; zero means legacy (pre-A2) and is accepted by
+	// and Recover; zero means legacy and is accepted by
 	// DecodeCognitiveState.
 	SchemaVersion int
 	// Context is the active reasoning context (task goal + constraints).
@@ -127,11 +127,11 @@ var ErrAgentNotSuspended = errors.New("agentfabric: agent not suspended")
 var ErrAgentRunning = errors.New("agentfabric: agent running")
 
 // ErrAgentNotExecutable is returned when ExecuteStep is called on an agent
-// that was spawned without a CognitionFactory (A1: 执行能力未注入).
+// that was spawned without a CognitionFactory (执行能力未注入).
 var ErrAgentNotExecutable = errors.New("agentfabric: agent not executable")
 
-// Executable reports whether the agent has an execution body injected (A1:
-// 执行能力已注入). An agent spawned without a CognitionFactory is managed
+// Executable reports whether the agent has an execution body injected
+// (执行能力已注入). An agent spawned without a CognitionFactory is managed
 // (spawn/kill/recover) but NOT schedulable — the scheduler must not offer it
 // as a candidate. Thread-safe; reads the cognition under the agent lock.
 func (a *Agent) Executable() bool {

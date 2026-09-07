@@ -390,7 +390,7 @@ type SystemConfig struct {
 	// mutation hints from past strategy outcomes.
 	LLMClient LLMClient
 
-	// EnableIntelligence enables the Phase 3-5 intelligence pipeline:
+	// EnableIntelligence enables the LLM intelligence pipeline:
 	// reflection → hypothesis generation → meta-controller tuning.
 	// When true AND LLMClient is set, an LLMReflector is wired into the
 	// evolution cycle to analyze patterns, generate hypotheses, and

@@ -28,7 +28,7 @@ const (
 	// ErrCodeDiversityCollapse indicates critically low population diversity.
 	ErrCodeDiversityCollapse GuardrailErrorCode = "EVAL_DIVERSITY_COLLAPSE"
 	// ErrCodeInvalidToolSet indicates an evolved tool whitelist violates the
-	// upper bound or would leave the agent with zero enabled tools (C6). The
+	// upper bound or would leave the agent with zero enabled tools. The
 	// former wastes the tool budget; the latter is the exact dead-end the
 	// zero-intersection fallback guard (chat_cognition.go / sub/executor.go)
 	// prevents at runtime — the guardrail catches it at selection time, before
@@ -124,8 +124,8 @@ type EvolutionGuardrails struct {
 	MaxLineageShare float64
 
 	// MaxToolsEnabled is the upper bound on the size of an evolved tool
-	// whitelist (C6). 0 disables the upper-bound check (all tools allowed, the
-	// pre-C6 behavior). A positive value means a Params["tools"] set larger than
+	// whitelist. 0 disables the upper-bound check (all tools allowed, the
+	// legacy behavior). A positive value means a Params["tools"] set larger than
 	// this is rejected at selection time — a spawned tool set that exceeds the
 	// budget both wastes capacity and may surface tools the deployment never
 	// intended to expose.
@@ -138,7 +138,7 @@ type EvolutionGuardrails struct {
 	// default.
 	requireAnyTool bool
 
-	// knownTools is the vocabulary of ACTUALLY REGISTERED tool names (§8.6-3).
+	// knownTools is the vocabulary of ACTUALLY REGISTERED tool names.
 	// Nil/empty disables the check (no vocabulary supplied = cannot judge).
 	// Without it the guardrail only bounds the SIZE of a whitelist: a mutation
 	// that produces three names none of which exist passes the bound, then hits
@@ -181,15 +181,15 @@ func WithMaxLineageShare(share float64) GuardrailOption {
 	}
 }
 
-// WithMaxToolsEnabled sets the upper bound on an evolved tool whitelist size
-// (C6). A non-positive value disables the bound.
+// WithMaxToolsEnabled sets the upper bound on an evolved tool whitelist size.
+// A non-positive value disables the bound.
 func WithMaxToolsEnabled(n int) GuardrailOption {
 	return func(g *EvolutionGuardrails) {
 		g.MaxToolsEnabled = n
 	}
 }
 
-// WithRequireAnyTool enables the "zero enabled tools is invalid" check (C6).
+// WithRequireAnyTool enables the "zero enabled tools is invalid" check.
 // Off by default so text-only strategies are not rejected; the deployment turns
 // it on when it wants every strategy to advertise at least one tool.
 func WithRequireAnyTool(enabled bool) GuardrailOption {
@@ -199,7 +199,7 @@ func WithRequireAnyTool(enabled bool) GuardrailOption {
 }
 
 // WithKnownTools supplies the registered-tool vocabulary used to validate that
-// an evolved whitelist names tools that actually exist (§8.6-3). An empty or nil
+// an evolved whitelist names tools that actually exist. An empty or nil
 // set disables the check, preserving pre-existing behavior for deployments that
 // cannot enumerate their registry at guardrail-construction time.
 func WithKnownTools(names []string) GuardrailOption {
@@ -470,7 +470,8 @@ func (g *EvolutionGuardrails) RecordEvent(event GuardrailEvent) {
 	g.recordEventLocked(event)
 }
 
-// ValidateToolSet checks an evolved tool whitelist against the C6 guards: an
+// ValidateToolSet checks an evolved tool whitelist against the tool-set
+// guards: an
 // upper bound on set size and (optionally) the "at least one tool" invariant.
 // It does NOT mutate any state — it reports whether a candidate's chosen tool
 // set may move into selection/promotion. Called at selection time, before a bad
@@ -531,7 +532,7 @@ func (g *EvolutionGuardrails) ValidateToolSet(generation int, tools []string) *G
 		g.RecordEvent(event)
 	}
 
-	// §8.6-3 vocabulary alignment: every named tool must exist in the registry.
+	// Vocabulary alignment: every named tool must exist in the registry.
 	// A whitelist of names that do not resolve is not a narrower tool set — at
 	// runtime it intersects to zero and the executors fall back to the FULL set,
 	// so the strategy silently becomes the broadest possible one. Reject it here

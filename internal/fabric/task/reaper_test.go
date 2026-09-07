@@ -25,7 +25,7 @@ func seedCompletedTask(t *testing.T, f *Fabric, id string) {
 	}
 }
 
-// TestReaper_KeepSetProtectsLiveSession locks the P0-1 keep-set semantics:
+// TestReaper_KeepSetProtectsLiveSession locks the keep-set semantics:
 // a task whose owning session is still live is NEVER harvested, no matter
 // how far past the grace window it is — the wall-clock grace must not eat
 // a long session's readable history (decision C). Only released sessions

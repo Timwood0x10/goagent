@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// TestSpawnResourceQuotaRejectsOverBudget verifies P5 resource admission: a
+// TestSpawnResourceQuotaRejectsOverBudget verifies resource admission: a
 // spawn whose claim exceeds the remaining budget is rejected with
 // ErrResourceQuotaExceeded and leaves the fabric untouched (no agent, no
 // partial allocation).
@@ -41,7 +41,7 @@ func TestSpawnResourceQuotaRejectsOverBudget(t *testing.T) {
 }
 
 // TestSpawnResourceUnbudgetedKeyAllowed verifies resources without a budget
-// entry are never rejected (carried as hints, pre-P5 behavior preserved).
+// entry are never rejected (carried as hints, legacy behavior preserved).
 func TestSpawnResourceUnbudgetedKeyAllowed(t *testing.T) {
 	f := NewFabric().WithResourceBudget(map[string]float64{"cpu": 1})
 	if _, err := f.Spawn(context.Background(), SpawnSpec{
@@ -65,7 +65,7 @@ func TestSpawnNoBudgetAlwaysAllowed(t *testing.T) {
 }
 
 // TestKillReleasesResourceQuota verifies a killed agent's claim returns to the
-// budget so a later spawn can reuse it (crash path; P5).
+// budget so a later spawn can reuse it (crash path).
 func TestKillReleasesResourceQuota(t *testing.T) {
 	f := NewFabric().WithResourceBudget(map[string]float64{"cpu": 4})
 	if _, err := f.Spawn(context.Background(), SpawnSpec{
@@ -94,7 +94,7 @@ func TestKillReleasesResourceQuota(t *testing.T) {
 }
 
 // TestRetireReleasesResourceQuota verifies a retired agent's claim returns to
-// the budget (graceful decommission path; P5).
+// the budget (graceful decommission path).
 func TestRetireReleasesResourceQuota(t *testing.T) {
 	f := NewFabric().WithResourceBudget(map[string]float64{"memory": 1000})
 	if _, err := f.Spawn(context.Background(), SpawnSpec{

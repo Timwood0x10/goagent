@@ -6,7 +6,7 @@ import (
 )
 
 // TestMemoryEventStore_TrimBefore verifies the memory half of the compaction
-// trim loop (P1-2③): events at or below endVersion are reclaimed from both
+// trim loop: events at or below endVersion are reclaimed from both
 // the stream view and the global replay slice.
 func TestMemoryEventStore_TrimBefore(t *testing.T) {
 	m := NewMemoryEventStore()

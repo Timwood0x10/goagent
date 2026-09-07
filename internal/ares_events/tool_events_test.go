@@ -7,7 +7,7 @@ import (
 // TestToolArgShape_CollapsesValues is the $11.0 aggregation-key invariant:
 // the same tool called with the same argument KEY SET collapses to one shape
 // regardless of values, while a different key set diverges. This is what lets
-// the trajectory projection (Y1 C2) aggregate "same tool, same usage" without
+// the trajectory projection aggregate "same tool, same usage" without
 // fragmenting on parameter values.
 func TestToolArgShape_CollapsesValues(t *testing.T) {
 	cases := []struct {
@@ -33,11 +33,10 @@ func TestToolArgShape_CollapsesValues(t *testing.T) {
 	}
 }
 
-// TestToolCompletedPayload_UnifiedKeys is the C1 identity-set invariant: every
-// executor's completed payload must carry the SAME key set so the projection
-// layer reads one contract, not three ad-hoc shapes. The keys here must match
-// what agentfabric/chat_cognition.go, agents/sub/executor.go and
-// agentloop/engine.go emit.
+// TestToolCompletedPayload_UnifiedKeys is the identity-set invariant: every
+// emitter's completed payload must carry the SAME key set so the projection
+// layer reads one contract, not ad-hoc shapes. The keys here must match what
+// the tool-event emitters (agentloop/engine.go) emit.
 func TestToolCompletedPayload_UnifiedKeys(t *testing.T) {
 	p := ToolCompletedPayload{
 		AgentID:     "a1",

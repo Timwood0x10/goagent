@@ -5,7 +5,7 @@
 // providers (live memSearcher/embedding backends) — NOT the Bootstrap runtime,
 // whose memory provider has no searcher — and that the Bootstrap NewEvolution's
 // KnowledgePatchExecutor is bound to that same instance via
-// UpdateLiveKnowledgeRuntime. This satisfies §5.2 (one runtime across AKF
+// UpdateLiveKnowledgeRuntime. This satisfies the sharing rule (one runtime across AKF
 // tools and the patch executor) without reintroducing a nil-searcher runtime.
 package sdk
 

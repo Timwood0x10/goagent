@@ -225,7 +225,7 @@ func (r *KnowledgeRuntime) Execute(ctx context.Context, goal string, budget know
 
 // loadAndProcess streams objects from all selected providers concurrently,
 // runs the KnowledgePipeline on each object, and collects results.
-// Uses errgroup for goroutine lifecycle management (§4.5: no bare goroutines).
+// Uses errgroup for goroutine lifecycle management (no bare goroutines).
 func (r *KnowledgeRuntime) loadAndProcess(ctx context.Context, sources []planner.PlannedSource, cfg *Config) (map[string]*knowledge.KnowledgeObject, error) {
 	objects := make(map[string]*knowledge.KnowledgeObject)
 	var mu sync.Mutex
@@ -329,7 +329,7 @@ func (r *KnowledgeRuntime) link(ctx context.Context, objects map[string]*knowled
 		allEdges = append(allEdges, edges...)
 	}
 
-	// Defensive dedup on the (From, To, Name) triple (#43): individual
+	// Defensive dedup on the (From, To, Name) triple: individual
 	// linkers cannot produce duplicates today, but nothing enforces that
 	// invariant across current or future linkers, and downstream aggregation
 	// has no dedup either. First occurrence wins; Properties/Score of the

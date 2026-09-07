@@ -8,7 +8,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/fabric/task"
 )
 
-// TestCapabilitiesIncludesFabricAgents pins the M4-D fix: with an empty
+// TestCapabilitiesIncludesFabricAgents pins the fix: with an empty
 // static pool (production fabric-only mode), Capabilities must still report
 // the live fabric population's advertised sets — otherwise the
 // graph-submission endpoint would 400 every request for lack of a routable

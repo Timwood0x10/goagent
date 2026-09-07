@@ -10,7 +10,7 @@ import (
 
 // cloneMetadata deep-copies a Step.Metadata map; nil stays nil. Used wherever a
 // DAGNode.Metadata snapshot is taken from a Step so the node never aliases the
-// step's live map (code_rules: no shared mutable state without ownership).
+// step's live map (no shared mutable state without ownership).
 func cloneMetadata(md map[string]string) map[string]string {
 	if md == nil {
 		return nil
@@ -454,7 +454,7 @@ func (m *MutableDAG) snapshotDAGLocked() *DAG {
 // and the *MutableDAG identity. It updates BOTH the owning Step (so the patch
 // survives a snapshot/restore, which is driven by steps) and the DAGNode's
 // metadata snapshot (so WorkflowDiffer sees the metadata-only change as a
-// patch). This is the C4 mutation target for a ToolStep node's enabled/budget/
+// patch). This is the mutation target for a ToolStep node's enabled/budget/
 // prior attributes.
 func (m *MutableDAG) SetNodeMetadata(nodeID string, md map[string]string) error {
 	m.mu.Lock()
@@ -513,7 +513,7 @@ func (m *MutableDAG) StepIndex() map[string]*Step {
 	return idx
 }
 
-// NodeMetadata returns a copy of one node's Metadata under read lock (M5).
+// NodeMetadata returns a copy of one node's Metadata under read lock.
 // The planner reads L1 enabled/budget/prior through this — never by holding
 // a *Step pointer across the lock boundary — so a concurrent SetNodeMetadata
 // (evolution patch) cannot race the read. ok=false when the node is unknown.
@@ -825,7 +825,7 @@ func (m *MutableDAG) ReplaceNode(ctx context.Context, oldID string, newStep *Ste
 		delete(m.steps, oldID)
 		m.steps[newStep.ID] = newStep
 	} else {
-		// Same-ID replacement (#31): edges contributed by the OLD step's
+		// Same-ID replacement: edges contributed by the OLD step's
 		// DependsOn that are absent from the new step's DependsOn must be
 		// removed, otherwise the node silently keeps stale dependencies.
 		if oldStep, ok := m.steps[oldID]; ok {
@@ -849,7 +849,7 @@ func (m *MutableDAG) ReplaceNode(ctx context.Context, oldID string, newStep *Ste
 
 		m.steps[oldID] = newStep
 		// Same-ID replace: refresh the node's Metadata snapshot from the new
-		// step so a metadata-only replace is visible to WorkflowDiffer (C4).
+		// step so a metadata-only replace is visible to WorkflowDiffer.
 		m.dag.Nodes[oldID].Metadata = cloneMetadata(newStep.Metadata)
 		// Add new DependsOn edges, checking for duplicates.
 		for _, dep := range newStep.DependsOn {

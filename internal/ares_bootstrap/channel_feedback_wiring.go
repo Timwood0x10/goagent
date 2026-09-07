@@ -1,5 +1,5 @@
 // channel_feedback_wiring.go builds the OBSERVE stage for the two perception
-// channels evolution was blind to (closure plan Step Y.2/Y.3): cross-agent
+// channels evolution was blind to: cross-agent
 // collaboration receipts and tool-call outcomes.
 //
 // The recorder is constructed here but ATTACHED by the wiring layer (cmd/ares):
@@ -19,7 +19,7 @@ import (
 // right now" resolver both observers need. It calls Current() on every
 // invocation rather than capturing a snapshot: the ASM promotes and rolls back
 // at runtime, and a frozen ID would attribute new evidence to a strategy that
-// stopped being active (the same defect Step 6.2 fixed on the baseline side of
+// stopped being active (the same defect fixed on the baseline side of
 // deployment staging).
 //
 // Args:
@@ -44,7 +44,7 @@ func activeStrategyIDFunc(asm *evolution.ActiveStrategyManager) func() string {
 //   - no evidence store: nowhere to write.
 //   - no ActiveStrategyManager: nothing to attribute records to, so every
 //     record would be dropped. A recorder that drops 100% of its input while
-//     reporting itself as wired is the exact failure class the closure plan
+//     reporting itself as wired is the exact failure class this wiring
 //     exists to remove, so it is refused loudly in the log instead.
 //
 // Args:

@@ -3,8 +3,8 @@ package observability
 import "context"
 
 // MetricsTracer is a Tracer adapter that feeds real LLM/tool calls into the
-// Prometheus registry and the cost dashboard. It closes the W1 data path:
-// without it, client.SetTracer(NewNoopTracer()) left every ARES_* counter at
+// Prometheus registry and the cost dashboard. Before it existed, the
+// default NoopTracer left every ARES_* counter at
 // zero — the /metrics endpoint was wired but永远 empty.
 //
 // Structure: embeds the Noop tracer for the firehose methods the metrics

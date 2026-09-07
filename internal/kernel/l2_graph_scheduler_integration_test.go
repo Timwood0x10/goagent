@@ -22,7 +22,7 @@ import (
 const answerBody = "answer: tool chain complete"
 
 // echoBinder is a scripted ToolBinder whose tools echo their args back. It is
-// injected into the session agent's router cognition so the M1 integration
+// injected into the session agent's router cognition so the integration
 // test can confirm data actually flowed through the scheduled tool call.
 type echoBinder struct {
 	called []string
@@ -165,7 +165,7 @@ func spawnSessionAgent(ctx context.Context, agents *agentfabric.Fabric, binder *
 // compilePlan projects a plan's non-root nodes onto PlanSteps and compiles
 // them as ONE batch. Raw f.Create is deliberately NOT
 // used here: it bypasses dependency-closure validation, cycle detection and
-// all-or-nothing rollback — the entire M0 seam. Compiling through CompilePlan
+// all-or-nothing rollback. Compiling through CompilePlan
 // keeps step ID = task ID (the graph↔envelope join key) while also pinning
 // that a plan which would be rejected (dangling dep, cycle) fails here
 // instead of passing green into the scheduler.
@@ -295,7 +295,7 @@ func TestItemContents_ToleratesReloadedEnvelope(t *testing.T) {
 // acceptance: L2 growth → SubscribeGraphEvents → the REAL Scheduler.Run →
 // envelopes read back by ID join. Growth, incremental compile, and execution
 // overlap (the subscriber and the scheduler run while nodes are still being
-// added) — the M2 runtime shape, with -race watching for event/Step aliasing.
+// added) — the production runtime shape, with -race watching for event/Step aliasing.
 func TestL2Graph_IncrementalEventsDriveSchedulerToCompletion(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -310,7 +310,7 @@ func TestL2Graph_IncrementalEventsDriveSchedulerToCompletion(t *testing.T) {
 
 	// Session admission: the root is constructed pre-subscription (its
 	// creation publishes no event), so it is compiled explicitly — the
-	// pattern M2 session wiring follows. The admission task completes in one
+	// pattern session wiring follows. The admission task completes in one
 	// zero-work quantum and carries the session prompt in its envelope.
 	admitSessionRoot(t, ctx, fabric, plan)
 
@@ -337,7 +337,7 @@ func TestL2Graph_IncrementalEventsDriveSchedulerToCompletion(t *testing.T) {
 		"every grown node — admission root included — has exactly one task")
 }
 
-// TestL2Graph_BurstGrowthConvergesThroughEvents pins the D2 acceptance on the
+// TestL2Graph_BurstGrowthConvergesThroughEvents pins the acceptance on the
 // live seam: 70 nodes grown in a tight burst (past the 64-event hub buffer)
 // while the subscriber compiles and the scheduler executes. Whether delivery
 // or reconcile compensation materializes the tail, every node still ends

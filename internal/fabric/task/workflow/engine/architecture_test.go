@@ -1,6 +1,6 @@
 package engine
 
-// Architecture gate 6.2 (agent-os-loop-wiring plan §6.2): every exported type
+// Architecture gate 6.2: every exported type
 // declared in types.go must have at least one PRODUCTION reference outside its
 // declaring file (a non-test .go file). This is the dead-declaration defense:
 // types like LoopConfig / ConditionFunc survived multiple releases declaring

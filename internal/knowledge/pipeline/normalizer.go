@@ -109,7 +109,7 @@ func (s *DefaultSummarizer) Summarize(_ context.Context, obj *knowledge.Knowledg
 	if len(source) <= maxLen {
 		obj.Summary = source
 	} else {
-		// Truncate by RUNES, not bytes (#44): source[:maxLen] on byte bounds
+		// Truncate by RUNES, not bytes: source[:maxLen] on byte bounds
 		// splits multi-byte UTF-8 sequences (CJK is 3 bytes/char) producing
 		// invalid summaries. The word-boundary trim only applies when a space
 		// exists well inside the truncated head (CJK has none).
@@ -266,7 +266,7 @@ func jaccardOverlap(a, b map[string]int) float64 {
 }
 
 // truncateUTF8Safe cuts b to at most max bytes without splitting a UTF-8
-// sequence (#44): it walks back from the cut point to the last rune start so
+// sequence: it walks back from the cut point to the last rune start so
 // the result is always valid UTF-8.
 func truncateUTF8Safe(b []byte, max int) string {
 	if len(b) <= max {

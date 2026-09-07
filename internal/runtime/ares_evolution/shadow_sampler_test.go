@@ -13,7 +13,7 @@ func TestShadowSampler_Prime(t *testing.T) {
 	candidate := &mutation.Strategy{ID: "cand-v2"}
 
 	t.Run("no_independent_scorer_leaves_zero_comparisons", func(t *testing.T) {
-		// No scorer wired → the sampler must NOT fabricate evidence; the G2
+		// No scorer wired → the sampler must NOT fabricate evidence; the shadow
 		// gate stays fail-closed (0 comparisons).
 		e := NewShadowEvaluator(ShadowEvaluationConfig{Enabled: true, MinSamples: 3})
 		s := NewShadowSampler(e, 3)
@@ -129,7 +129,7 @@ func TestShadowSampler_Prime(t *testing.T) {
 // TestShadowSampler_Prime_BatchTimeout verifies the batch deadline (fix #2):
 // a scorer that never returns promptly (simulating a hung LLM call) must not
 // hold the evolution heartbeat hostage — Prime returns once the deadline
-// elapses, leaving fewer than MinSamples comparisons so the G2 gate stays
+// elapses, leaving fewer than MinSamples comparisons so the shadow gate stays
 // fail-closed rather than judging a partial window.
 func TestShadowSampler_Prime_BatchTimeout(t *testing.T) {
 	e := NewShadowEvaluator(ShadowEvaluationConfig{Enabled: true, MinSamples: 3})

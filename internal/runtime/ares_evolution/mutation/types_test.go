@@ -274,11 +274,11 @@ func TestComputeEvidenceKey_EmptyToolsField(t *testing.T) {
 	}
 }
 
-// TestComputeEvidenceKey_IncludesBudgetPrior verifies the Y1 C5 attribution
+// TestComputeEvidenceKey_IncludesBudgetPrior verifies the attribution
 // half of the budget/prior wiring: both change execution behavior, so both
 // must change the key. Without these suffixes two strategies differing only
 // in budget or prior would share one evidence stream and evolution could not
-// select between them (the P1 gap: behavior moves, attribution does not).
+// select between them (behavior moves, attribution does not).
 func TestComputeEvidenceKey_IncludesBudgetPrior(t *testing.T) {
 	t.Parallel()
 

@@ -16,12 +16,12 @@ import (
 const taskIDKey = "task_id"
 
 // defaultRequestTimeout is used when Request is called with timeout <= 0
-// (B16: prevents indefinite blocking on a missing timeout).
+// (prevents indefinite blocking on a missing timeout).
 const defaultRequestTimeout = 30 * time.Second
 
 // ErrHandlerPanic is returned to the caller when a registered handler panics
 // during a Request. The panic is contained at the goroutine boundary
-// (code_rules §4.2: a goroutine must have a recover boundary or be guaranteed
+// (a goroutine must have a recover boundary or be guaranteed
 // not to panic) so a buggy or third-party handler fails ONE request instead of
 // terminating the process — a panic in a goroutine cannot be recovered by the
 // caller's stack, so containment has to happen where the goroutine runs.
@@ -42,7 +42,7 @@ var ErrHandlerPanic = errors.New("agentipc: handler panicked")
 // Returns:
 //   - error: ErrAgentNotRegistered / ErrNoHandler, or the handler error.
 func (b *Bus) Send(ctx context.Context, from, to, topic string, payload any) error {
-	// Step Y.2: measure the delivery receipt. A fire-and-forget send has no
+	// measure the delivery receipt. A fire-and-forget send has no
 	// answer to judge, but "the agent I addressed does not exist" and "its
 	// handler rejected my message" are still feedback about the initiator's
 	// choice of collaborator — and Send is the primitive the production peer
@@ -70,12 +70,12 @@ func (b *Bus) Send(ctx context.Context, from, to, topic string, payload any) err
 	b.mu.RLock()
 	h, ok := b.handlers[to]
 	b.mu.RUnlock()
-	// A-3: resolve the trace once — continued from the caller when present,
+	// resolve the trace once — continued from the caller when present,
 	// else a fresh root. Every exit below (delivered or dead-lettered)
 	// carries this same id.
 	traceID := b.traceOrNew(ctx)
 	if !ok {
-		// GAP-3: the target does not exist — the message is undeliverable.
+		// the target does not exist — the message is undeliverable.
 		b.deadLetters.Record(from, to, topic, payload, ErrAgentNotRegistered.Error(), traceID)
 		outcome = feedback.OutcomeNotFound
 		return ErrAgentNotRegistered
@@ -91,7 +91,7 @@ func (b *Bus) Send(ctx context.Context, from, to, topic string, payload any) err
 	}
 	_, err := h(ContextWithTraceID(ctx, traceID), msg)
 	if err != nil {
-		// GAP-3: record undelivered/failed fire-and-forget sends.
+		// record undelivered/failed fire-and-forget sends.
 		b.deadLetters.Record(from, to, topic, payload, err.Error(), traceID)
 		outcome = feedback.OutcomeFailure
 		return err
@@ -119,16 +119,16 @@ func (b *Bus) Send(ctx context.Context, from, to, topic string, payload any) err
 //   - *Message: the reply (nil on timeout/error).
 //   - error: ErrAgentNotRegistered / ErrNoHandler / ErrTimeout.
 func (b *Bus) Request(ctx context.Context, from, to, topic string, payload any, timeout time.Duration) (*Message, error) {
-	// B16: validate timeout — <=0 gets a sane default instead of blocking forever.
+	// validate timeout — <=0 gets a sane default instead of blocking forever.
 	if timeout <= 0 {
 		timeout = defaultRequestTimeout
 	}
-	// B16: derive a child context so the handler goroutine is cancelled when
+	// derive a child context so the handler goroutine is cancelled when
 	// the timeout fires or the caller cancels — the handler no longer leaks.
 	reqCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	// Step Y.2: measure the collaboration receipt. started is captured before
+	// measure the collaboration receipt. started is captured before
 	// the handler lookup so the latency covers what the initiator actually
 	// waited, including an addressing failure. The verdict starts unobserved
 	// and is set only at a known exit, so an unforeseen return path writes no
@@ -149,9 +149,9 @@ func (b *Bus) Request(ctx context.Context, from, to, topic string, payload any, 
 	b.mu.RLock()
 	h, ok := b.handlers[to]
 	b.mu.RUnlock()
-	// A-3: resolve the trace once (see Send). The unregistered-target exit
+	// resolve the trace once (see Send). The unregistered-target exit
 	// below is a genuine delivery failure — record it like Send does
-	// (previously this arm returned silently, the one GAP-3 hole).
+	// (previously this arm returned silently, the one coverage hole).
 	traceID := b.traceOrNew(ctx)
 	if !ok {
 		outcome = feedback.OutcomeNotFound
@@ -181,7 +181,7 @@ func (b *Bus) Request(ctx context.Context, from, to, topic string, payload any, 
 	// returns an error, a nil reply is delivered so the caller's select wakes
 	// up and the error is surfaced.
 	//
-	// P1-3 (deep review 2026-09-03): the goroutine carries a recover boundary.
+	// The goroutine carries a recover boundary.
 	// Handlers are foreign code — a registered agent handler, a collaboration
 	// executor, a third-party plugin — and a panic inside a goroutine cannot be
 	// recovered by the caller's stack, so without this the whole process dies
@@ -191,7 +191,7 @@ func (b *Bus) Request(ctx context.Context, from, to, topic string, payload any, 
 
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
-	// GAP-3: single dead-letter exit — replyErr captures the failure reason
+	// single dead-letter exit — replyErr captures the failure reason
 	// from whichever select arm fires, and exactly one Record happens below
 	// (the two timeout arms race; without the flag a message could be
 	// recorded twice).
@@ -222,7 +222,7 @@ func (b *Bus) Request(ctx context.Context, from, to, topic string, payload any, 
 		// failures, so recording cancellations here would evict them. Leave
 		// replyErr nil.
 		//
-		// Step Y.2: it is not a collaboration outcome either — the initiator
+		// It is not a collaboration outcome either — the initiator
 		// walked away, which says nothing about the target's quality. Scoring
 		// it would punish whichever agent happened to be asked when the
 		// caller's context expired.
@@ -236,9 +236,9 @@ func (b *Bus) Request(ctx context.Context, from, to, topic string, payload any, 
 }
 
 // invokeHandler runs one request handler inside the managed goroutine spawned
-// by Request, with the P1-3 recover boundary.
+// by Request, with the recover boundary.
 //
-// PANIC CONTAINMENT (code_rules §4.2): the handler is foreign code and runs on
+// PANIC CONTAINMENT: the handler is foreign code and runs on
 // its own goroutine, so a panic there is unrecoverable from the caller's stack
 // and would take the process down. The recover converts it into
 // ErrHandlerPanic delivered through the SAME sentinel-nil-reply path an ordinary
@@ -246,7 +246,7 @@ func (b *Bus) Request(ctx context.Context, from, to, topic string, payload any, 
 // burning its full timeout — a panicking handler is never going to reply, and
 // making the caller wait for the deadline would turn a fast failure into a slow
 // one. The panic value is deliberately not embedded in the error: it may carry
-// internal paths or request data (code_rules §3.5), so it goes to the log with
+// internal paths or request data, so it goes to the log with
 // context keys instead.
 //
 // Args:
@@ -281,7 +281,7 @@ func (b *Bus) invokeHandler(ctx context.Context, h Handler, req *Message, corrID
 		// Copy the handler-returned reply and stamp it — never mutate the
 		// caller's message (the handler may return a shared template
 		// across concurrent requests, so in-place stamping would race).
-		// A-3: the trace rides along — a reply belongs to its request's
+		// the trace rides along — a reply belongs to its request's
 		// causal chain by construction.
 		stamped := *reply
 		stamped.CorrelationID = corrID
@@ -296,7 +296,7 @@ func (b *Bus) invokeHandler(ctx context.Context, h Handler, req *Message, corrID
 }
 
 // logHandlerPanic reports a contained handler panic through the injected
-// logger. Library code must not print directly (code_rules §9.1), so a bus
+// logger. Library code must not print directly, so a bus
 // without a logger stays silent rather than writing to stderr — the caller
 // still learns about the failure through ErrHandlerPanic.
 func (b *Bus) logHandlerPanic(req *Message, from, to string, panicValue any) {
@@ -379,8 +379,8 @@ func (b *Bus) popError(corrID string) error {
 	return err
 }
 
-// Delegate forwards a request to another agent on the caller's behalf (design
-// §4 IPC: Delegate). The delegating agent is the one making the call; the
+// Delegate forwards a request to another agent on the caller's behalf
+// (IPC: Delegate). The delegating agent is the one making the call; the
 // target sees the delegator as the From. The original requester's
 // correlation id is preserved end-to-end so the reply can chain back. This is
 // the primitive for "I can't handle this — let me ask someone who can".
@@ -400,8 +400,8 @@ func (b *Bus) Delegate(ctx context.Context, delegator, to, topic string, payload
 	return b.Request(ctx, delegator, to, topic, payload, timeout)
 }
 
-// Handoff transfers a task's ownership from one agent to another (design §4
-// IPC: Handoff). Unlike Send, Handoff carries a structured handoff payload
+// Handoff transfers a task's ownership from one agent to another (IPC:
+// Handoff). Unlike Send, Handoff carries a structured handoff payload
 // (task id + context snapshot + artifacts) and the receiver acknowledges
 // acceptance. The sender yields the task; the receiver takes it. This is the
 // peer-to-peer task-transfer primitive — it does NOT go through the Scheduler.
@@ -426,7 +426,7 @@ func (b *Bus) Handoff(ctx context.Context, from, to, taskID string, contextSnaps
 	return b.Request(ctx, from, to, "handoff-task", payload, timeout)
 }
 
-// Subscribe registers an agent's interest in a topic (design §4 IPC:
+// Subscribe registers an agent's interest in a topic (IPC:
 // Subscribe). Subscribers receive broadcast messages on that topic. A
 // broadcast to a topic fans out to every subscriber's handler. This is the
 // primitive for "I found X — anyone interested in X should know".
@@ -443,7 +443,7 @@ func (b *Bus) Subscribe(agentID, topic string) error {
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	// B16: deduplicate — don't add the same agent to the same topic twice.
+	// deduplicate — don't add the same agent to the same topic twice.
 	for _, existing := range b.subscribers[topic] {
 		if existing == agentID {
 			return nil // already subscribed
@@ -485,7 +485,7 @@ func (b *Bus) Broadcast(ctx context.Context, from, topic string, payload any) in
 	copy(subs, b.subscribers[topic])
 	b.mu.RUnlock()
 
-	// A-3: one trace for the whole fan-out — every delivery shares the
+	// one trace for the whole fan-out — every delivery shares the
 	// broadcast's causal id.
 	traceID := b.traceOrNew(ctx)
 	delivered := 0
@@ -508,7 +508,7 @@ func (b *Bus) Broadcast(ctx context.Context, from, topic string, payload any) in
 		if _, err := h(ContextWithTraceID(ctx, traceID), msg); err == nil {
 			delivered++
 		} else {
-			// GAP-3: a fan-out delivery the target rejected is a genuine
+			// a fan-out delivery the target rejected is a genuine
 			// failure — record it without stopping the fan-out.
 			b.deadLetters.Record(from, subID, topic, payload, err.Error(), traceID)
 		}

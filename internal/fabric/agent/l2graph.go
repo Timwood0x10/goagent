@@ -16,7 +16,7 @@ import (
 // engine.MutableDAG whose nodes are TOOL INSTANCES — one node per actual tool
 // execution — together with the session root that carries the durable,
 // session-invariant prompt/params. It is an independent, testable container
-// over a frozen tool DAG, and it is the production serve path (M4-D: peers
+// over a frozen tool DAG, and it is the production serve path (peers
 // run the L2 router; the ReAct loop is deleted).
 //
 // The L2 graph is a first-class engine.MutableDAG so it reuses every workflow
@@ -71,7 +71,7 @@ func NewL2Graph(rootID, prompt string, params map[string]any) (*L2Graph, error) 
 // Root returns the session root node id.
 func (g *L2Graph) Root() string { return g.root }
 
-// planAgentType is the L2 capability for plan nodes (M2). Used by PlanDepth
+// planAgentType is the L2 capability for plan nodes. Used by PlanDepth
 // to count plan nodes and by AddToolNode to stamp the right AgentType.
 const planAgentType = "ares/plan"
 
@@ -82,7 +82,7 @@ const answerAgentType = "ares/answer"
 const rootAgentType = "ares/root"
 
 // IsL2Capability reports whether a capability is dispatched by the L2
-// session router (M4-C1/C4): tool/<name> instances and the ares/root,
+// session router (tool/<name> instances and the ares/root,
 // ares/plan, ares/answer session nodes. Everything else is legacy ReAct
 // traffic. The two sets partition scheduler routing by construction —
 // canary peers advertise only the L2 set, legacy peers only primary types.
@@ -99,7 +99,7 @@ func IsL2Capability(capability string) bool {
 }
 
 // PlanDepth returns the current plan-tool growth depth of the L2 graph
-// (M2-④: 生长深度上界护栏). Depth is the number of plan nodes in the graph
+// (生长深度上界护栏). Depth is the number of plan nodes in the graph
 // minus the root (which is an admission node, not a plan node). The planner
 // reads this to enforce the growth-depth upper bound.
 func (g *L2Graph) PlanDepth() int {
@@ -143,7 +143,7 @@ func (g *L2Graph) HasNode(nodeID string) bool {
 
 // CountToolClass counts how many L2 tool-instance nodes of the given tool
 // currently exist in the graph. The planner uses this to enforce the L1 budget
-// constraint (M5: budget=N caps instances per session).
+// constraint (budget=N caps instances per session).
 //
 // One tool name is one ToolClass: the class shape is derived from the tool's
 // DECLARED schema (resources.ToolArgShape), which is a property of the tool,
@@ -251,9 +251,9 @@ func (g *L2Graph) AddToolNode(ctx context.Context, id, tool string, args map[str
 // it from there. The L2 graph holds topology + Metadata (the plan) only.
 type routerCognition struct {
 	binder  ToolBinder
-	planner Cognition // optional: ares/plan dispatch body (M2)
+	planner Cognition // optional: ares/plan dispatch body
 	// sessions is released by the answer body when the terminal node
-	// completes (M4-B2). Nil unless built with session wiring.
+	// completes. Nil unless built with session wiring.
 	sessions *SessionRegistry
 	logger   *slog.Logger
 }
@@ -263,7 +263,7 @@ var _ Cognition = (*routerCognition)(nil)
 // NewRouterCognition builds the capability-dispatch Cognition for an L2
 // session agent. binder executes tool nodes (may be nil only when the agent
 // declares no tool capabilities); logger is shared by the tool/answer bodies.
-// planner is the optional ares/plan dispatch body (M2: the plannerCognition
+// planner is the optional ares/plan dispatch body (the plannerCognition
 // that grows the L2 graph); when nil, an ares/plan task returns an error
 // instead of silently no-op'ing.
 func NewRouterCognition(binder ToolBinder, logger *slog.Logger) Cognition {
@@ -271,7 +271,7 @@ func NewRouterCognition(binder ToolBinder, logger *slog.Logger) Cognition {
 }
 
 // NewRouterCognitionWithPlanner builds a router that also dispatches ares/plan
-// to the given planner Cognition. This is the M2 production constructor: the
+// to the given planner Cognition. This is the production constructor: the
 // planner carries session-scoped dependencies (L2 graph registry, fabric
 // reader, LLM client) that the router itself does not own. sessions wires
 // session teardown into the answer body (nil = no release, test path).
@@ -364,7 +364,7 @@ const answerContentKey = "content"
 // unansweredBody is the body emitted when a terminal answer node carries no
 // supplied content. It states the absence instead of reading like a result:
 // nothing has summarized anything, and a success-sounding constant here would
-// be a constant masquerading as logic (code_rules_v2 §0.2).
+// be a constant masquerading as logic.
 const unansweredBody = "no answer content supplied"
 
 // answerCognition terminates the session on its terminal node. It does NOT
@@ -382,7 +382,7 @@ const unansweredBody = "no answer content supplied"
 type answerCognition struct {
 	logger *slog.Logger
 	// sessions releases the L2 graph when the terminal node completes
-	// (M4-B2: session teardown). Nil on routers without session wiring —
+	// (session teardown). Nil on routers without session wiring —
 	// the legacy path never releases what it never admitted.
 	sessions *SessionRegistry
 }

@@ -10,11 +10,11 @@ import (
 var ErrCognitiveStateSchemaVersion = errors.New("agentfabric: cognitive state schema version mismatch")
 
 // DecodeCognitiveState decodes an agent's cognitive state through the single
-// versioned path (A2). It accepts:
+// versioned path. It accepts:
 //
 //   - CognitiveState / *CognitiveState: the native struct. A version greater
 //     than CognitiveStateSchemaVersion returns ErrCognitiveStateSchemaVersion.
-//     A zero version (legacy pre-A2 state) is accepted as compatible.
+//     A zero version (legacy state) is accepted as compatible.
 //   - map[string]any: a JSON-round-tripped state (e.g. after persistence and
 //     reload). The version is read from "schema_version"; unknown keys are
 //     left as raw values for the caller to reify.
@@ -101,7 +101,7 @@ const (
 	ContextAgentPrivate
 	// ContextIPC is the message channel between agents ("I found X" /
 	// "help me verify Y" / "your conclusion conflicts with mine"). Handled
-	// by the IPC pillar (P4); this layer is the storage surface.
+	// by the IPC pillar; this layer is the storage surface.
 	ContextIPC
 )
 
@@ -177,7 +177,7 @@ func (f *Fabric) Private(agentID, key string) (any, error) {
 }
 
 // ContextView returns a snapshot of the agent's Task Shared + Private
-// layers (IPC is P4). Used to verify isolation: Private must not appear in
+// layers (IPC excluded). Used to verify isolation: Private must not appear in
 // TaskShared.
 func (f *Fabric) ContextView(agentID string) (ContextView, error) {
 	f.mu.Lock()
@@ -213,7 +213,7 @@ func (f *Fabric) CognitiveState(agentID string) (CognitiveState, error) {
 
 // SetCognitiveState replaces the agent's cognitive state (used by Recover
 // and by the agent itself to checkpoint progress). A legacy state written
-// without a SchemaVersion (pre-A2 zero value) is upgraded to the current
+// without a SchemaVersion (legacy zero value) is upgraded to the current
 // version at the boundary, so every stored state carries a version.
 func (f *Fabric) SetCognitiveState(agentID string, cs CognitiveState) error {
 	f.mu.Lock()

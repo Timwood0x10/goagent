@@ -12,7 +12,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/ares_events"
 )
 
-// TestFabricEventsPersistToStore verifies P2-C: with an event store attached,
+// TestFabricEventsPersistToStore verifies: with an event store attached,
 // every task lifecycle transition is published as a task.* event on the
 // task's stream, and the final state can be rebuilt from the store alone
 // (cross-restart rebuild — Evidence-Driven).
@@ -127,7 +127,7 @@ func (s *recordingEventStore) StreamVersion(ctx context.Context, streamID string
 	return s.inner.StreamVersion(ctx, streamID)
 }
 
-// TestFabricConcurrentFlushPreservesCausalOrder locks the N7 contract: when a
+// TestFabricConcurrentFlushPreservesCausalOrder locks the contract: when a
 // later-recorded durable event reaches flushAppends FIRST (its goroutine won
 // the race to the flush point), the seq gate must still force it to wait for
 // the earlier-recorded event — so the store's arrival order always matches the

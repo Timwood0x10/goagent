@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// Trace propagation across the IPC boundary (A-3).
+// Trace propagation across the IPC boundary.
 //
 // Every message carries a TraceID that identifies one causal chain:
 // a Send/Request starts a trace (or continues the caller's, see below),

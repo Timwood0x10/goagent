@@ -1,5 +1,5 @@
-// shadow_sampler.go provides the ShadowSampler — the P0-9 comparison feeder
-// for the G2 shadow verify gate. It is the counterpart of the OBSERVE stage in
+// shadow_sampler.go provides the ShadowSampler — the comparison feeder
+// for the shadow verify gate. It is the counterpart of the OBSERVE stage in
 // observer.go: where RuntimeObserver samples the ACTIVE strategy's live
 // outcomes, this sampler produces the candidate-vs-active comparisons the
 // promote decision needs.
@@ -13,7 +13,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/runtime/ares_evolution/mutation"
 )
 
-// ShadowSampler is the P0-9 task-level feeder for the G2 shadow gate. It owns
+// ShadowSampler is the task-level feeder for the shadow gate. It owns
 // StartShadow/RecordResult on a ShadowEvaluator so the gate itself stays
 // read-only: when a candidate is submitted, the lifecycle calls Prime, which
 // (a) points the evaluator at the candidate-and-active pair and (b) gathers the
@@ -22,10 +22,10 @@ import (
 // The sampler reuses the ShadowEvaluator's independent scorer (wired by
 // buildShadowEvaluator from the GA scorer). When no independent scorer is set
 // the evaluator cannot produce samples, so Prime is a no-op and the candidate
-// stays fail-closed in SHADOW — the intended safe default (§4④) until a real
+// stays fail-closed in SHADOW — the intended safe default until a real
 // evidence source (LLM/heuristic scorer or a task execution sampler) is wired.
 //
-// It is deliberately SYNCHRONOUS: Submit runs the G2 gate inline, so a feeder
+// It is deliberately SYNCHRONOUS: Submit runs the shadow gate inline, so a feeder
 // that accumulates async comparisons could never be seen by the very gate that
 // drops the candidate. Prime fills the gap before the pipeline runs.
 //
@@ -33,7 +33,7 @@ import (
 // shadow flow — both call StartShadow, which resets accumulated comparisons.
 // The wiring picks one (see NewWiredEvolutionSystem).
 //
-// WINDOWED REPLAY (C3.2): when the scorer is deterministic, scoring the same
+// WINDOWED REPLAY: when the scorer is deterministic, scoring the same
 // pair N times yields N IDENTICAL comparisons — the win rate collapses to 0.0
 // or 1.0 and MinSamples is satisfied by repetition rather than by evidence. To
 // avoid that, Prime hands each comparison a DIFFERENT replay window (see
@@ -49,7 +49,7 @@ import (
 // specific one. Per-task A/B execution (running the candidate on live traffic)
 // is what would make it candidate-specific; that path does not exist yet.
 type ShadowSampler struct {
-	// evaluator is the G2 gate's data source; this sampler only feeds it.
+	// evaluator is the shadow gate's data source; this sampler only feeds it.
 	evaluator *ShadowEvaluator
 	// samples is how many comparisons to gather per submitted candidate so
 	// the gate crosses its MinSamples threshold. Zero falls back to
@@ -62,9 +62,10 @@ type ShadowSampler struct {
 	// windowSpan is the width of one replay window. Zero falls back to
 	// replayWindowSpan.
 	windowSpan time.Duration
-	// execFeeder is the optional real-execution A/B feeder (closure plan
-	// Step 4 / N-1, see shadow_executor.go). When set, Prime runs it BEFORE
-	// the replay windows and uses its paired comparisons as the G2 evidence;
+	// execFeeder is the optional real-execution A/B feeder (see
+	// shadow_executor.go). When set, Prime runs it BEFORE
+	// the replay windows and uses its paired comparisons as the shadow
+	// evidence;
 	// replay stays the fallback for the no-traffic case. Set via
 	// SetExecutionFeeder after construction (the feeder needs the serve-time
 	// cognition stack, which is built after the evolution system). Guarded
@@ -106,7 +107,7 @@ func WithReplayWindowSpan(span time.Duration) ShadowSamplerOption {
 //
 // Args:
 //
-//	evaluator - the ShadowEvaluator the G2 gate reads (must be non-nil).
+//	evaluator - the ShadowEvaluator the shadow gate reads (must be non-nil).
 //	samples   - comparison count to gather per submitted candidate;
 //	            non-positive falls back to defaultShadowSamples.
 //	opts      - optional configuration (see WithReplayWindowSpan).
@@ -126,7 +127,7 @@ func NewShadowSampler(evaluator *ShadowEvaluator, samples int, opts ...ShadowSam
 }
 
 // Prime prepares the evaluator for one candidate-and-active pair and gathers
-// the shadow-comparison samples the G2 gate judges. Callers invoke it once per
+// the shadow-comparison samples the shadow gate judges. Callers invoke it once per
 // submitted candidate, between recording the candidate and running the gates.
 //
 // Each call RESTARTS the sample window via StartShadow (which drops prior
@@ -154,8 +155,8 @@ func (s *ShadowSampler) Prime(ctx context.Context, candidate, active *mutation.S
 
 	if !s.evaluator.HasIndependentScorer() {
 		// No independent evidence source: leave the evaluator without
-		// comparisons so the G2 gate stays fail-closed. Fabricating scores
-		// here would make the gate a rubber stamp, which §4④ rejects.
+		// comparisons so the shadow gate stays fail-closed. Fabricating scores
+		// here would make the gate a rubber stamp.
 		return
 	}
 
@@ -208,7 +209,7 @@ func (s *ShadowSampler) Prime(ctx context.Context, candidate, active *mutation.S
 // SetExecutionFeeder wires the real-execution A/B feeder (closure plan Step 4
 // / N-1, see shadow_executor.go). When set, Prime executes the candidate and
 // active strategies on buffered real task copies inside the isolation runner
-// and records the paired results as the G2 comparisons, falling back to the
+// and records the paired results as the shadow comparisons, falling back to the
 // replay windows only when the feeder produced nothing (no buffered tasks,
 // runner failure). It is a setter rather than a constructor option because
 // the feeder needs the serve-time cognition stack, which is built after the

@@ -1,6 +1,7 @@
 package ares_bootstrap
 
-// deployment_adapter_monitor_test.go locks E2: deploymentAdapter.Deploy chains
+// deployment_adapter_monitor_test.go locks the deployment contract:
+// deploymentAdapter.Deploy chains
 // MonitorAndRollback after a promotion — a post-promotion regression must flip
 // the record to DeploymentRolledBack and restore the live executor instance.
 

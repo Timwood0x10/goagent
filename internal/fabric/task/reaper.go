@@ -6,8 +6,8 @@ import (
 )
 
 // Reaper periodically harvests terminal fabric tasks so the in-memory task
-// map does not grow monotonically across a server lifetime (M2-⑤, §9:
-// "fabric 不自动回收终态任务"). The reaper is a housekeeping loop, NOT a
+// map does not grow monotonically across a server lifetime
+// ("fabric 不自动回收终态任务"). The reaper is a housekeeping loop, NOT a
 // correctness mechanism — terminal tasks are garbage once their results have
 // been read by the caller.
 //
@@ -25,7 +25,7 @@ import (
 // The reaper runs as a managed background loop (like runCollabGCLoop), exited
 // by closing its done channel. It is NOT on the scheduler drain path.
 //
-// Keep-set (P0-1): wall-clock grace alone is unsafe for a session that
+// Keep-set: wall-clock grace alone is unsafe for a session that
 // outlives the grace period — its early predecessors would be harvested while
 // the planner still reads their envelopes for context assembly (decision C).
 // A wired keep predicate makes the session registry the authority: a task

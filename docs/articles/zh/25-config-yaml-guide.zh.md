@@ -331,4 +331,4 @@ sdk：`LoadConfigFile` 读 YAML → `Validate` → `ToOptions` 转 `sdk.Option`�
 ## 相关文档
 
 - 配置系统深入：`docs/articles/zh/22-config-system.md`
-- 完整示例：`examples/01-quickstart/`、`examples/12-yaml-driven-flags/`；最小起跑参考 `configs/ares.minimal.yaml`
+- 完整示例：`examples/_fixtures/01-quickstart/`、`examples/_fixtures/12-yaml-driven-flags/`；最小起跑参考 `configs/ares.minimal.yaml`

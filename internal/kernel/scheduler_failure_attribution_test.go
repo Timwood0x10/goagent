@@ -14,7 +14,7 @@ import (
 
 // failingExecutor always fails the step; it exists to pin the outcome
 // attribution contract: a failed quantum must be recorded as a FAILURE by the
-// load tracker and the W4 attribution — never as a success.
+// load tracker and the attribution — never as a success.
 type failingExecutor struct {
 	id  string
 	typ models.AgentType
@@ -46,7 +46,7 @@ func (e *panickingExecutor) ExecuteStep(_ context.Context, _ *models.Task) (*sub
 
 // TestSchedulerAttributesFailureAsFailure drives a FAILING executor through
 // Schedule → Acquire → RunQuantum → Fail and asserts that neither the load
-// tracker nor the W4 attribution records a success. Regression for the
+// tracker nor the attribution records a success. Regression for the
 // RunQuantum error-swallowing bug: endQuantumOutcome previously received a nil
 // error for every failed quantum, inflating agent confidence toward 1.0 and
 // hiding every task failure from the logs.

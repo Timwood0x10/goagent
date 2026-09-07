@@ -12,7 +12,7 @@ import (
 // ipcAnalystCognition is the child agent's execution body: it serves analysis
 // requests on the IPC bus. Its output is configurable so the test can prove
 // the synthesised result tracks the child's REAL output (改子 Agent 输出会改变
-// 最终结果 — H2 验收).
+// 最终结果).
 type ipcAnalystCognition struct {
 	output string
 }
@@ -47,8 +47,8 @@ func (c *ipcCoordinatorCognition) ExecuteStep(ctx context.Context, task *models.
 	return &StepOutcome{Done: true, Result: res}, nil
 }
 
-// TestE2E_PeerIPCSynthesis is the H2 Peer IPC + synthesis segment
-// (aresos-agentos-plan H2): the parent agent gathers the child agent's output
+// TestE2E_PeerIPCSynthesis is the Peer IPC + synthesis segment:
+// the parent agent gathers the child agent's output
 // through the IPC bus and synthesises the final result from it — changing the
 // child's output changes the final result (no hardcoded synthesis).
 func TestE2E_PeerIPCSynthesis(t *testing.T) {
@@ -66,7 +66,7 @@ func TestE2E_PeerIPCSynthesis(t *testing.T) {
 	// Parent agent: synthesises from the child's real reply.
 	parent := &ipcCoordinatorCognition{bus: bus, timeout: 2 * time.Second}
 
-	// Both are fabric agents (A1): the IPC is between equal cognitive
+	// Both are fabric agents: the IPC is between equal cognitive
 	// processes — no leader orchestrates it.
 	fab := NewFabric()
 	spawn := func(id string, cap string, cog Cognition) {

@@ -132,7 +132,7 @@ func TestDefaultReducerZeroBudgetKeepsAll(t *testing.T) {
 	}
 
 	// Budget unset (ForGraph == 0): the reducer must not collapse the graph
-	// to a single node (B16 regression). All nodes must be retained.
+	// to a single node (regression). All nodes must be retained.
 	reduced, err := reducer.Reduce(context.Background(), graph, knowledge.TokenBudget{})
 	if err != nil {
 		t.Fatalf("Reduce error: %v", err)

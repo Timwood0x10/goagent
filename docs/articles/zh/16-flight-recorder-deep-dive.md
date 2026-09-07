@@ -809,7 +809,7 @@ case "/api/flight/genealogy":    // 返回 {mermaid: "..."}
 
 ### 11.2 FlightBridge — Arena 的探测器
 
-真实代码在 `internal/ares_arena/integration.go`，签名和旧文不同（接受 `Action, Result`，不是指针/error 指针）：
+真实代码在 `internal/runtime/arena/integration.go`，签名和旧文不同（接受 `Action, Result`，不是指针/error 指针）：
 
 ```go
 type FlightBridge struct { recorder *flight.FlightRecorder }
@@ -856,7 +856,7 @@ te := flight.TimelineEvent{
 
 ### 11.3 FlightToExperienceAdapter — 失败是最好的老师
 
-真实代码在 `internal/ares_evolution/adapter.go`，旧文的整体描述（只从最终失败学习）是对的：
+真实代码在 `internal/runtime/ares_evolution/adapter.go`，旧文的整体描述（只从最终失败学习）是对的：
 
 ```go
 ch, err := subscriber.Subscribe(ctx, ares_events.EventFilter{
@@ -945,19 +945,19 @@ Timeline/Graph/DropLog 所有读方法都返回深拷贝，线程安全，但每
 
 | 文件 | 职责 | 核心结构体/函数 |
 |------|------|-----------------|
-| `internal/ares_flight/recorder.go` | FlightRecorder 门面 | 幂等生命周期、genealogy 自动构建、`Replay` |
-| `internal/ares_flight/collector.go` | 事件路由 + 证据导出 | `processEvent` 路由、Evidence 四路 Source、`payloadInt` |
-| `internal/ares_flight/timeline.go` | 执行时间线 | 11 种 EventType、`pairStartOf` 配对、环形上限 300 |
-| `internal/ares_flight/diagnostics.go` | 自动故障诊断 | 8 种 `DiagnosticCategory`、`ClassifyError`、`SuggestFix`、`AutoDiagnose` |
-| `internal/ares_flight/decision.go` | 决策日志 | 5 种 `DecisionType`、环形上限 200 |
-| `internal/ares_flight/pipeline.go` | 记忆蒸馏追踪 | `PipelineStage`、`CompressionRatio`（取首尾）、环形上限 50 |
-| `internal/ares_flight/replay.go` | 回放系统 | `currentIdx=-1` + `Step/StepTo/Current/Summary/Reset` |
-| `internal/ares_flight/graph.go` | 调用树 | `pendingChildren` 乱序缓冲、环检测、Mermaid/DOT/JSON |
-| `internal/ares_flight/genealogy.go` | Agent 家谱树 | `LineageNode` + `Relation`、`RecordSpawn/Resurrection/Root/Death/Promotion` |
-| `internal/ares_flight/genealogy_collector.go` | 独立血缘订阅者 | failover 语义分流（复活 vs 晋升） |
-| `internal/ares_flight/log.go` | 日志 | `var log = logger.Module("flight")` |
-| `internal/ares_arena/integration.go` | Arena FlightBridge | `arenaActionToCategory` 真实映射 |
-| `internal/ares_evolution/adapter.go` | FlightToExperienceAdapter | severity≥3 过滤 + `severityToScore` → Experience |
+| `internal/runtime/observability/flight/recorder.go` | FlightRecorder 门面 | 幂等生命周期、genealogy 自动构建、`Replay` |
+| `internal/runtime/observability/flight/collector.go` | 事件路由 + 证据导出 | `processEvent` 路由、Evidence 四路 Source、`payloadInt` |
+| `internal/runtime/observability/flight/timeline.go` | 执行时间线 | 11 种 EventType、`pairStartOf` 配对、环形上限 300 |
+| `internal/runtime/observability/flight/diagnostics.go` | 自动故障诊断 | 8 种 `DiagnosticCategory`、`ClassifyError`、`SuggestFix`、`AutoDiagnose` |
+| `internal/runtime/observability/flight/decision.go` | 决策日志 | 5 种 `DecisionType`、环形上限 200 |
+| `internal/runtime/observability/flight/pipeline.go` | 记忆蒸馏追踪 | `PipelineStage`、`CompressionRatio`（取首尾）、环形上限 50 |
+| `internal/runtime/observability/flight/replay.go` | 回放系统 | `currentIdx=-1` + `Step/StepTo/Current/Summary/Reset` |
+| `internal/runtime/observability/flight/graph.go` | 调用树 | `pendingChildren` 乱序缓冲、环检测、Mermaid/DOT/JSON |
+| `internal/runtime/observability/flight/genealogy.go` | Agent 家谱树 | `LineageNode` + `Relation`、`RecordSpawn/Resurrection/Root/Death/Promotion` |
+| `internal/runtime/observability/flight/genealogy_collector.go` | 独立血缘订阅者 | failover 语义分流（复活 vs 晋升） |
+| `internal/runtime/observability/flight/log.go` | 日志 | `var log = logger.Module("flight")` |
+| `internal/runtime/arena/integration.go` | Arena FlightBridge | `arenaActionToCategory` 真实映射 |
+| `internal/runtime/ares_evolution/adapter.go` | FlightToExperienceAdapter | severity≥3 过滤 + `severityToScore` → Experience |
 | `internal/ares_bootstrap/provide_wiring.go` | 适配器包装 | `categorizeSeverity` 映射（default=5）+ 3 层 wrapper |
 | `internal/introspect/flight.go` | `/api/flight/*` 只读端点 | `FlightProvider` + `flightRecorderAdapter` |
 

@@ -13,7 +13,7 @@ import (
 //
 // Retrieval failures are logged and do NOT propagate as errors — RAG is
 // best-effort by design, and the chat loop must proceed even when the
-// retriever backend is unavailable (code_rules §9: graceful degradation).
+// retriever backend is unavailable (graceful degradation).
 func (m *memoryManager) retrieveContextString(ctx context.Context, input string) string {
 	snippets := m.runRetrieval(ctx, input)
 	return memctx.FormatSnippetsAsContext(snippets)

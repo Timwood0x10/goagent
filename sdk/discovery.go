@@ -21,7 +21,7 @@ import (
 // callable without being registered in the public registry) plus a
 // sourceExpander (so runtime-discovered names are expanded into LLM defs).
 //
-// D1: the runtime's syscall tools (spawn_agent/create_task) are appended to
+// The runtime's syscall tools (spawn_agent/create_task) are appended to
 // the static LLM tool list in every fallback path, so an SDK agent sees them
 // regardless of its own WithTools list or discovery state (the tools execute
 // against the same toolReg the engine uses).

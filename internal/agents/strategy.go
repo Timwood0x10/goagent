@@ -31,11 +31,11 @@ type StrategySource interface {
 // ParamKeyTools is the Params key that carries the tool whitelist. The value
 // is a comma-separated string of tool names (e.g. "web_search,calculator").
 // An empty or missing value means "no filter" — all registered tools are
-// advertised to the LLM (zero-value usable, code_rules_v2 §5.4).
+// advertised to the LLM (zero-value usable).
 const ParamKeyTools = "tools"
 
 // ParamKeyBudget and ParamKeyPrior are the node-level ToolStep attributes a
-// ProjectStep-generated task payload may carry (Y1 方案C C5). budget caps how
+// ProjectStep-generated task payload may carry. budget caps how
 // many times a tool step may run per session (enforced at schema-gating time);
 // prior is a hint injected into the prompt that biases (but never disables) the
 // tool. Both ride Step.Metadata → PlanStep.Payload (planprojection.ProjectStep),
@@ -46,7 +46,7 @@ const (
 )
 
 // MergeNodeParams overlays node-level task payload attributes onto a strategy's
-// assembled params, with NODE OVER GLOBAL priority (§8.5). A ToolStep node's
+// assembled params, with NODE OVER GLOBAL priority. A ToolStep node's
 // Metadata is projected into task.Payload by planprojection.ProjectStep; this
 // makes those node attributes win over the global active strategy's Params so a
 // per-node choice is actually observable by the executor. The node keys
@@ -104,7 +104,7 @@ func ToolNamesFromParams(params map[string]any) []string {
 
 // ToolBudgetFromParams parses Params["budget"] into a per-tool call cap for the
 // current session. It returns 0 when the key is missing, malformed, or
-// non-positive — meaning UNLIMITED (zero-value usable, code_rules_v2 §5.4), so
+// non-positive — meaning UNLIMITED (zero-value usable), so
 // a strategy that never sets a budget behaves exactly as before this gate
 // existed.
 //
@@ -141,11 +141,11 @@ func ToolBudgetFromParams(params map[string]any) int {
 // ToolAllowedByBudget reports whether a tool may still be advertised to the LLM
 // given how many times it has already run this session and the node budget.
 //
-// This is the read side of the §11 C5 acceptance card ("budget 用尽后 schema
+// This is the read side of the budget gate ("budget 用尽后 schema
 // 过滤"): the gate is applied where the tool SCHEMAS are assembled, not at
 // CallTool time, for the same reason the whitelist is — letting the model see an
 // exhausted tool and then rejecting the call wastes a round and pollutes the
-// not_found metric (code_rules_v2 §5.3).
+// not_found metric.
 //
 // budget <= 0 means unlimited, so this returns true.
 func ToolAllowedByBudget(name string, uses map[string]int, budget int) bool {
@@ -187,11 +187,11 @@ func ApplyPriorHint(prompt, hint string) string {
 // (meaning "all tools allowed"). Names are parsed by ToolNamesFromParams, so
 // the set and the guardrail's count can never disagree.
 //
-// This is the Y.3-ACT wiring point: the execution bodies (planner cognition,
+// This is the wiring point: the execution bodies (planner cognition,
 // agentloop engine) call this on the params they received to filter which
 // ToolSchemas reach the LLM. Filtering happens BEFORE the LLM sees the tool list, not at CallTool
 // time — letting the model see a tool and then rejecting the call wastes a
-// round and pollutes the not_found metric (code_rules_v2 §5.3).
+// round and pollutes the not_found metric.
 func ToolWhitelistFromParams(params map[string]any) map[string]bool {
 	names := ToolNamesFromParams(params)
 	if len(names) == 0 {

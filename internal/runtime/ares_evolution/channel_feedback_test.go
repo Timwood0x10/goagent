@@ -14,7 +14,7 @@ import (
 // waitForEvidence polls the store until n records of the given source exist or
 // the deadline passes. The recorder writes from a drain goroutine, so the test
 // must synchronize on the OBSERVABLE result rather than sleeping a guessed
-// interval (code_rules §7.3 bans time.Sleep as a synchronization primitive).
+// interval (time.Sleep is banned as a synchronization primitive).
 func waitForEvidence(t *testing.T, store evidence.Store, source string, n int) []evidence.Evidence {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)

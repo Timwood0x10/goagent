@@ -31,11 +31,11 @@ func (e *f1CountingExecutor) ExecuteStep(_ context.Context, task *models.Task) (
 	return &sub.StepOutcome{Done: true, Result: res}, nil
 }
 
-// TestF1_GAConfidenceChangesNextSchedule is the F1 acceptance
-// (aresos-agentos-plan F1: 证明 GA 进化结果确实改变了下一轮的调度选择 — 目前
+// TestF1_GAConfidenceChangesNextSchedule is the acceptance
+// (证明 GA 进化结果确实改变了下一轮的调度选择 — 目前
 // 只有 spawn 可执行体的测试，没有调度行为变化的测试). Two executors with the
-// SAME capability differ only in their scheduler-visible confidence (the W4
-// write path: EvolutionFeedbackAdapter → SetAgentConfidence). A task that
+// SAME capability differ only in their scheduler-visible confidence (the
+// feedback write path: EvolutionFeedbackAdapter → SetAgentConfidence). A task that
 // matches the capability must be scheduled to the HIGH-confidence executor,
 // and a confidence override that swaps the ranking must swap the selection —
 // the GA's derived confidence directly drives the next Schedule.
@@ -75,7 +75,7 @@ func TestF1_GAConfidenceChangesNextSchedule(t *testing.T) {
 		t.Fatalf("exactly one executor must run per task, got A=%d B=%d", a.executed.Load(), b.executed.Load())
 	}
 
-	// GA 反馈回写（W4）：agent-A 的成功率评估为 0（常失败），agent-B 为 1。
+	// GA 反馈回写：agent-A 的成功率评估为 0（常失败），agent-B 为 1。
 	// SetAgentConfidence 是 EvolutionFeedbackAdapter 调用的同一接口。
 	tracker.SetAgentConfidence("agent-A", 0.0)
 	tracker.SetAgentConfidence("agent-B", 1.0)

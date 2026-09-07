@@ -8,8 +8,8 @@ import (
 	"github.com/Timwood0x10/ares/internal/fabric/agent"
 )
 
-// Chaos is the Failure Injection + Recovery Verification harness (design §10 +
-// P5): it deliberately kills agents to prove the Runtime (Recovery subsystem)
+// Chaos is the Failure Injection + Recovery Verification harness: it
+// deliberately kills agents to prove the Runtime (Recovery subsystem)
 // can restore their tasks. Chaos is SEPARATE from Recovery — Chaos breaks,
 // Recovery fixes. This harness wires the two so a chaos injection is followed
 // by a recovery verification.
@@ -45,7 +45,7 @@ func NewChaos(agents *agentfabric.Fabric, recovery *Recovery) *Chaos {
 	}
 }
 
-// InjectFailure deliberately kills or suspends an agent (design: Failure
+// InjectFailure deliberately kills or suspends an agent (Failure
 // Injection). The recovery is NOT triggered here — call VerifyRecovery to
 // prove the Runtime survives. This separation lets tests assert "task is
 // stranded after injection" before "task is recovered after VerifyRecovery".
@@ -102,9 +102,9 @@ func (c *Chaos) InjectedFailures() map[string]FailureType {
 	return out
 }
 
-// EvolutionAdapter is the Runtime Adaptation surface (design P5: Evolution
-// — Runtime Adaptation: change scheduling policy / agent population / spawn
-// decisions based on observed behavior). It lets the Evolution system swap
+// EvolutionAdapter is the Runtime Adaptation surface (change scheduling
+// policy / agent population / spawn decisions based on observed behavior).
+// It lets the Evolution system swap
 // the active scheduling policy and request agent population changes
 // (spawn/retire) without the Runtime understanding evolution semantics.
 //
@@ -124,7 +124,7 @@ func NewEvolutionAdapter(tasks *agentfabric.Fabric, agents *agentfabric.Fabric) 
 }
 
 // AdaptPopulation spawns or retires agents based on the Evolution system's
-// decision (design: agent population adaptation). The Evolution system
+// decision (agent population adaptation). The Evolution system
 // computes the desired population delta; this adapter applies it through the
 // existing spawn/retire primitives — the Kernel enforces, Evolution decides.
 //

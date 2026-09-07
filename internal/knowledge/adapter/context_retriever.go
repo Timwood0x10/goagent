@@ -131,7 +131,7 @@ type KnowledgeRetriever struct {
 //
 // Args:
 //   - ctx: context reserved for future initialization I/O (currently unused
-//     but kept to satisfy §4.3 constructor conventions).
+//     but kept to satisfy the constructor convention).
 //   - runtime: AKG KnowledgeRuntime. Must be non-nil.
 //   - minScore: minimum Confidence score for a snippet to be returned on
 //     the store path (forwarded to HybridSearch.MinScore). Pass 0 (or any
@@ -176,7 +176,7 @@ func NewKnowledgeRetriever(
 //
 // Args:
 //   - ctx: context reserved for future initialization I/O (currently unused
-//     but kept to satisfy §4.3 constructor conventions).
+//     but kept to satisfy the constructor convention).
 //   - runtime: AKG KnowledgeRuntime. Must be non-nil even when store is set,
 //     because the fallback path needs it. The store path itself does not call
 //     runtime.Execute.

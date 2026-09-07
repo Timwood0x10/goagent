@@ -31,7 +31,7 @@ var ErrDiscoveryDisabled = errors.New("discovery disabled in config")
 // ProvideDiscovery constructs the discovery engine with the default provider
 // set (ARES, Claude, Cursor, VSCode configs + PATH binary probe), starts
 // auto-discovery, and bridges every discovery event onto the shared
-// EventStore (REVIEW #10: previously the engine ran with zero consumers, so
+// EventStore (previously the engine ran with zero consumers, so
 // detected services were written to an in-memory store nobody read). Returns
 // ErrDiscoveryDisabled when cfg is nil or discovery is disabled, so callers
 // can ignore the component entirely in the default configuration.

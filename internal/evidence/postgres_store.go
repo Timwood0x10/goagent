@@ -1,7 +1,7 @@
 // Package evidence — PostgreSQL-backed evidence store (persistence).
 //
 // PostgresStore implements the Store interface against the shared Postgres
-// pool so evidence survives process restarts (T1, evidence persistence). It
+// pool so evidence survives process restarts. It
 // mirrors MemoryStore semantics: Query filters by source/kind/time window,
 // orders by timestamp DESC, applies limit; Aggregate computes locally.
 package evidence
@@ -72,7 +72,7 @@ func (s *PostgresStore) ensureTable(ctx context.Context) error {
 }
 
 // Append inserts a single evidence record. A zero ID is generated client-side
-// (generatedEvidenceID) so retries do not duplicate rows (N9: the previous
+// (generatedEvidenceID) so retries do not duplicate rows (the previous
 // UnixNano-only ID collided for same-source same-nano events; the payload
 // digest breaks the collision). ON CONFLICT DO NOTHING makes retries
 // idempotent.
@@ -102,7 +102,7 @@ func (s *PostgresStore) Append(ctx context.Context, e Evidence) error {
 }
 
 // generatedEvidenceID builds a collision-resistant, retry-stable ID for a
-// zero-ID append (N9): the digest includes timestamp, source, and the raw
+// zero-ID append: the digest includes timestamp, source, and the raw
 // payload bytes, so two distinct records with the same source+nanosecond
 // produce different IDs while a retry of the SAME record reproduces the same
 // ID (idempotent INSERT via ON CONFLICT DO NOTHING).
@@ -147,7 +147,7 @@ func (s *PostgresStore) Query(ctx context.Context, filter Filter) ([]Evidence, e
 		args = append(args, filter.Until)
 		argID++
 	}
-	// N9: honor the TTL retention — a record whose (ts + ttl) has passed is
+	// Honor the TTL retention — a record whose (ts + ttl) has passed is
 	// expired and must not be queryable (zero TTL = no expiry). Filtering in
 	// SQL keeps the ORDER BY ts DESC / LIMIT semantics on the live set.
 	query += " AND (ttl_seconds = 0 OR ts + make_interval(secs => ttl_seconds::double precision) > now())"
@@ -189,7 +189,7 @@ func (s *PostgresStore) Query(ctx context.Context, filter Filter) ([]Evidence, e
 // CleanupExpired physically deletes evidence rows whose TTL retention window
 // has elapsed (ts + ttl_seconds < now), returning the number of rows removed.
 // Records with ttl_seconds = 0 never expire and are never deleted. Query
-// already filters expired rows out of read results (N9); this closes the loop
+// already filters expired rows out of read results; this closes the loop
 // so the table does not grow unboundedly with dead rows. It satisfies the
 // bootstrap ExpiryCleaner interface so the periodic maintenance worker purges
 // evidence on the same hourly schedule as the other retention-managed tables

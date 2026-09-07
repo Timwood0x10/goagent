@@ -49,7 +49,7 @@ func NewProfileRegistry() *ProfileRegistry {
 	}
 }
 
-// Register adds or updates a profile. A nil profile is ignored (#63) —
+// Register adds or updates a profile. A nil profile is ignored —
 // dereferencing p.ID would panic the caller's goroutine.
 func (r *ProfileRegistry) Register(p *AgentProfile) {
 	if p == nil {
@@ -155,12 +155,12 @@ Rules:
 // ApplyToContext switches the active profile in the context.
 // Called by the runtime when a Handoff transitions to a new role.
 //
-// P1-10/W4: This method has zero production callers. To wire: register
+// NOTE: This method has zero production callers. To wire: register
 // ProfileRegistry in bootstrap, then call ApplyToContext in the agent
 // spawn path (e.g. agentfabric or kernelscheduler) to inject the
 // selected profile into the context before the first Execute call.
-// The consumer (activeRoleInstructions in sub/executor.go) already
-// reads it via GetFromContext — only the write side is missing.
+// GetFromContext below is the read side; nothing reads it in production
+// yet — the wiring is complete only when a spawn path calls ApplyToContext.
 func (r *ProfileRegistry) ApplyToContext(ctx context.Context, profileID string) (context.Context, *AgentProfile, error) {
 	profile := r.Get(profileID)
 	if profile == nil {
@@ -180,7 +180,7 @@ func GetFromContext(ctx context.Context) *AgentProfile {
 
 // WithProfile returns a context carrying the given profile directly. It is
 // the no-registry form of ProfileRegistry.ApplyToContext for executors that
-// hold their role at construction time (W4 write side: the sub executor pins
+// hold their role at construction time (the sub executor pins
 // its profile via WithProfile and applies it at every task entry).
 func WithProfile(ctx context.Context, p *AgentProfile) context.Context {
 	if p == nil {

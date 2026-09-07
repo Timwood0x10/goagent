@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// Human feedback loop (v0.3.0 M3-2): humans rate / approve evolution
+// Human feedback loop: humans rate / approve evolution
 // candidates, and the feedback is combined with the automatic score so the
 // Evolution system can weigh human judgment in fitness. The store records
 // feedback entries; the Evolution system reads them when scoring candidates.
@@ -27,7 +27,7 @@ type HumanFeedback struct {
 }
 
 // CombinedFitness blends the automatic score with the human rating
-// (v0.3.0 M3-2). The weights favor human judgment early and automatic scoring
+// The weights favor human judgment early and automatic scoring
 // later — the default 0.3/0.7 split is the roadmap recommendation.
 func CombinedFitness(autoScore, humanRating float64) float64 {
 	return 0.3*autoScore + 0.7*humanRating

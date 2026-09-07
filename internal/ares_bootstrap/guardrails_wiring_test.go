@@ -15,7 +15,7 @@ import (
 
 // guardrailCounterValue reads ARES_evolution_guardrail_total{code} off the
 // default registry. It gathers rather than using promtestutil so the test adds
-// no new module dependency (code_rules §10.1: prefer what is already there).
+// no new module dependency (prefer what is already there).
 func guardrailCounterValue(t *testing.T, code string) float64 {
 	t.Helper()
 	families, err := prometheus.DefaultGatherer.Gather()
@@ -35,7 +35,7 @@ func guardrailCounterValue(t *testing.T, code string) float64 {
 	return 0 // the label pair has not been touched yet
 }
 
-// TestBuildEvolutionGuardrailsMapsYAML is the B2 mapping contract: the two YAML
+// TestBuildEvolutionGuardrailsMapsYAML locks the YAML mapping contract: the two YAML
 // knobs that were previously dead config (Generations, TargetFitness) must now
 // reach the guardrail, and TargetFitness must be rescaled from its documented
 // 0-100 range to the [0,1] scale the guardrail compares against.
@@ -122,7 +122,7 @@ func TestBuildEvolutionGuardrailsMapsYAML(t *testing.T) {
 }
 
 // TestBuildEvolutionGuardrailsForwardsEventsToMetrics locks the observability
-// half of B2: guardrail events used to be log-only, so a critical trigger was
+// half of the contract: guardrail events used to be log-only, so a critical trigger was
 // invisible to monitoring. With a metrics sink wired every event increments
 // ARES_evolution_guardrail_total{code}.
 func TestBuildEvolutionGuardrailsForwardsEventsToMetrics(t *testing.T) {

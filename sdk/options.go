@@ -503,7 +503,7 @@ func WithAKGEmbedding(model, baseURL string) Option {
 		}
 		c.knlCfg.EmbeddingModel = model
 		c.knlCfg.EmbeddingBaseURL = baseURL
-		// B32: Wire baseURL into embedCfg so buildEmbeddingClient actually
+		// Wire baseURL into embedCfg so buildEmbeddingClient actually
 		// uses it. Previously it was only stored in knlCfg.EmbeddingBaseURL
 		// which no reader consumed (dead parameter).
 		if baseURL != "" && c.embedCfg.ServiceURL == "" {

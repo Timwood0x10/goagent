@@ -15,7 +15,7 @@ import (
 )
 
 // errUnroutableCapability is returned when a syscall asks for a capability
-// outside the single L2 execution path (M4-D). Callers must use errors.Is.
+// outside the single L2 execution path. Callers must use errors.Is.
 var errUnroutableCapability = errors.New("capability is not L2-routable")
 
 // SpawnAgentTool is the tool name exposed to the LLM for spawning peer agents.
@@ -25,7 +25,7 @@ const SpawnAgentTool = "spawn_agent"
 const CreateTaskTool = "create_task"
 
 // AskAgentTool is the tool name exposed to the LLM for asking a target agent a
-// question (Step Y.2-ACT). Unlike spawn_agent (create a new peer) and
+// question. Unlike spawn_agent (create a new peer) and
 // create_task (decompose into the task fabric), ask_agent turns "which agent to
 // ask" into an agent-visible, changeable decision — the ACT half of the
 // collaboration channel. The Kernel forwards it to a collabatation IPC
@@ -34,8 +34,8 @@ const CreateTaskTool = "create_task"
 const AskAgentTool = "ask_agent"
 
 // goconst: reuse the field keys across syscall schemas. The values originated
-// in the schema objects below; hoisting them keeps the ≥3-repetition rule of
-// code_rules_v2 §8.1 satisfied.
+// in the schema objects below; hoisting them keeps the ≥3-repetition
+// goconst rule satisfied.
 const (
 	paramTopic   = "topic"
 	paramTo      = "to"
@@ -65,7 +65,7 @@ type ExecutorFactory func(agentID, capability string) Executor
 
 // Executor is the minimal contract a spawned agent's executor must satisfy.
 // In production this is sub.Agent; the interface keeps this package decoupled
-// from the sub package (code_rules: interface at the consumer).
+// from the sub package (interface at the consumer).
 type Executor interface {
 	ID() string
 	Type() models.AgentType
@@ -80,7 +80,7 @@ type StepOutcome struct {
 }
 
 // cognitionFunc adapts an Executor to the agentfabric.Cognition contract
-// (aresos-agentos-plan C1: spawn 的 agent 带执行体). It converts the syscall
+// (spawn 的 agent 带执行体). It converts the syscall
 // StepOutcome shape to the fabric one — the underlying quantum is the same
 // executor, so semantics are preserved by construction.
 func cognitionFunc(executor Executor) agentfabric.Cognition {
@@ -107,10 +107,9 @@ type RegisterExecutorFn func(agentID string, executor Executor)
 // the caller's payload. In production this is wired at serve time to
 // aresrecovery.EvolutionAwareIPC.Send, which routes through the agentipc Bus —
 // so the request lands in the existing "collaboration" feedback source via the
-// CollaborationObserver (Step Y.2), reusing the already-closed OBSERVE half.
+// CollaborationObserver, reusing the already-closed OBSERVE half.
 // Declared as a function (not an interface) so this package stays decoupled
-// from agentipc/aresrecovery; the function is set at the consumer (code_rules
-// §5.2).
+// from agentipc/aresrecovery; the function is set at the consumer.
 type AskAgentFn func(ctx context.Context, from, to, topic string, payload any) error
 
 // Kernel is the ensemble of fabric-level subsystems the syscalls operate on.
@@ -121,7 +120,7 @@ type Kernel struct {
 	fabric   *taskfabric.Fabric
 	factory  ExecutorFactory
 	register RegisterExecutorFn
-	// askAgent is the collaboration primitive behind ask_agent (Step Y.2-ACT).
+	// askAgent is the collaboration primitive behind ask_agent.
 	// nil means the tool is not wired and ask_agent fails loudly rather than
 	// pretend to collaborate.
 	askAgent AskAgentFn
@@ -129,7 +128,7 @@ type Kernel struct {
 	// create_plan loop option. A syscall Kernel is a long-lived managed
 	// object (it backs every agent's tool binder for the whole serve
 	// lifetime), so holding a context here is the sanctioned exception to
-	// the "no ctx in struct" rule (code_rules §4.5); it is injected at
+	// the "no ctx in struct" rule; it is injected at
 	// assembly with WithLoopLifetime and bounds every loop goroutine.
 	loopCtx context.Context
 	// idSeq generates unique agent IDs for auto-named spawns.
@@ -167,10 +166,10 @@ func WithMaxPlanLoops(n int) KernelOption {
 	}
 }
 
-// WithAskAgent injects the collaboration primitive behind ask_agent (Step
-// Y.2-ACT). Passed as a func so the Kernel stays decoupled from
+// WithAskAgent injects the collaboration primitive behind ask_agent.
+// Passed as a func so the Kernel stays decoupled from
 // agentipc/aresrecovery. Without it, ask_agent fails loudly at call time
-// (code_rules: no silent no-op for a deliberately offered action).
+// (no silent no-op for a deliberately offered action).
 func WithAskAgent(fn AskAgentFn) KernelOption {
 	return func(k *Kernel) { k.askAgent = fn }
 }
@@ -258,7 +257,7 @@ func (k *Kernel) SpawnAgent(ctx context.Context, args SpawnAgentArgs) (*SpawnAge
 	if args.Capability == "" {
 		return nil, errors.New("agentsyscall: capability is required")
 	}
-	// M4-D: a spawned peer only receives scheduler quanta through the L2
+	// a spawned peer only receives scheduler quanta through the L2
 	// router — a non-routable capability would leave it permanently idle.
 	if !agentfabric.IsL2Capability(args.Capability) {
 		return nil, fmt.Errorf("agentsyscall: capability %q is not L2-routable (want ares/plan, ares/answer, ares/root, or tool/<name>): %w", args.Capability, errUnroutableCapability)
@@ -267,11 +266,11 @@ func (k *Kernel) SpawnAgent(ctx context.Context, args SpawnAgentArgs) (*SpawnAge
 	// Generate a unique agent ID when the LLM does not provide one.
 	agentID := fmt.Sprintf("spawned-%s-%d", args.Capability, k.idSeq.Add(1))
 
-	// C1: when an executor factory is wired, create the executor BEFORE spawn
+	// when an executor factory is wired, create the executor BEFORE spawn
 	// and inject it as the agent's CognitionFactory so the spawned agent is a
 	// REAL executable body (not just a provenance record) from birth. The
 	// factory is called exactly once — the same executor instance is reused
-	// for the scheduler registration below (code_rules: no second
+	// for the scheduler registration below (no second
 	// executor copy).
 	var executor Executor
 	if k.factory != nil {
@@ -358,7 +357,7 @@ func (k *Kernel) CreateTask(ctx context.Context, args CreateTaskArgs) (*CreateTa
 	if args.Capability == "" {
 		return nil, errors.New("agentsyscall: capability is required")
 	}
-	// M4-D: single execution path. Only L2-routable capabilities
+	// single execution path. Only L2-routable capabilities
 	// (ares/*, tool/*) are accepted — anything else would starve with no
 	// candidate executor. Fail fast with a routable hint instead.
 	if !agentfabric.IsL2Capability(args.Capability) {
@@ -414,7 +413,7 @@ type AskAgentResult struct {
 	Accepted bool `json:"accepted"`
 }
 
-// AskAgent is the Kernel syscall behind the ask_agent tool (Step Y.2-ACT).
+// AskAgent is the Kernel syscall behind the ask_agent tool.
 // It forwards a cross-agent request to the injected AskAgentFn, which in
 // production is ipc.Send — so the attempt produces a collaboration receipt
 // in the existing "collaboration" feedback source, attributed to the active
@@ -483,7 +482,7 @@ func BindTools(binder ToolBinder, kernel *Kernel) {
 		}
 		return kernel.CreateTask(ctx, ct)
 	})
-	// W9: the whole-DAG planning entry. See plan.go. JSON round-trip keeps
+	// the whole-DAG planning entry. See plan.go. JSON round-trip keeps
 	// the parse strict: type mismatches surface as errors instead of silently
 	// dropping fields (e.g. a string "3" for priority).
 	binder.BindTool(AskAgentTool, func(ctx context.Context, args map[string]any) (any, error) {

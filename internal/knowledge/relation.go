@@ -51,8 +51,7 @@ type WorkingGraph struct {
 }
 
 // RelationKey identifies a graph edge by its endpoints and relationship name.
-// Used for duplicate detection when aggregating edges from multiple linkers
-// (#43).
+// Used for duplicate detection when aggregating edges from multiple linkers.
 type RelationKey struct {
 	From string
 	To   string

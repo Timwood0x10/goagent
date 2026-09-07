@@ -1,6 +1,7 @@
 package evolution
 
-// m6_fitness_signal_test.go locks M6: per-(strategy, toolClass) tool_call
+// m6_fitness_signal_test.go locks the tool_call fitness signal:
+// per-(strategy, toolClass) tool_call
 // evidence separates two strategies' success rates, and the signal reaches
 // the aggregate once tool_weight > 0 — the L2 → L1 fitness path the GA
 // promotion decision reads.

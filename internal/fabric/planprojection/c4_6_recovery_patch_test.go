@@ -14,11 +14,11 @@ import (
 )
 
 // TestC4_6_RecoveryPatchStrategy_VisibleInDAGSnapshot_NotInPlanStep verifies
-// C4.6: PatchChangeRecoveryStrategy modifies Step.RecoveryPolicy on the live
+// PatchChangeRecoveryStrategy modifies Step.RecoveryPolicy on the live
 // MutableDAG. The evidence of this change is visible in the
 // RecoveryPatchExecutor's DAG snapshot (SnapshotWithSteps), NOT in the
 // projected PlanStep — because PlanStep deliberately does not carry a
-// RecoveryPolicy field (C1.1 design: recovery is handled by
+// RecoveryPolicy field (recovery is handled by
 // RecoveryPatchExecutor, not by the kernel's plan layer).
 //
 // This test asserts the separation of concerns:
@@ -59,8 +59,8 @@ func TestC4_6_RecoveryPatchStrategy_VisibleInDAGSnapshot_NotInPlanStep(t *testin
 	planSteps := ProjectSteps(dag.Steps())
 	require.Len(t, planSteps, 2)
 
-	// C4.6 assertion part 1: PlanStep does NOT carry RecoveryPolicy.
-	// The projection deliberately discards RecoveryPolicy (C1.1).
+	// Assertion part 1: PlanStep does NOT carry RecoveryPolicy.
+	// The projection deliberately discards RecoveryPolicy.
 	for _, ps := range planSteps {
 		// PlanStep has no RecoveryPolicy field; verify the projection
 		// does not smuggle it in via Payload.
@@ -79,7 +79,7 @@ func TestC4_6_RecoveryPatchStrategy_VisibleInDAGSnapshot_NotInPlanStep(t *testin
 	require.NoError(t, err)
 	require.NotNil(t, rollback)
 
-	// C4.6 assertion part 2: the recovery patch's effect IS visible in the
+	// Assertion part 2: the recovery patch's effect IS visible in the
 	// RecoveryPatchExecutor's DAG snapshot. We read Steps() from the live DAG
 	// (which is what Snapshot() returns a reference to).
 	snap, err := recExec.Snapshot(context.Background())
@@ -98,7 +98,7 @@ func TestC4_6_RecoveryPatchStrategy_VisibleInDAGSnapshot_NotInPlanStep(t *testin
 			"step %s strategy must be ReplaceNode", step.ID)
 	}
 
-	// C4.6 assertion part 3: re-project the updated DAG into PlanSteps.
+	// Assertion part 3: re-project the updated DAG into PlanSteps.
 	// The PlanSteps should still NOT carry recovery info — the projection
 	// gap is by design, not a bug. This is the separation-of-contracts test:
 	// recovery patches are verified via the DAG snapshot, structural patches
@@ -110,7 +110,7 @@ func TestC4_6_RecoveryPatchStrategy_VisibleInDAGSnapshot_NotInPlanStep(t *testin
 			"Updated PlanStep must still not carry recovery_policy")
 	}
 
-	// C4.6 assertion part 4: rollback restores the prior state.
+	// Assertion part 4: rollback restores the prior state.
 	_, err = recExec.Apply(context.Background(), *rollback)
 	require.NoError(t, err)
 
@@ -183,7 +183,7 @@ func TestC4_6_RecoveryPatchMaxRetries_VisibleInDAGSnapshot(t *testing.T) {
 //   - Structural patch → PlanStep count changes.
 //   - Recovery patch → DAG Step.RecoveryPolicy changes, PlanStep unchanged.
 //
-// This is the C4.6 separation contract: the two patch categories operate on
+// This is the separation contract: the two patch categories operate on
 // different fields and are verified through different assertion surfaces.
 func TestC4_6_RecoveryPatchAndStructuralPatch_Independent(t *testing.T) {
 	dag, err := engine.NewMutableDAG([]*engine.Step{

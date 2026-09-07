@@ -29,17 +29,16 @@ type PrometheusMetrics struct {
 	EvolutionGuardrailTotal *prometheus.CounterVec
 	EvolutionShadowTotal    *prometheus.CounterVec
 
-	// P2-1: Lifecycle-specific counters for promote/rollback/gate-reject.
+	// Lifecycle-specific counters for promote/rollback/gate-reject.
 	EvolutionPromoteTotal    *prometheus.CounterVec
 	EvolutionRollbackTotal   *prometheus.CounterVec
 	EvolutionGateRejectTotal *prometheus.CounterVec
 
-	// E6 (evolution loop closure): gate-absence accounting + runtime
-	// attribution/residency gauges.
+	// Gate-absence accounting + runtime attribution/residency gauges.
 	EvolutionGateSkippedTotal *prometheus.CounterVec
 	EvolutionWindowSamples    *prometheus.GaugeVec
 
-	// C5.3: evolution loop introspection gauges. These expose the
+	// Evolution loop introspection gauges. These expose the
 	// current generation, DAG version, and compile count so /metrics
 	// can answer "which generation, which gate, which compile".
 	EvolutionGeneration   prometheus.Gauge
@@ -55,12 +54,12 @@ type PrometheusMetrics struct {
 	LLMTokensTotal      *prometheus.GaugeVec
 	EvolutionScoreGauge *prometheus.GaugeVec
 
-	// P2-1: Shadow win-rate gauge — the fraction of shadow comparisons the
+	// Shadow win-rate gauge — the fraction of shadow comparisons the
 	// candidate won in the current window. Updated after each shadow
 	// evaluation cycle.
 	EvolutionShadowWinRate prometheus.Gauge
 
-	// E6: how long the currently active strategy has been promoted (seconds).
+	// How long the currently active strategy has been promoted (seconds).
 	EvolutionActiveDuration prometheus.Gauge
 
 	// Summary
@@ -419,7 +418,7 @@ func (m *PrometheusMetrics) SetEvolutionScore(strategyID string, score float64) 
 }
 
 // RecordEvolutionPromote increments the promote counter for the given result
-// (P2-1). Typical result values: "success", "deploy_failed".
+// ("success", "deploy_failed").
 //
 // Args:
 //   - result: the promotion outcome.
@@ -431,7 +430,7 @@ func (m *PrometheusMetrics) RecordEvolutionPromote(result string) {
 }
 
 // RecordEvolutionRollback increments the rollback counter for the given reason
-// (P2-1). Typical reason values: "degradation", "guardrail", "manual".
+// ("degradation", "guardrail", "manual").
 //
 // Args:
 //   - reason: the rollback trigger reason.
@@ -443,7 +442,7 @@ func (m *PrometheusMetrics) RecordEvolutionRollback(reason string) {
 }
 
 // RecordEvolutionGateReject increments the gate-reject counter for the given
-// gate name (P2-1).
+// gate name.
 //
 // Args:
 //   - gate: the name of the verify gate that rejected the candidate.
@@ -455,7 +454,7 @@ func (m *PrometheusMetrics) RecordEvolutionGateReject(gate string) {
 }
 
 // SetEvolutionShadowWinRate sets the current shadow win-rate gauge value
-// (P2-1). The value should be in [0,1].
+// in [0,1].
 //
 // Args:
 //   - rate: the fraction of shadow comparisons won by the candidate.
@@ -466,7 +465,7 @@ func (m *PrometheusMetrics) SetEvolutionShadowWinRate(rate float64) {
 	m.EvolutionShadowWinRate.Set(rate)
 }
 
-// RecordEvolutionGateSkipped increments the gate-skipped counter (E6): a gate
+// RecordEvolutionGateSkipped increments the gate-skipped counter: a gate
 // that was deliberately NOT registered at wiring time. Without it, an absent
 // gate exists only in the startup log line.
 //
@@ -481,7 +480,7 @@ func (m *PrometheusMetrics) RecordEvolutionGateSkipped(gate, reason string) {
 }
 
 // SetEvolutionActiveDuration sets the current active-strategy residency gauge
-// (E6), in seconds. Paired with the promote throttle it exposes strategy
+// in seconds. Paired with the promote throttle it exposes strategy
 // churn: a gauge pinned near zero means strategies rotate faster than the
 // rollback window accumulates evidence.
 //
@@ -495,7 +494,7 @@ func (m *PrometheusMetrics) SetEvolutionActiveDuration(seconds float64) {
 }
 
 // SetEvolutionWindowSamples sets the fitness-window sample-count gauge for
-// one strategy/source pair (E6). This is the runtime check that E1's
+// one strategy/source pair. This is the runtime check that the
 // attribution actually distributes samples across strategies: if stamping
 // breaks, every sample piles up under a single strategy_id label value.
 //
@@ -510,7 +509,7 @@ func (m *PrometheusMetrics) SetEvolutionWindowSamples(strategyID, source string,
 	m.EvolutionWindowSamples.WithLabelValues(strategyID, source).Set(float64(count))
 }
 
-// SetEvolutionGeneration sets the current evolution generation gauge (C5.3).
+// SetEvolutionGeneration sets the current evolution generation gauge.
 // This exposes the GA's generation counter so /metrics can answer
 // "which generation produced this compile".
 //
@@ -523,7 +522,7 @@ func (m *PrometheusMetrics) SetEvolutionGeneration(generation int) {
 	m.EvolutionGeneration.Set(float64(generation))
 }
 
-// SetEvolutionDAGVersion sets the current live DAG version gauge (C5.3).
+// SetEvolutionDAGVersion sets the current live DAG version gauge.
 // This is MutableDAG.Version() — the mutation counter that increments on
 // every structural patch (AddNode/RemoveNode/AddEdge/ReplaceNode).
 //
@@ -536,7 +535,7 @@ func (m *PrometheusMetrics) SetEvolutionDAGVersion(version uint64) {
 	m.EvolutionDAGVersion.Set(float64(version))
 }
 
-// SetEvolutionCompileCount sets the total compile count gauge (C5.3).
+// SetEvolutionCompileCount sets the total compile count gauge.
 // This is the number of CompilePlan calls since startup, exposing whether
 // the projection pipeline is actually firing (a flat zero means recompile
 // events are not reaching the coordinator).

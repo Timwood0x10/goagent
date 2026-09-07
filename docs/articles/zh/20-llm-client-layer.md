@@ -38,7 +38,7 @@ type Client struct {
     config         *Config
     httpClient     *http.Client      // 带 Timeout，普通请求
     streamClient   *http.Client      // 无 Timeout——流式超时全走 context
-    tracer         ares_observability.Tracer
+    tracer         observability.Tracer
     ares_callbacks ares_callbacks.Emitter
     limiter        ares_ratelimit.Limiter
     sanitizer      *ares_security.Sanitizer

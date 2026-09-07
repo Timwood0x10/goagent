@@ -100,11 +100,11 @@ func provideDistillation(
 			return hints, nil
 		},
 		// RecordStrategyOutcome persists the actual strategy result back into
-		// the experience store (Track A write side). Previously the GA core
+		// the experience store (write side). Previously the GA core
 		// invoked RecordStrategyOutcome but the FuncGuidanceProvider treated a
 		// nil RecordFunc as a successful no-op — the outcome was silently
 		// dropped. Now it is written so the next round's mutation guidance can
-		// read the outcome (Strategy → Experience → Guidance loop, Stage 4.3).
+		// read the outcome (Strategy → Experience → Guidance loop).
 		RecordFunc: func(ctx context.Context, outcome evolution.StrategyOutcome) error {
 			return recordStrategyOutcome(ctx, expRepo, outcome)
 		},
@@ -273,7 +273,7 @@ func HandleTaskCompletedForDistillation(ctx context.Context, svc *aresexp.Distil
 
 // postgresEmbeddingEnqueuer adapts the consuming-package EmbeddingEnqueuer
 // interface to the concrete postgres EmbeddingQueue so the distillation path can
-// enqueue async experience-vector backfill tasks (REVIEW #13 A2).
+// enqueue async experience-vector backfill tasks.
 type postgresEmbeddingEnqueuer struct {
 	queue *postgres.EmbeddingQueue
 }

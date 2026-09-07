@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// Agent-pool concurrency benchmarks (P2): measure how the runtime Manager
+// Agent-pool concurrency benchmarks: measure how the runtime Manager
 // sustains concurrent registration, start and stop of a pool of agents — the
 // substrate the Agent-OS thread model relies on. Run with:
 //

@@ -27,7 +27,7 @@ type GraphProvider interface {
 	// the provider should stop producing and return immediately.
 	// Errors during streaming are sent through the error channel.
 	//
-	// Consumption contract (#42): callers MUST drain both channels until they
+	// Consumption contract: callers MUST drain both channels until they
 	// are closed, or cancel ctx when abandoning early. Producers select on
 	// ctx.Done while sending, so cancellation always releases them; a caller
 	// that stops consuming WITHOUT cancelling would block the producer

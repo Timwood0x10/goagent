@@ -1,5 +1,4 @@
-// collaboration_observer.go closes the first half of N-11 (closure plan Step
-// Y.2): the bus now measures collaboration receipts.
+// collaboration_observer.go makes the bus measure collaboration receipts.
 //
 // Before this file the Bus recorded delivery FAILURES into the dead-letter
 // store and nothing else. Nobody counted how often a collaboration succeeded,
@@ -9,8 +8,8 @@
 // the outside world; leaving it unmeasured left evolution structurally blind to
 // a third of its own inputs.
 //
-// The observer interface is declared HERE, at the consumer (code_rules §"
-// interfaces at the consumer"), and the bus never imports the evolution layer:
+// The observer interface is declared HERE, at the consumer
+// (interfaces at the consumer), and the bus never imports the evolution layer:
 // ares_evolution.ChannelFeedbackRecorder satisfies it structurally. The bus
 // stays a kernel primitive that does not know it is being scored.
 package agentipc

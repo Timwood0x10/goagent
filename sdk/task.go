@@ -6,7 +6,7 @@ import (
 )
 
 // Task is the minimal unit of work a caller submits to a Runtime
-// (aresos-agentos-plan H1: 极简 SDK — NewRuntime → RegisterAgent → Submit →
+// (极简 SDK — NewRuntime → RegisterAgent → Submit →
 // 结果). It is deliberately field-light: the Runtime resolves the executor by
 // capability, so callers never construct agents or reference any internal
 // scheduling/leadership concept.
@@ -25,7 +25,7 @@ type Task struct {
 }
 
 // RegisterAgent creates an agent and registers it as the handler for its
-// capability (H1: 极简 SDK — 不暴露 leader/sub/kernel 概念). The agent is
+// capability (极简 SDK — 不暴露 leader/sub/kernel 概念). The agent is
 // named after the capability; opts configure it (WithInstruction/WithTools/
 // ...). The first agent registered for a capability wins; a later
 // RegisterAgent for the same capability does not replace it.
@@ -44,8 +44,8 @@ func (r *Runtime) RegisterAgent(capability string, opts ...AgentOption) *Agent {
 	defer r.agentMu.Unlock()
 	if _, ok := r.agentByCapability[capability]; !ok {
 		r.agentByCapability[capability] = a
-		// H1/H2: also register the shared-scheduler executor so Submit drives
-		// the agent through the fabric, not a direct call. P1-1: route through
+		// also register the shared-scheduler executor so Submit drives
+		// the agent through the fabric, not a direct call. Route through
 		// sched.RegisterExecutor so the write hits the scheduler's own execMu
 		// (no cross-lock race with the scheduler's reads).
 		r.ensureScheduler()
@@ -55,10 +55,10 @@ func (r *Runtime) RegisterAgent(capability string, opts ...AgentOption) *Agent {
 }
 
 // Submit dispatches a task to the agent registered for its capability and
-// returns the execution result (H1: 极简 SDK 闭环). The task goes through the
+// returns the execution result (极简 SDK 闭环). The task goes through the
 // SAME scheduling path as the kernel: fabric.Create → kernelscheduler
 // (Schedule → Acquire → RunQuantum via the registered agent) → COMPLETED →
-// result (H1/H2: 合并 SDK 和 kernel 两条路径 — the SDK and the kernel share
+// result (合并 SDK 和 kernel 两条路径 — the SDK and the kernel share
 // one scheduler; no divergent direct-run path). When no agent is registered
 // for the task's capability, a capability-named agent is created on demand —
 // a runtime never refuses a well-formed task just because it was not

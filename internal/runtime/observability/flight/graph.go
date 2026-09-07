@@ -73,14 +73,14 @@ func (g *Graph) AddNode(node *GraphNode) {
 
 	g.nodes[node.ID] = node
 
-	// B7: if this node has pending children from earlier arrivals,
+	// If this node has pending children from earlier arrivals,
 	// attach them now.
 	if pending, ok := g.pendingChildren[node.ID]; ok {
 		node.Children = append(node.Children, pending...)
 		delete(g.pendingChildren, node.ID)
 	}
 
-	// P1-2: ring cap — evict the oldest node when the cap is exceeded.
+	// Ring cap — evict the oldest node when the cap is exceeded.
 	// The oldest node is the one with the earliest StartAt. We evict it
 	// from the nodes map only (its children entries remain in the tree
 	// so the structural shape is not broken — only the lookup is lost).
@@ -106,7 +106,7 @@ func (g *Graph) AddNode(node *GraphNode) {
 	// Guard against self-parenting: a node whose ParentID equals its own ID
 	// would become its own child, creating a cycle that makes the recursive
 	// traversals (Depth, ExportMermaid, ExportDOT) recurse forever and
-	// overflow the stack (M12).
+	// overflow the stack.
 	if node.ParentID == node.ID {
 		return
 	}
@@ -114,7 +114,7 @@ func (g *Graph) AddNode(node *GraphNode) {
 	if parent, ok := g.nodes[node.ParentID]; ok {
 		parent.Children = append(parent.Children, node)
 	} else {
-		// B7: parent has not arrived yet — record a pending child so
+		// Parent has not arrived yet — record a pending child so
 		// the parent can pick it up when it is added later (out-of-order
 		// event arrival is common in the flight recorder).
 		g.pendingChildren[node.ParentID] = append(g.pendingChildren[node.ParentID], node)
@@ -132,7 +132,7 @@ func (g *Graph) GetNode(id string) (*GraphNode, bool) {
 // UpdateNodeStatus atomically updates the status, end time, and duration of a node.
 // Duration is computed from the node's StartAt field under the write lock,
 // avoiding the data race of calling GetNode (read lock) then mutating fields
-// outside the lock (P0-2).
+// outside the lock.
 func (g *Graph) UpdateNodeStatus(id string, status NodeStatus, endAt time.Time) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -177,7 +177,7 @@ func nodeDepth(n *GraphNode, current int) int {
 
 // nodeDepthVisited is nodeDepth with cycle detection: a node already visited
 // on the current path (a cycle in Children) stops recursion instead of
-// overflowing the stack (M12).
+// overflowing the stack.
 func nodeDepthVisited(n *GraphNode, current int, visited map[string]bool) int {
 	if n == nil || len(n.Children) == 0 {
 		return current
@@ -219,7 +219,7 @@ func (g *Graph) writeMermaidNode(b *strings.Builder, n *GraphNode, indent string
 }
 
 // writeMermaidNodeVisited is writeMermaidNode with cycle detection so a
-// cyclic Children graph cannot recurse forever (M12).
+// cyclic Children graph cannot recurse forever.
 func (g *Graph) writeMermaidNodeVisited(b *strings.Builder, n *GraphNode, indent string, visited map[string]bool) {
 	if n == nil || visited[n.ID] {
 		return
@@ -294,7 +294,7 @@ func (g *Graph) writeDOTNode(b *strings.Builder, n *GraphNode) {
 }
 
 // writeDOTNodeVisited is writeDOTNode with cycle detection so a cyclic
-// Children graph cannot recurse forever (M12).
+// Children graph cannot recurse forever.
 func (g *Graph) writeDOTNodeVisited(b *strings.Builder, n *GraphNode, visited map[string]bool) {
 	if n == nil || visited[n.ID] {
 		return

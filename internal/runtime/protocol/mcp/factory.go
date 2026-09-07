@@ -100,7 +100,7 @@ func (f *MCPToolFactory) Create(config map[string]interface{}) (core.Tool, error
 		Transport:  sc.Transport,
 	})
 
-	// Bound only the initial handshake (#26): the client's lifetime context
+	// Bound only the initial handshake: the client's lifetime context
 	// is independent (background), so cancelling connectCtx when Create
 	// returns must not cascade-cancel the client and kill the subprocess.
 	connectCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

@@ -80,7 +80,7 @@ func buildTestL1DAG(t *testing.T, enabled string, budget string) *engine.Mutable
 	return dag
 }
 
-// TestM5_DisabledToolNotGrown pins §6 constraint point: when L1 has
+// TestM5_DisabledToolNotGrown pins the constraint point: when L1 has
 // enabled="false" for a ToolClass, the planner skips growing that tool node
 // and instead grows an answer node (since no tool call was executed).
 func TestM5_DisabledToolNotGrown(t *testing.T) {
@@ -140,7 +140,7 @@ func TestM5_DisabledToolNotGrown(t *testing.T) {
 		"answer node must be grown when tool call is skipped by L1 constraint")
 }
 
-// TestM5_BudgetCapsInstances pins §6 budget: budget=1 means at most 1
+// TestM5_BudgetCapsInstances pins the budget: budget=1 means at most 1
 // instance of the ToolClass in the L2 graph. The second grep call must be
 // skipped.
 func TestM5_BudgetCapsInstances(t *testing.T) {

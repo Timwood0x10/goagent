@@ -13,7 +13,7 @@ import (
 // minimalCapabilityExecutor is a bare-bones executor that implements ONLY the
 // CapabilityExecutor interface (ID, Type, ExecuteStep) — it does NOT implement
 // the full sub.Agent interface. This proves the scheduler is decoupled from
-// sub.Agent (W2-5): any type with the three methods is schedulable.
+// sub.Agent: any type with the three methods is schedulable.
 type minimalCapabilityExecutor struct {
 	id  string
 	typ models.AgentType
@@ -29,13 +29,13 @@ func (e *minimalCapabilityExecutor) ExecuteStep(_ context.Context, task *models.
 
 // Compile-time check: minimalCapabilityExecutor satisfies CapabilityExecutor
 // but NOT sub.Agent (it lacks Execute, Start, Stop, Process, ProcessStream,
-// Status). This is the W2-5 proof: the scheduler accepts executors that are
+// Status). This is the decoupling proof: the scheduler accepts executors that are
 // not sub.Agent.
 var _ CapabilityExecutor = (*minimalCapabilityExecutor)(nil)
 
 // TestW2_5CapabilityExecutorDecoupling verifies the scheduler accepts an
 // executor that is NOT a sub.Agent — only a CapabilityExecutor. This is the
-// W2-5 acceptance test: "移除 scheduler 对 sub.Agent 类型/角色的强绑定".
+// decoupling acceptance test: "移除 scheduler 对 sub.Agent 类型/角色的强绑定".
 // The minimalCapabilityExecutor implements only ID/Type/ExecuteStep; it has
 // no Execute, Start, Stop, Process, or ProcessStream methods. If the scheduler
 // still depended on sub.Agent, this would not compile.

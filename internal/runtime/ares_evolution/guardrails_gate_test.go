@@ -40,10 +40,10 @@ func newGuardedAdapter(t *testing.T, g *EvolutionGuardrails) *GenomePopulationAd
 	return adapter
 }
 
-// TestAdapterPreGuardrailsBlockUnevaluatedPopulation is the B2 behavioural
-// contract for the adapter layer (G1).
+// TestAdapterPreGuardrailsBlockUnevaluatedPopulation is the behavioural
+// contract for the adapter layer.
 //
-// Before B2, bootstrap never assigned gaCfg.Guardrails, so WithAdapterGuardrails
+// Historically bootstrap never assigned gaCfg.Guardrails, so WithAdapterGuardrails
 // was never applied and runPreGuardrails returned nil on its first line. The
 // "majority of the population is unevaluated" check — the guardrail's only
 // Critical pre-condition — could not fire in any production configuration.
@@ -62,7 +62,8 @@ func TestAdapterPreGuardrailsBlockUnevaluatedPopulation(t *testing.T) {
 	assert.Contains(t, err.Error(), "pre-evolve guardrail check failed")
 }
 
-// TestAdapterPreGuardrailsNilPassesThrough pins the pre-B2 behavior as the
+// TestAdapterPreGuardrailsNilPassesThrough pins the nil-guardrails behavior as
+// the
 // explicit no-guardrails contract rather than an accident: paths that wire no
 // guardrails (tests, minimal configs) must still run, so the nil check is a
 // deliberate opt-out, not the default.
@@ -72,8 +73,8 @@ func TestAdapterPreGuardrailsNilPassesThrough(t *testing.T) {
 		"without guardrails the adapter must not gate (documented opt-out)")
 }
 
-// TestSchedulerTickBlockedByGuardrails is the B2 behavioural contract for the
-// legacy scheduler path (G1).
+// TestSchedulerTickBlockedByGuardrails is the behavioural contract for the
+// legacy scheduler path.
 //
 // Two defects had to be fixed for this to be assertable at all:
 //  1. ProvideEvolution passed only WithEnabled and WithMinInterval, so

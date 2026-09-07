@@ -1,4 +1,4 @@
-// Package ares_bootstrap — Track A strategy outcome write-back tests (Stage 4.3).
+// Package ares_bootstrap — strategy outcome write-back tests.
 //
 // Verifies that GA strategy outcomes are persisted into the experience store
 // instead of being silently dropped (the previous nil-RecordFunc no-op), so the

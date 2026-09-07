@@ -102,7 +102,7 @@ func TestQueryWithLimit(t *testing.T) {
 	}
 }
 
-// TestQueryOffsetBeyondEnd verifies B17: when the offset is at or beyond the
+// TestQueryOffsetBeyondEnd verifies the offset contract: when the offset is at or beyond the
 // end of the result set, the store must return an empty page, not silently
 // ignore the offset and return the full result.
 func TestQueryOffsetBeyondEnd(t *testing.T) {

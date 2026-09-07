@@ -105,7 +105,7 @@ flowchart LR
     GROW["L2Graph.AddToolNode<br/>(单次 AddNode 带 DependsOn)"]-->EVT["GraphEventHub"]
     EVT-->COORD["CompileCoordinator.SubscribeGraphEvents<br/>ApplyChange / Reconcile(seq 跳号/drop 对账)"]
     COORD-->CT["taskfabric.CompileNode"]
-    CT-->DR["kernelscheduler.Scheduler.Run/drain"]
+    CT-->DR["kernel.Scheduler.Run/drain"]
     DR-->SEL["capability 打分选赢者"]
     SEL-->EXEC["fabricAgentExecutor.ExecuteStep"]
     EXEC-->COG["agent.Cognition(router→tool/answer/root)"]

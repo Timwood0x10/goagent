@@ -1,4 +1,4 @@
-// Package arena runs ARES chaos-engineering scenarios (convergence Phase 3).
+// Package arena runs ARES chaos-engineering scenarios.
 //
 // Scenarios (leader assassination, cascading storms, …) inject failures
 // into a live or scratch runtime and assert recovery: lease expiry,

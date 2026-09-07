@@ -11,7 +11,7 @@ import (
 )
 
 // FTS5Index is an in-memory SQLite FTS5 full-text index over skill metadata
-// (design §5: "查询走关键词匹配，接口预留 FTS5"). It augments — not replaces —
+// ("查询走关键词匹配，接口预留 FTS5"). It augments — not replaces —
 // the keyword matcher: Discovery falls back to the keyword path when FTS5 is
 // unavailable or a query is not FTS5-safe.
 type FTS5Index struct {

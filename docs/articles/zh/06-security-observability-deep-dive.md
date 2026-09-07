@@ -1,6 +1,6 @@
 # ares 架构深度解析（六）：安全与可观测性 — 认证、鉴权、脱敏与调度可观测（0.3.x）
 
-> 0.3.x 说明：本文完全基于当前 `internal/ares_security/` 与 `internal/ares_observability/` 的真实实现改写。早期版本的 `SafeLogger` / `LogTracer` / 限流工厂 / 优雅关闭四段状态机等内容在当前代码中**不再存在**，本文不再复述，只写现在真实存在的东西。
+> 0.3.x 说明：本文完全基于当前 `internal/ares_security/` 与 `internal/runtime/observability/` 的真实实现改写。早期版本的 `SafeLogger` / `LogTracer` / 限流工厂 / 优雅关闭四段状态机等内容在当前代码中**不再存在**，本文不再复述，只写现在真实存在的东西。
 
 > 一个 Agent 能做的事越危险，越需要在"它把事做出来之前"就先想清楚：谁来用它？它能碰什么？它吐出来的东西会不会泄密？以及——它在运行时的每一步，我们到底能不能看见？
 
@@ -11,8 +11,8 @@
 先说结论，别被标题带偏：当前代码库里的安全与可观测性，不是一篇夸夸其谈的"纵深防御白皮书"，而是一组**小而清晰、还在被守卫着每个 HTTP 边界**的模块。
 
 - 安全侧：`internal/ares_security/` — **JWT 认证 + RBAC 角色权限 + 请求中间件 + 审计日志 + 敏感信息脱敏**，共 5 个文件。
-- 可观测侧：`internal/ares_observability/` — **Tracer 接口（OTel / Noop 两套实现）+ Metrics（OTel / Prometheus 两套）+ 每会话成本跟踪**。
-- 调度可观测：`internal/kernelscheduler/decision_recorder.go` 的 **Scheduling Observatory**，以及 `internal/introspect/` 的运行态面板。
+- 可观测侧：`internal/runtime/observability/` — **Tracer 接口（OTel / Noop 两套实现）+ Metrics（OTel / Prometheus 两套）+ 每会话成本跟踪**。
+- 调度可观测：`internal/kernel/decision_recorder.go` 的 **Scheduling Observatory**，以及 `internal/introspect/` 的运行态面板。
 
 我把上一版文章里"当前代码里没有"的东西都删掉了。下面每一行符号，都在对应文件里找得到。
 
@@ -25,12 +25,12 @@
 | 中间件 | `internal/ares_security/middleware.go` | `AuthMiddleware`、`NewAuthMiddleware`、`WithAudit`、`Principal`、`FromContext`、`Verify` |
 | 审计 | `internal/ares_security/audit.go` | `AuditLogger`、`NewAuditLogger`、`Auth`、`Action` |
 | 脱敏 | `internal/ares_security/sanitizer.go` | `Sanitizer`、`Sanitize`、`SanitizeJSON`、`SanitizeOptions`、`SensitivePattern` |
-| Tracer 接口 | `internal/ares_observability/tracer.go` | `Tracer`、`LLMCall`、`ToolCall`、`AgentStep`、`AgentError` |
-| Noop 实现 | `internal/ares_observability/noop.go` | `NoopTracer`、`NewNoopTracer` |
-| OTel 实现 | `internal/ares_observability/otel_tracer.go` | `OTelTracer`、`NewOTelTracer`、`WithExporter`、`WithSampler`、`WithMetricReader` |
-| Metrics | `internal/ares_observability/metrics.go` | `Metrics`、`NewMetrics`、`RecordLLMCall`、`RecordToolCall`、`RecordAgentStepDuration`、`RecordAgentError` |
-| Prometheus | `internal/ares_observability/prometheus.go` | `PrometheusMetrics`、`NewPrometheusMetrics`、`MetricsHTTPHandler`、`RegisterMetricsRouter` |
-| 调度可观测 | `internal/kernelscheduler/decision_recorder.go` | `DecisionRecorder`、`ScheduleDecision`、`CandidateScore`、`snapshot`/`Record` |
+| Tracer 接口 | `internal/runtime/observability/tracer.go` | `Tracer`、`LLMCall`、`ToolCall`、`AgentStep`、`AgentError` |
+| Noop 实现 | `internal/runtime/observability/noop.go` | `NoopTracer`、`NewNoopTracer` |
+| OTel 实现 | `internal/runtime/observability/otel_tracer.go` | `OTelTracer`、`NewOTelTracer`、`WithExporter`、`WithSampler`、`WithMetricReader` |
+| Metrics | `internal/runtime/observability/metrics.go` | `Metrics`、`NewMetrics`、`RecordLLMCall`、`RecordToolCall`、`RecordAgentStepDuration`、`RecordAgentError` |
+| Prometheus | `internal/runtime/observability/prometheus.go` | `PrometheusMetrics`、`NewPrometheusMetrics`、`MetricsHTTPHandler`、`RegisterMetricsRouter` |
+| 调度可观测 | `internal/kernel/decision_recorder.go` | `DecisionRecorder`、`ScheduleDecision`、`CandidateScore`、`snapshot`/`Record` |
 | 运行态面板 | `internal/introspect/` | `Dashboard`、`Store`、`Collector`、`Handler`、`Sink` |
 | LLM 侧脱敏接线 | `internal/llm/client.go` + `internal/ares_bootstrap/provide_llm.go` | `WithSanitizer` |
 

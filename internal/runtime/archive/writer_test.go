@@ -236,7 +236,7 @@ func roundPath(dir string, round int) string {
 	return filepath.Join(dir, "round_"+strconv.Itoa(round)+".json")
 }
 
-// TestSanitizeStreamID_RejectsTraversal locks the N11 contract: '.' is not an
+// TestSanitizeStreamID_RejectsTraversal locks the traversal-safety contract: '.' is not an
 // allowed path segment character, so a stream id of ".." can never sanitize
 // to the parent directory and escape the archive root.
 func TestSanitizeStreamID_RejectsTraversal(t *testing.T) {
@@ -268,7 +268,8 @@ func TestSanitizeStreamID_RejectsTraversal(t *testing.T) {
 	}
 }
 
-// TestSanitizeStreamID_CollisionResistant locks the N11 contract: two distinct
+// TestSanitizeStreamID_CollisionResistant locks the collision-resistance
+// contract: two distinct
 // stream ids that sanitize to the same segment (because one contains a path
 // separator) must not collide on disk.
 func TestSanitizeStreamID_CollisionResistant(t *testing.T) {

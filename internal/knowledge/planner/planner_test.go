@@ -124,7 +124,7 @@ func (f *fakeTaskSearcher) SearchSimilarTasks(_ context.Context, _ string, _ int
 	return nil, nil
 }
 
-// TestSourceDiscoveryExcludesMemoryForCode verifies the B10 root-cause fix:
+// TestSourceDiscoveryExcludesMemoryForCode verifies the root-cause fix:
 // the intent now carries Scope.Types derived from the requirement Need, so
 // MemoryProvider's type-aware score (0.3 for code/architecture) falls below
 // providerSelectThreshold (0.35) and the provider is excluded from code

@@ -63,8 +63,8 @@ func testActionJWT(t *testing.T, role ares_security.Role) string {
 }
 
 // TestActionHandler_JWTAcceptedOnKill verifies the actionHandler (the
-// production entry for POST /api/agents/:id/kill) accepts a valid JWT — the
-// v0.3.0 review gap where interception bypassed JWT entirely.
+// production entry for POST /api/agents/:id/kill) accepts a valid JWT —
+// closing the gap where interception bypassed JWT entirely.
 func TestActionHandler_JWTAcceptedOnKill(t *testing.T) {
 	env := newActionTestEnv(t)
 

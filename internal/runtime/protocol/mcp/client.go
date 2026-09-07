@@ -52,7 +52,7 @@ type MCPClient struct {
 	eg         errgroup.Group
 	connected  atomic.Bool
 
-	// notifySlots bounds concurrently running notification handlers (#27):
+	// notifySlots bounds concurrently running notification handlers:
 	// each notification spawned an unbounded goroutine, so a malicious or
 	// buggy server flooding notifications allocated goroutines without limit
 	// (each may also issue a ListTools round-trip). Full slots drop the
@@ -88,7 +88,7 @@ func (c *MCPClient) Connect(ctx context.Context, transport Transport) error {
 }
 
 // ConnectWithLifetime starts the transport and performs the MCP initialize
-// handshake with separate handshake and lifetime scopes (#26): the handshake
+// handshake with separate handshake and lifetime scopes: the handshake
 // steps are bounded by ctx, while the client and its subprocess live as long
 // as lifetimeCtx. This lets a factory bound only the initial connect — a
 // short-lived handshake context must not cascade-cancel the client's own
@@ -106,7 +106,7 @@ func (c *MCPClient) ConnectWithLifetime(ctx, lifetimeCtx context.Context, transp
 
 	// The subprocess must be bound to the LIFETIME context (it owns the
 	// process); binding it to the handshake ctx would kill the child as soon
-	// as the handshake scope ends (#26).
+	// as the handshake scope ends.
 	if err := c.transport.Start(lifetimeCtx); err != nil {
 		return fmt.Errorf("start transport: %w", err)
 	}
@@ -343,7 +343,7 @@ func (c *MCPClient) receiveLoop() error {
 			// ListTools request whose response arrives on this loop; blocking
 			// here would deadlock.
 			//
-			// Concurrency is capped via notifySlots (#27): try to take a slot
+			// Concurrency is capped via notifySlots: try to take a slot
 			// without blocking. When all handlers are busy, drop this
 			// notification instead of queueing unboundedly — a flood must
 			// cost the server its updates, not our memory.

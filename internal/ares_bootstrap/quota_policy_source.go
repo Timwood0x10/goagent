@@ -12,7 +12,7 @@ import (
 
 // quotaBudgetParam ("quota.budget") is the strategy param carrying the
 // evolution-produced resource budget as a name → amount map, e.g.
-// {"cpu": 8, "memory": 8192} (v0.3.0 M2-2).
+// {"cpu": 8, "memory": 8192}.
 const quotaBudgetParam = "quota.budget"
 
 // evolutionQuotaPolicySource adapts an evolution.StrategyStore to the

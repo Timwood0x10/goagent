@@ -14,10 +14,10 @@ import (
 	"github.com/Timwood0x10/ares/internal/fabric/task"
 )
 
-// e2ePhaseCognition is the H2/E1 execution body (A1 Cognition) injected into
+// e2ePhaseCognition is the execution body injected into
 // the fabric agent. Every quantum does real work but yields (Done=false) with
 // a checkpoint — the task stays SUSPENDED with the checkpoint preserved
-// (P1.1 Execution Quantum). Only the W1 replacement executor (created after
+// (execution-quantum semantics). Only the replacement executor (created after
 // the chaos kill) completes the task, so the SUSPENDED window is stable and
 // the test cannot race past it.
 type e2ePhaseCognition struct {
@@ -41,9 +41,9 @@ func (c *e2ePhaseCognition) ExecuteStep(_ context.Context, task *models.Task) (*
 	}, nil
 }
 
-// e2eRecoveryExecutor is the W1 replacement executor the recovery loop
+// e2eRecoveryExecutor is the replacement executor the recovery loop
 // factories when the dead agent leaves no capable executor: it resumes the
-// recovered task from the preserved checkpoint (the E1 proof — the new
+// recovered task from the preserved checkpoint (the new
 // execution body continues where the old one stopped, it does not restart).
 type e2eRecoveryExecutor struct {
 	id          string
@@ -70,7 +70,7 @@ func (e *e2eRecoveryExecutor) resumed() any {
 }
 
 // e2eAgentSink collects agentfabric lifecycle events (agent.spawned/killed/...)
-// so the H2 event-stream assertion can verify the chaos kill is observable.
+// so the event-stream assertion can verify the chaos kill is observable.
 type e2eAgentSink struct {
 	mu    sync.Mutex
 	types []agentfabric.AgentEventType
@@ -182,13 +182,13 @@ func waitFabricState(t *testing.T, f *taskfabric.Fabric, taskID string, want tas
 	return tk.State
 }
 
-// TestE2E_GrandLoop_RealSchedulerChaosRecovery is the H2 total acceptance
-// (aresos-agentos-plan H2) + E1 acceptance together, run through the REAL
+// TestE2E_GrandLoop_RealSchedulerChaosRecovery is the total acceptance test
+// for chaos recovery, run through the REAL
 // scheduling chain — no leader, no planner, no simulation:
 //
 //	Submit(Create) → Schedule → Acquire → RunQuantum(agent-A quantum 1, yield)
 //	→ SUSPENDED + checkpoint preserved → Chaos kill agent-A → lease expiry →
-//	recovery requeues → W1 factory spawns replacement execution body →
+//	recovery requeues → the factory spawns a replacement execution body →
 //	bound executor resumes from the checkpoint → RunQuantum(quantum 2, done)
 //	→ COMPLETED.
 //
@@ -244,7 +244,7 @@ func TestE2E_GrandLoop_RealSchedulerChaosRecovery(t *testing.T) {
 	agentSink := &e2eAgentSink{}
 	agents := agentfabric.NewFabric().WithEventSink(agentSink)
 
-	// ── 1. Spawn agent-A WITH a real execution body (A1) ────────────────
+	// ── 1. Spawn agent-A WITH a real execution body ────────────────
 	cogA := &e2ePhaseCognition{}
 	if _, err := agents.Spawn(ctx, agentfabric.SpawnSpec{
 		Identity:     "agent-A",
@@ -256,17 +256,17 @@ func TestE2E_GrandLoop_RealSchedulerChaosRecovery(t *testing.T) {
 		t.Fatalf("spawn agent-A: %v", err)
 	}
 
-	// ── 2. Scheduler: the fabric is the single candidate source (B1) ────
+	// ── 2. Scheduler: the fabric is the single candidate source ────
 	sched := NewKernelScheduler(fabric, map[string]CapabilityExecutor{}, newLoadTracker())
 	sched.PollInterval = 20 * time.Millisecond
 	sched.WithAgentFabric(agents).WithEventStore(store)
 	go sched.Run(ctx)
 
-	// ── 3. Recovery loop (W1/E1: a REAL replacement execution body) ─────
+	// ── 3. Recovery loop (a REAL replacement execution body) ─────
 	var replacementMu sync.Mutex
 	var replacement *e2eRecoveryExecutor
 	rec := aresrecovery.New(fabric, agents, aresrecovery.DefaultRestartPolicy())
-	// B1: wire the scheduler's stale-winner nomination exactly as peer mode
+	// Wire the scheduler's stale-winner nomination exactly as peer mode
 	// does. Without it this test does not exercise the production chain: a
 	// drain that acquires t1 AFTER the clock advance mints a lease expiring at
 	// (now + TTL), which this controlled clock never reaches — the task then

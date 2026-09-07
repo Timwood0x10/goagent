@@ -1,4 +1,4 @@
-// Package ares_bootstrap — System Runtime wiring tests (Stage 1).
+// Package ares_bootstrap — System Runtime wiring tests.
 package ares_bootstrap
 
 import (

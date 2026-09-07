@@ -1,4 +1,4 @@
-// Package ares_bootstrap — MCP state observability tests (Stage 5).
+// Package ares_bootstrap — MCP state observability tests.
 //
 // Verifies that MCP server connection state is observable through the
 // manager's status API (disconnected servers report Connected=false with an

@@ -117,7 +117,7 @@ func (b *PluginBus) Start(ctx context.Context) error {
 func (b *PluginBus) Stop(ctx context.Context) error {
 	b.mu.Lock()
 	b.started = false
-	// B22: Clean up all subscribers to prevent leaked goroutines.
+	// Clean up all subscribers to prevent leaked goroutines.
 	// Close subscriber channels and clear the slice so Emit (which still
 	// holds RLock) can no longer send to stale channels after Stop.
 	for _, s := range b.subscribers {

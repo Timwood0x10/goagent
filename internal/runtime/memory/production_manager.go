@@ -419,9 +419,9 @@ func (m *ProductionMemoryManager) AddMessage(ctx context.Context, sessionID, rol
 	}
 
 	// Tenant scope flows via explicit tenantID parameters on repository
-	// methods (REVIEW #36 Phase 1); the session-based SetTenantContext was
+	// methods; the session-based SetTenantContext was
 	// removed — its SET LOCAL evaporated under autocommit on a pooled
-	// connection, providing no isolation (REVIEW #36 Phase 2).
+	// connection, providing no isolation.
 	tenantID := m.getCurrentTenantID()
 
 	// Create conversation record (NO vector embedding per design standard)
@@ -487,9 +487,9 @@ func (m *ProductionMemoryManager) GetMessages(ctx context.Context, sessionID str
 	}
 
 	// Tenant scope flows via explicit tenantID parameters on repository
-	// methods (REVIEW #36 Phase 1); the session-based SetTenantContext was
+	// methods; the session-based SetTenantContext was
 	// removed — its SET LOCAL evaporated under autocommit on a pooled
-	// connection, providing no isolation (REVIEW #36 Phase 2).
+	// connection, providing no isolation.
 	tenantID := m.getCurrentTenantID()
 
 	// Retrieve conversations from database
@@ -523,9 +523,9 @@ func (m *ProductionMemoryManager) AddStructuredMessage(ctx context.Context, sess
 	}
 
 	// Tenant scope flows via explicit tenantID parameters on repository
-	// methods (REVIEW #36 Phase 1); the session-based SetTenantContext was
+	// methods; the session-based SetTenantContext was
 	// removed — its SET LOCAL evaporated under autocommit on a pooled
-	// connection, providing no isolation (REVIEW #36 Phase 2).
+	// connection, providing no isolation.
 	tenantID := m.getCurrentTenantID()
 
 	// Build metadata from structured fields
@@ -610,9 +610,9 @@ func (m *ProductionMemoryManager) BuildPromptMessages(ctx context.Context, sessi
 	}
 
 	// Tenant scope flows via explicit tenantID parameters on repository
-	// methods (REVIEW #36 Phase 1); the session-based SetTenantContext was
+	// methods; the session-based SetTenantContext was
 	// removed — its SET LOCAL evaporated under autocommit on a pooled
-	// connection, providing no isolation (REVIEW #36 Phase 2).
+	// connection, providing no isolation.
 	tenantID := m.getCurrentTenantID()
 
 	// Retrieve conversations with metadata
@@ -696,9 +696,9 @@ func (m *ProductionMemoryManager) DeleteSession(ctx context.Context, sessionID s
 	}
 
 	// Tenant scope flows via explicit tenantID parameters on repository
-	// methods (REVIEW #36 Phase 1); the session-based SetTenantContext was
+	// methods; the session-based SetTenantContext was
 	// removed — its SET LOCAL evaporated under autocommit on a pooled
-	// connection, providing no isolation (REVIEW #36 Phase 2).
+	// connection, providing no isolation.
 	tenantID := m.getCurrentTenantID()
 
 	// Delete all conversations for this session
@@ -799,7 +799,7 @@ func (m *ProductionMemoryManager) GetLatestSessionForAgent(ctx context.Context, 
 
 	// agent_checkpoints is keyed by agent_id alone (session IDs are globally
 	// unique), so no tenant predicate applies here; tenant scope for the
-	// caller flows via explicit parameters elsewhere (REVIEW #36 Phase 2).
+	// caller flows via explicit parameters elsewhere.
 	query := `SELECT session_id FROM agent_checkpoints WHERE agent_id = $1 ORDER BY updated_at DESC LIMIT 1`
 	row := m.dbPool.QueryRow(ctx, query, agentID)
 

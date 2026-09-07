@@ -13,8 +13,7 @@ import (
 // have been evaluated before selection proceeds. Returns an error if any agent
 // has an unevaluated score.
 //
-// This implements Phase 1 Item 2 from the GA Hardening Plan: "Selection never
-// operates on unevaluated individuals."
+// Invariant: "Selection never operates on unevaluated individuals."
 func (p *Population) ensureEvaluatedBeforeSelection() error {
 	for i, a := range p.Agents {
 		if !IsScoreEvaluated(a.Score) {

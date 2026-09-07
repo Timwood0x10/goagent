@@ -73,7 +73,7 @@ func TestDeterministicScorer_Deterministic(t *testing.T) {
 }
 
 // TestDeterministicScorer_DifferentOutcomesDifferentScores verifies that
-// two different outcome distributions produce different scores (C2.7 core
+// two different outcome distributions produce different scores (core
 // assertion: score ordering must reflect real performance differences).
 func TestDeterministicScorer_DifferentOutcomesDifferentScores(t *testing.T) {
 	scorer := NewDeterministicScorer()
@@ -146,7 +146,7 @@ func TestDeterministicScorer_ScoreAttribution_EndToEnd(t *testing.T) {
 	assert.Greater(t, score, 0.5, "75%% success rate with moderate metrics should score > 0.5, got %f", score)
 }
 
-// TestDeterministicScorer_ReproducibleAcrossRuns verifies C2.7: the same
+// TestDeterministicScorer_ReproducibleAcrossRuns verifies that the same
 // attribution data fed twice produces identical scores (reproducibility).
 func TestDeterministicScorer_ReproducibleAcrossRuns(t *testing.T) {
 	scorer := NewDeterministicScorer()
@@ -167,7 +167,7 @@ func TestDeterministicScorer_ReproducibleAcrossRuns(t *testing.T) {
 	assert.InDelta(t, score1, score2, 0.000001, "scorer must be reproducible")
 }
 
-// TestDeterministicScorer_TwoDistributions_DifferentOrdering verifies C2.7:
+// TestDeterministicScorer_TwoDistributions_DifferentOrdering verifies:
 // two different task distributions produce different score orderings, and
 // the ordering is reproducible with a fixed seed (trivially true since the
 // scorer has no randomness).

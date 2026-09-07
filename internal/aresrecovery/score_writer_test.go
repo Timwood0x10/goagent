@@ -45,7 +45,7 @@ func (m *mockScoreWriter) WriteActiveScore(_ context.Context, score float64) err
 	return nil
 }
 
-// TestScoredFeedbackAdapter_WritesScoreToStrategyStore verifies C2.3: the
+// TestScoredFeedbackAdapter_WritesScoreToStrategyStore verifies that the
 // scored adapter writes the deterministic aggregate score back via the
 // StrategyScoreWriter interface.
 func TestScoredFeedbackAdapter_WritesScoreToStrategyStore(t *testing.T) {

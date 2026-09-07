@@ -3,8 +3,7 @@
 // This file is the single construction source for an archive-enabled
 // CompactableEventStore. Both `ares serve` and `ares start` build their event
 // store here so the two real service entry points share one pipeline (no
-// duplicate/throwaway stores), per the unified-wiring decision following
-// plan/context_compression_strategy.md §4.
+// duplicate/throwaway stores).
 package archive
 
 import (
@@ -20,8 +19,7 @@ import (
 // When cfg.IsEnabled() is false, no sink is attached and the store behaves as a
 // plain compactable store: compaction still runs, but no round files are
 // written. When enabled, a file-based ArchiveWriter is attached so each round
-// is persisted to cfg.Dir before compaction can discard its raw events
-// (plan/context_compression_strategy.md §4).
+// is persisted to cfg.Dir before compaction can discard its raw events.
 //
 // It returns the compactable store and its underlying *MemoryEventStore so
 // callers needing the concrete raw type (e.g. dashboard.SetEventStore, which
@@ -42,7 +40,7 @@ func NewCompactableStoreWithArchive(cfg ares_config.ArchiveConfig) (
 ) {
 	mem := ares_events.NewMemoryEventStore()
 	repo := ares_events.NewMemorySummaryRepository()
-	// P1-2③: wire mem as the trim target so the compaction loop actually
+	// Wire mem as the trim target so the compaction loop actually
 	// reclaims raw events (summarize → archive → trim). Passing nil left the
 	// in-memory store growing without bound even with EnableTrimming=true.
 	ces, err := ares_events.NewCompactableEventStore(

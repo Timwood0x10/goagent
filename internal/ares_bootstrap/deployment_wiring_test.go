@@ -1,10 +1,10 @@
-// Package ares_bootstrap — deployment staging tests (Stage 7).
+// Package ares_bootstrap — deployment staging tests.
 //
 // Verifies the shadow runtime no longer reports a constant passing score:
 // Evaluate must return the real recent fitness mean (or coldStartScore when
 // no evidence exists) so promotion only proceeds on observed performance.
 //
-// Step 2 fix: Evaluate now returns (shadow, baseline) per-strategy scores
+// Evaluate now returns (shadow, baseline) per-strategy scores
 // instead of one global mean. Tests cover per-strategy scoping and the
 // cold-start fallback.
 package ares_bootstrap
@@ -27,7 +27,7 @@ import (
 )
 
 // newStagingRuntime builds a deploymentStagingRuntime over the given evidence
-// store with the zero-value cold-start score (0.0 — the pre-B6 behavior the
+// store with the zero-value cold-start score (0.0 — the previous behavior the
 // original tests pinned). Production construction (bootstrap.go) wires the
 // shared aggregator plus an explicit 0.5 cold-start score.
 func newStagingRuntime(store evidence.Store, reg *patch.Registry) *deploymentStagingRuntime {
@@ -125,7 +125,7 @@ func TestDeploymentStaging_PerStrategyScores(t *testing.T) {
 		"shadow scores for different strategies must differ by >0.1, got shadowA=%.3f shadowB=%.3f", shadowA, shadowB)
 }
 
-// TestDeploymentStaging_BaselineResolvedLiveFromASM pins the Step 6.2 fix:
+// TestDeploymentStaging_BaselineResolvedLiveFromASM pins the fix:
 // the baseline is resolved from the ActiveStrategyManager at Evaluate time, so
 // promoting a different strategy mid-run is reflected in the comparison instead
 // of measuring against a stale construction-time strategy ID. If the runtime
@@ -168,7 +168,7 @@ func TestDeploymentStaging_BaselineResolvedLiveFromASM(t *testing.T) {
 		"baseline must reflect the ASM switch (active-b), proving live resolution")
 }
 
-// TestDeploymentStaging_ExplicitColdStartScore pins the B6 contract: when the
+// TestDeploymentStaging_ExplicitColdStartScore pins the cold-start contract: when the
 // construction site sets a cold-start score (bootstrap uses 0.5), a store
 // with zero evidence returns that score instead of the universal 0.0 reject.
 func TestDeploymentStaging_ExplicitColdStartScore(t *testing.T) {
@@ -228,7 +228,7 @@ func TestDeploymentStaging_UnattributedPatchIsNotMeasurable(t *testing.T) {
 		"missing baseline attribution must not produce a positive delta")
 }
 
-// anchorRecordingStore captures Query filters for the E1 time-anchor test.
+// anchorRecordingStore captures Query filters for the time-anchor test.
 type anchorRecordingStore struct {
 	inner   *evidence.MemoryStore
 	mu      sync.Mutex
@@ -256,7 +256,7 @@ func (s *anchorRecordingStore) captured() []evidence.Filter {
 	return append([]evidence.Filter(nil), s.filters...)
 }
 
-// TestDeploymentStaging_EvaluateSharesSingleTimeAnchor locks E1: Evaluate
+// TestDeploymentStaging_EvaluateSharesSingleTimeAnchor locks the invariant: Evaluate
 // samples shadow and baseline with the SAME non-zero [since, until] so
 // concurrent evidence writes cannot skew the delta.
 func TestDeploymentStaging_EvaluateSharesSingleTimeAnchor(t *testing.T) {

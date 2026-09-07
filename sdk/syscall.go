@@ -12,7 +12,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/kernel"
 )
 
-// This file wires the spawn_agent / create_task syscalls (D1) into the SDK
+// This file wires the spawn_agent / create_task syscalls into the SDK
 // path. Previously the syscalls were bound only in peer mode (cmd/ares/
 // peer_mode.go: BindTools(toolBinder, kernelSyscall)), so an SDK user's agent
 // never saw the tools and could not autonomously decompose a task. The SDK is
@@ -86,7 +86,7 @@ func (t *syscallTool) Capabilities() []string { return nil }
 // sdkSyscallExecutor adapts a CapabilityExecutor (the sdkAgentExecutor shape)
 // to the agentsyscall.Executor contract so a spawned agent is a real
 // executable body — the same quantum, different outcome envelope (mirrors
-// peerExecutorAdapter in peer mode; code_rules: no second executor
+// peerExecutorAdapter in peer mode; no second executor
 // copy).
 type sdkSyscallExecutor struct {
 	inner kernel.CapabilityExecutor
@@ -124,7 +124,7 @@ func (r *Runtime) wireSyscalls() {
 	if r.agentsFabric == nil {
 		r.agentsFabric = agentfabric.NewFabric()
 	}
-	// Parity with the serve path (T4): bind the loop lifetime so the
+	// Parity with the serve path: bind the loop lifetime so the
 	// create_plan `loop` option works on the SDK path too. The runtime ctx is
 	// cancelled in Close, so SDK plan loops cannot outlive the Runtime — the
 	// same lifecycle the serve path gets from its own ctx. Without this, the
@@ -162,7 +162,7 @@ func (r *Runtime) wireSyscalls() {
 // Runtime, sorted. Empty before the first Submit (the syscall kernel is wired
 // lazily by ensureScheduler) and after every loop has finished.
 //
-// T4 parity: the serve path exposes loop observability through its kernel, so
+// Serve-path parity: the serve path exposes loop observability through its kernel, so
 // the SDK must too — otherwise a `loop` plan started via create_plan would be
 // unobservable and unstoppable from the embedding program.
 func (r *Runtime) LivePlanLoops() []string {

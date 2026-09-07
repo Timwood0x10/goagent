@@ -30,8 +30,8 @@ func (c *countingExecutor) ExecuteStep(ctx context.Context, task *models.Task) (
 	return c.inner.ExecuteStep(ctx, task)
 }
 
-// TestSubmitGoesThroughFabricScheduler is the H1/H2 acceptance
-// (aresos-agentos-plan H1/H2: sdk.Runtime.Submit 经过 Task Fabric →
+// TestSubmitGoesThroughFabricScheduler is the merged-path acceptance
+// (sdk.Runtime.Submit 经过 Task Fabric →
 // kernelScheduler 调度，而不是直接找 agent 跑): the shared scheduler drives
 // the executor once per submitted task — a task is created in the runtime's
 // Task Fabric and reaches COMPLETED through the scheduler's
@@ -47,7 +47,7 @@ func TestSubmitGoesThroughFabricScheduler(t *testing.T) {
 	rt.RegisterAgent("coder")
 	// Replace the registered executor with a probe that counts scheduler
 	// drives. Under the merged path, Submit creates ONE fabric task and the
-	// scheduler runs the executor exactly once. P1-1: route through
+	// scheduler runs the executor exactly once. Route through
 	// sched.RegisterExecutor so the write is execMu-guarded.
 	rt.ensureScheduler()
 	counter := &countingExecutor{inner: &sdkAgentExecutor{agent: rt.agentByCapability["coder"]}}

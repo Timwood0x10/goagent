@@ -124,7 +124,7 @@ func TestScoreToConfidence(t *testing.T) {
 	}
 }
 
-// TestFromDecisionEvidence_Cases is the table-driven unit test for the E3
+// TestFromDecisionEvidence_Cases is the table-driven unit test for the
 // decision-trail consumer. It locks the discriminator contract: a decision
 // record is identified by the "action" field in its payload, NOT by Kind —
 // the runtime fitness samples share KindFitness with decisions but carry no

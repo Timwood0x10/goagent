@@ -8,7 +8,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/fabric/agent"
 )
 
-// Evolution-driven spawn decisions (v0.3.0 M2-1): the Evolution system shapes
+// Evolution-driven spawn decisions: the Evolution system shapes
 // when agents are spawned, how many, and of what capability type. The Kernel
 // enforces the decisions through the existing spawn primitive — "Evolution
 // decides; Kernel enforces", mirroring "Agent decides; Kernel enforces".
@@ -44,7 +44,7 @@ var ErrSpawnDisabled = errors.New("aresrecovery: evolution disabled spawning")
 var ErrSpawnLimitReached = errors.New("aresrecovery: evolution spawn limit reached")
 
 // EvolutionAwareSpawner is the Kernel-side spawner that consults evolution
-// before creating an agent (v0.3.0 M2-1). It wraps the Agent Fabric spawn
+// before creating an agent. It wraps the Agent Fabric spawn
 // primitive with policy checks:
 //
 //  1. Timing:   ErrSpawnDisabled when the policy says spawning is off.
@@ -84,7 +84,7 @@ func (s *EvolutionAwareSpawner) Spawn(ctx context.Context, spec agentfabric.Spaw
 }
 
 // SpawnForRecovery creates an agent under the evolution policy for the
-// RECOVERY path (v0.3.0 M2-1): it applies the timing (Enabled) gate and the
+// RECOVERY path: it applies the timing (Enabled) gate and the
 // capability merge, but SKIPS the MaxConcurrent quota check. Recovery spawns
 // replace a dead/expired agent — they do not grow the live population, so
 // letting a self-healing spawn be rejected by the population cap would strand

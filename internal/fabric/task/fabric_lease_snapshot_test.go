@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// TestFabricLeaseSnapshot locks the monitoring.md Phase 0 Domain B contract:
+// TestFabricLeaseSnapshot locks the monitoring.md Domain B contract:
 // the snapshot is a pure read of every non-terminal task (lease owner/expiry,
 // epoch, checkpoint presence, dependencies), sorted by TaskID, with terminal
 // tasks excluded so the view stays bounded by live work.

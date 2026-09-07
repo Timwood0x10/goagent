@@ -45,7 +45,7 @@ func buildCatalog100(tb testing.TB) *Catalog {
 }
 
 // BenchmarkCatalogBuild100Skills measures metadata indexing time for 100
-// skills (design §5: zero-disk-scan, Level-0 only).
+// skills (zero-disk-scan, Level-0 only).
 func BenchmarkCatalogBuild100Skills(b *testing.B) {
 	root := b.TempDir()
 	for i := 0; i < 100; i++ {

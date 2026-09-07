@@ -26,7 +26,7 @@ func waitFor(seconds int, cond func() bool) bool {
 	return cond()
 }
 
-// TestProjectStep_MapsAllFields pins the C1.1 projection contract: every
+// TestProjectStep_MapsAllFields pins the projection contract: every
 // PlanStep field is derived from the correct engine.Step source.
 func TestProjectStep_MapsAllFields(t *testing.T) {
 	s := &engine.Step{
@@ -140,7 +140,7 @@ func TestProjectSteps_DependencyEquivalence(t *testing.T) {
 	assert.Equal(t, []string{"a", "b"}, depMap["c"])
 }
 
-// TestCompileCoordinator_CompileDAG_RecordsProvenance verifies C1.4:
+// TestCompileCoordinator_CompileDAG_RecordsProvenance verifies:
 // the compile coordinator records generation, DAG version, compile ID,
 // and plan IDs for introspection.
 func TestCompileCoordinator_CompileDAG_RecordsProvenance(t *testing.T) {
@@ -168,7 +168,7 @@ func TestCompileCoordinator_CompileDAG_RecordsProvenance(t *testing.T) {
 	assert.Equal(t, record.CompileID, last.CompileID)
 }
 
-// TestCompileCoordinator_DoesNotSwallowCompileError verifies C1.5:
+// TestCompileCoordinator_DoesNotSwallowCompileError verifies:
 // the projection layer must not silently swallow CompilePlan errors.
 // An empty DAG (0 steps) is rejected by CompilePlan with "empty step
 // batch" — the projection must surface that, not swallow it.
@@ -183,7 +183,7 @@ func TestCompileCoordinator_DoesNotSwallowCompileError(t *testing.T) {
 	require.Error(t, err, "empty DAG must produce a surfaced error, not be swallowed")
 }
 
-// TestCompileCoordinator_GraphEventTriggersRecompile verifies C1.3:
+// TestCompileCoordinator_GraphEventTriggersRecompile verifies:
 // a structural mutation (AddNode) triggers recompilation via the
 // GraphEvent subscription, so the next scheduler drain sees the new task.
 func TestCompileCoordinator_GraphEventTriggersRecompile(t *testing.T) {

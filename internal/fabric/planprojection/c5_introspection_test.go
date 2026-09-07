@@ -12,14 +12,14 @@ import (
 	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
 )
 
-// TestC5_4_AttributionTriplet verifies C5.4: the triplet (generation,
+// TestC5_4_AttributionTriplet verifies: the triplet (generation,
 // gate, compile_id) is non-empty and mutually correlatable after a
 // compile. The test exercises the CompileCoordinator's introspection
 // surface (CompileID, DAGVersion, CompileCount) which feeds the
 // lifecycle snapshot's compile fields.
 //
 // The triplet answers "which generation, which gate, which compile" —
-// the introspection acceptance contract (C5.2/C5.4).
+// the introspection acceptance contract.
 func TestC5_4_AttributionTriplet(t *testing.T) {
 	dag, err := engine.NewMutableDAG([]*engine.Step{
 		{ID: "a", AgentType: "x"},
@@ -70,7 +70,7 @@ func TestC5_4_AttributionTriplet(t *testing.T) {
 	assert.Equal(t, rec2.DAGVersion, coord.LastCompile().DAGVersion)
 }
 
-// TestC5_4_CompileEventRecorded verifies C5.4/C1.4: the compile event
+// TestC5_4_CompileEventRecorded verifies: the compile event
 // is recorded in the EventStore so the introspect layer can query it.
 func TestC5_4_CompileEventRecorded(t *testing.T) {
 	dag, err := engine.NewMutableDAG([]*engine.Step{

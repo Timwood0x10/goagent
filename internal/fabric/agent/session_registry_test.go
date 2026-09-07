@@ -133,7 +133,7 @@ func TestSessionRegistry_SessionIDs(t *testing.T) {
 	require.ElementsMatch(t, []string{"a", "b"}, ids)
 }
 
-// TestSessionRegistry_InitRejectsSlashID pins the P0-1b contract: a session
+// TestSessionRegistry_InitRejectsSlashID pins the contract: a session
 // ID containing "/" breaks SessionIDFromNode's reverse parse (the reaper
 // keep-set would resolve a live session's tasks to a different, non-live
 // ID and harvest its readable history), so the registry refuses it at the
@@ -144,7 +144,7 @@ func TestSessionRegistry_InitRejectsSlashID(t *testing.T) {
 	require.Contains(t, err.Error(), "must not contain a slash")
 }
 
-// TestSessionRegistry_SweepExpired pins the P0-1a idle release: a touched
+// TestSessionRegistry_SweepExpired pins the idle release: a touched
 // session survives the sweep, an idle one is released (with its compile
 // subscription stopped), and a non-positive window falls back to the
 // default instead of mass-releasing.
@@ -188,7 +188,7 @@ func TestSessionRootID(t *testing.T) {
 }
 
 // TestSessionTaskPrefix pins the whole-session stem used by targeted
-// harvests (P0-1c): both builders' outputs carry it.
+// harvests: both builders' outputs carry it.
 func TestSessionTaskPrefix(t *testing.T) {
 	require.Equal(t, "sess/s1/", SessionTaskPrefix("s1"))
 	require.True(t, strings.HasPrefix(SessionRootID("s1"), SessionTaskPrefix("s1")))

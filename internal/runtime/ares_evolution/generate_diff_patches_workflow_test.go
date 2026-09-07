@@ -174,9 +174,10 @@ func TestGenerateDiffPatches_CrossGraphMismatchIsDetected(t *testing.T) {
 			"which is exactly the cross-graph mismatch 7.2.1 must catch")
 }
 
-// TestWorkflowDiffer_MetadataOnlyChangeEmitsOnePatch is the C4 core acceptance:
+// TestWorkflowDiffer_MetadataOnlyChangeEmitsOnePatch is the metadata-diff
+// core acceptance:
 // a parent→child diff that changes ONLY one node's Metadata must yield exactly
-// one PatchSetNodeMetadata (and no topology patches). Before C4, WorkflowDiffer
+// one PatchSetNodeMetadata (and no topology patches). Previously, WorkflowDiffer
 // compared only node/edge presence, so a metadata-only mutation produced ZERO
 // patches and the GA could never select a metadata variant.
 func TestWorkflowDiffer_MetadataOnlyChangeEmitsOnePatch(t *testing.T) {
@@ -201,7 +202,8 @@ func TestWorkflowDiffer_MetadataOnlyChangeEmitsOnePatch(t *testing.T) {
 	assert.Equal(t, "20", md["budget"], "patch must carry the NEW metadata value")
 }
 
-// TestDAGPatchExecutor_SetNodeMetadataAppliesAndReverts checks that the C4 patch
+// TestDAGPatchExecutor_SetNodeMetadataAppliesAndReverts checks that the
+// metadata patch
 // operator mutates the live DAG node's metadata AND rollback restores the old
 // step metadata, so deployment can revert a metadata patch in place.
 func TestDAGPatchExecutor_SetNodeMetadataAppliesAndReverts(t *testing.T) {
@@ -231,10 +233,11 @@ func TestDAGPatchExecutor_SetNodeMetadataAppliesAndReverts(t *testing.T) {
 	assert.Equal(t, patch.PatchSetNodeMetadata, rb.Type)
 }
 
-// TestWorkflowGenome_SnapshotCarriesMetadata guards a C4 prerequisite: the
+// TestWorkflowGenome_SnapshotCarriesMetadata guards a metadata-diff
+// prerequisite: the
 // genome snapshot — the exact object WorkflowDiffer reads — must carry each
 // node's Metadata. If the snapshot dropped metadata, the metadata-only diff
-// test above would vacantly pass (both sides empty == equal) and the C4
+// test above would vacantly pass (both sides empty == equal) and the metadata
 // operator would be selectable but never selected.
 func TestWorkflowGenome_SnapshotCarriesMetadata(t *testing.T) {
 	dag := buildDiffTestDAG(t, []*engine.Step{

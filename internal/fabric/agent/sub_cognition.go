@@ -8,21 +8,19 @@ import (
 )
 
 // SubAgentCognition adapts a sub.Agent (the legacy quantum executor) to the
-// agentfabric.Cognition contract. It is the A1 migration/parity adapter: the
+// agentfabric.Cognition contract. It is the migration/parity adapter: the
 // agentfabric default execution body is ChatCognition (the tool-loop logic
-// moved down from the sub package — aresos-agentos-plan A1.4), and this
+// moved down from the sub package), and this
 // adapter keeps the sub executor reachable so the migration parity test
 // (TestSubAgentCognitionSemanticsParity) can assert StepOutcome semantics
 // match by construction (Done/Checkpoint/Result).
 //
 // The PEER production path (createPeerAgents, the default) does NOT use this
-// adapter: it spawns fabric agents with ChatCognition
-// (internal/fabric/agent/chat_cognition.go), the tool-loop execution logic
-// MOVED DOWN from the sub package (aresos-agentos-plan A1.4: tool-loop 下沉到
-// agentfabric 作为默认实现).
+// adapter: it spawns fabric agents driven by the L2 router cognition — the
+// ReAct chat cognition that used to live here was deleted.
 //
 // The legacy leader runtime that drove the sub executor through
-// TaskPlanner/TaskDispatcher was removed in v0.4.0 (C1); this adapter now
+// TaskPlanner/TaskDispatcher was removed; this adapter now
 // survives only as the parity-test fixture and a library-level fallback for
 // callers that still construct a sub.Agent directly.
 type SubAgentCognition struct {

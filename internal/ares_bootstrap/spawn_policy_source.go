@@ -12,7 +12,7 @@ import (
 
 // Spawn policy param keys read from the active evolution strategy's Params
 // map. The evolution system evolves these values; the Kernel enforces them
-// through aresrecovery.EvolutionAwareSpawner (v0.3.0 M2-1).
+// through aresrecovery.EvolutionAwareSpawner.
 const (
 	// spawnEnabledParam ("spawn.enabled") gates spawning (default true).
 	spawnEnabledParam = "spawn.enabled"

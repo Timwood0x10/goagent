@@ -1,6 +1,6 @@
 // Package ares_bootstrap — periodic storage maintenance.
 //
-// Closes the "write-only retention" open loop (REVIEW_PROGRESS #7): tables
+// Closes the "write-only retention" open loop: tables
 // with expires_at / decay_at columns are purged on a schedule instead of
 // growing unboundedly while read paths silently filter dead rows.
 package ares_bootstrap
@@ -63,7 +63,7 @@ func (a knowledgeCleanerAdapter) CleanupExpired(ctx context.Context) (int64, err
 // each repo is registered independently and a construction failure for one
 // (e.g. the secret cipher) skips only that table, never the others.
 //
-// This closes the remainder of REVIEW #7: previously only experiences_1024
+// Previously only experiences_1024
 // was purged on schedule; the other four CleanupExpired implementations had
 // no production caller and their dead rows grew unbounded.
 func wireExpiryCleaners(comp *Components, db *sql.DB, cfg *ares_config.Config) {

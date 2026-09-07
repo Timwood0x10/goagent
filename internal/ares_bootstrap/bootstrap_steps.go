@@ -29,7 +29,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/storage/postgres/repositories"
 )
 
-// wireDistillation conditionally wires experience distillation (Track A) and
+// wireDistillation conditionally wires experience distillation and
 // returns a GuidanceProvider consumed by the GA, plus the embedding client
 // used by the distillation pipeline. Both return values are nil when
 // distillation is not configured/wired. Failures are non-fatal: they are
@@ -39,8 +39,8 @@ import (
 func wireDistillation(ctx context.Context, cfg *ares_config.Config, comp *Components, deps *BootstrapDeps, cleanups *[]func()) (evolution.GuidanceProvider, *embedding.EmbeddingClient) {
 	var guidanceProvider evolution.GuidanceProvider
 	var embClient *embedding.EmbeddingClient
-	// C1: honor memory.enable_distillation — tri-state gate (nil defaults to
-	// true, P0-3 decision), so deployments relying on Storage+Embedding keep
+	// Honor memory.enable_distillation — tri-state gate (nil defaults to
+	// true), so deployments relying on Storage+Embedding keep
 	// distillation; only an explicit YAML false disables the wiring.
 	if !cfg.Memory.DistillationEnabled() {
 		return nil, nil
@@ -58,7 +58,7 @@ func wireDistillation(ctx context.Context, cfg *ares_config.Config, comp *Compon
 			if deps.ExpRepo == nil {
 				deps.ExpRepo = expRepo
 			}
-			// REVIEW #7: register the repo's decay purge with the maintenance
+			// Register the repo's decay purge with the maintenance
 			// worker so decayed experience rows are deleted, not just filtered
 			// on read. The concrete *ExperienceRepository implements
 			// CleanupExpired; the fat interface intentionally stays untouched.
@@ -66,7 +66,7 @@ func wireDistillation(ctx context.Context, cfg *ares_config.Config, comp *Compon
 				comp.ExpiryCleaners = append(comp.ExpiryCleaners,
 					NamedExpiryCleaner{Name: storage_models.ExperiencesTable, Cleaner: cleaner})
 			}
-			// REVIEW #7 (remainder): register the other retention-managed
+			// Register the other retention-managed
 			// tables (sessions, conversations, secrets, knowledge_chunks) so
 			// their expired/decayed rows are purged too, not just experiences.
 			// They share the distillation pool (already open for the process
@@ -201,7 +201,7 @@ func wireGAEvolution(ctx context.Context, cfg *ares_config.Config, comp *Compone
 	}
 	newEvol.StrategyStore = memStore
 
-	// Close the "evolution context in the knowledge graph" loop (#9): stream
+	// Close the "evolution context in the knowledge graph" loop: stream
 	// active/historical strategies as decision-type knowledge objects so
 	// server-side evolution queries can retrieve strategy decisions. The
 	// StrategyStore only exists from this point on (the knowledge runtime is
@@ -214,7 +214,7 @@ func wireGAEvolution(ctx context.Context, cfg *ares_config.Config, comp *Compone
 	}
 	gaCfg := evolution.DefaultSystemConfig()
 	gaCfg.EnableDreamCycle = false
-	// B4 fix: EnableScheduler is now always true so the ticker path goes
+	// EnableScheduler is now always true so the ticker path goes
 	// through scheduler.Tick (which applies shouldEvolve + guardrails).
 	// When the legacy scheduler exists, SetAdapter is still called so it
 	// can drive event-triggered evolution, but the ticker no longer
@@ -222,10 +222,10 @@ func wireGAEvolution(ctx context.Context, cfg *ares_config.Config, comp *Compone
 	gaCfg.EnableScheduler = true
 	gaCfg.EventStore = comp.EventStore
 	gaCfg.StrategyStore = memStore
-	// B1 fix: rollback thresholds come from the evolution.rollback YAML
-	// block (design doc §7); zero values fall back to the code defaults
+	// Rollback thresholds come from the evolution.rollback YAML
+	// block; zero values fall back to the code defaults
 	// that match the previous hardcoded wiring.
-	// E2: Enabled is now tri-state (nil defaults true) instead of hardcoded:
+	// Enabled is now tri-state (nil defaults true) instead of hardcoded:
 	// an operator can disarm the rollback net, which (a) stops the watch loop
 	// from triggering and (b) re-arms the G2 gate fail-closed — see
 	// shadowGateMode below.
@@ -237,15 +237,15 @@ func wireGAEvolution(ctx context.Context, cfg *ares_config.Config, comp *Compone
 		WindowSize:           defaultInt(rbCfg.WindowSize, 5),
 		MinSamples:           defaultInt(rbCfg.MinSamples, 3),
 	}
-	// B3 fix: enable shadow evaluation independently of DreamCycle.
-	// Thresholds come from the evolution.shadow YAML block (design doc §7).
+	// Enable shadow evaluation independently of DreamCycle.
+	// Thresholds come from the evolution.shadow YAML block.
 	shCfg := cfg.Evolution.Shadow
 	gaCfg.ShadowEvalConfig = evolution.ShadowEvaluationConfig{
 		Enabled:    true,
 		MinSamples: defaultInt(shCfg.MinSamples, 20),
 		MinWinRate: defaultFloat(shCfg.MinWinRate, 0.55),
 	}
-	// W2: the replay evidence window width is YAML-configurable (duration
+	// The replay evidence window width is YAML-configurable (duration
 	// string). Zero/unset keeps the scorer's 10-minute default; an invalid
 	// string is ignored, never fatal — the operator's typo must not take down
 	// the evolution plane.
@@ -254,11 +254,11 @@ func wireGAEvolution(ctx context.Context, cfg *ares_config.Config, comp *Compone
 	// carried here: the ReplayScorer is constructed in the serve layer
 	// (cmd/ares/peer_mode.go), which reads the YAML directly. Duplicating it
 	// into ShadowEvalConfig would create a second, unread copy of the same
-	// knob (review P1).
+	// knob.
 	if raw := shCfg.ReplayWindowSpan; raw != "" {
 		if d, perr := time.ParseDuration(raw); perr == nil && d > 0 {
 			gaCfg.ShadowEvalConfig.ReplayWindowSpan = d
-			// P2: the sampler walks MinSamples windows BACKWARDS from now, so
+			// The sampler walks MinSamples windows BACKWARDS from now, so
 			// span × MinSamples is the total history horizon. A wide span with
 			// the default query limit (200 records/window, no server-side
 			// strategy filter) makes truncation likely and pushes the oldest
@@ -274,14 +274,14 @@ func wireGAEvolution(ctx context.Context, cfg *ares_config.Config, comp *Compone
 			log.WarnContext(ctx, "bootstrap: ignoring invalid evolution.shadow.replay_window_span", "value", raw, "error", perr)
 		}
 	}
-	// Design doc §7: the lifecycle control plane (window/judge/gates/watch
+	// The lifecycle control plane (window/judge/gates/watch
 	// interval) is YAML-configurable; the same config also feeds the G3
 	// eval-gate MinScore further below.
 	gaCfg.Lifecycle = lifecycleConfigFromYAML(cfg.Evolution.Lifecycle, cfg.Evolution.Gates, cfg.Evolution.ChannelFeedback)
-	// E2: the lifecycle must know whether the rollback net is armed (it owns
+	// The lifecycle must know whether the rollback net is armed (it owns
 	// the watch loop) — the same tri-state decision as the ASM wiring above.
 	gaCfg.Lifecycle.RollbackArmed = rollbackArmed
-	// P2-1: wire the shared Prometheus metrics into the GA system so the
+	// Wire the shared Prometheus metrics into the GA system so the
 	// lifecycle counters (promote/rollback/gate-reject) are actually
 	// incremented in production instead of registered-but-never-updated.
 	// NewPrometheusMetrics is idempotent (AlreadyRegisteredError returns the
@@ -293,27 +293,26 @@ func wireGAEvolution(ctx context.Context, cfg *ares_config.Config, comp *Compone
 		log.WarnContext(ctx, "bootstrap: evolution metrics wiring skipped", "error", merr)
 	}
 
-	// W3: honor the YAML evolution tuning. Only fields with a matching
+	// Honor the YAML evolution tuning. Only fields with a matching
 	// SystemConfig slot are wired; the rest of the YAML GA knobs
 	// (TournamentSize/CrossoverType/SteadyState*) are registered as dead
 	// config pending a SystemConfig slot.
 	ec := &cfg.Evolution
 	applyGATuning(&gaCfg, ec)
-	// B2 (G1): construct the guardrails. Until now gaCfg.Guardrails was NEVER
+	// Construct the guardrails. Until now gaCfg.Guardrails was NEVER
 	// assigned anywhere in this package, so WithAdapterGuardrails was skipped
 	// and both runPreGuardrails and the legacy scheduler's checkGuardrails
 	// short-circuited on nil — G1 was a gate that existed in code and did
-	// nothing at runtime. The design doc's §5 known gap 1 understated this: it
-	// described the adapter layer as G1's "only real defense", but the adapter
-	// layer was inert too.
+	// nothing at runtime. The adapter layer — described as G1's "only real
+	// defense" — was inert too.
 	gaCfg.Guardrails = buildEvolutionGuardrails(ctx, ec, gaCfg.Metrics)
-	// Track A closure: feed distilled experiences back into the GA's
+	// Feed distilled experiences back into the GA's
 	// experience-guided mutation. guidanceProvider is non-nil only when
 	// distillation was successfully wired above (PG + embedding configured).
 	gaCfg.GuidanceProvider = guidanceProvider
 	gaCfg.EnableExperienceGuidedMutation = guidanceProvider != nil
 
-	// Track B closure: opt-in LLM-backed scorer. When enabled and an LLM
+	// Opt-in LLM-backed scorer. When enabled and an LLM
 	// client is available, override the default constant baseline scorer
 	// with the LLM scorer + deterministic heuristic fallback. When disabled
 	// (the default), gaCfg.Scorer stays nil and buildAdapterOptions falls
@@ -334,7 +333,7 @@ func wireGAEvolution(ctx context.Context, cfg *ares_config.Config, comp *Compone
 		}
 	}
 
-	// C2.6: when LLM scoring is off (the default), the zero-LLM deterministic
+	// When LLM scoring is off (the default), the zero-LLM deterministic
 	// scorer takes over as the independent evidence source. The scorer is
 	// wired at runtime by the serve layer (peer_mode.go) once the
 	// ExecutionAttribution is created, but the shadow gate posture must be
@@ -346,7 +345,7 @@ func wireGAEvolution(ctx context.Context, cfg *ares_config.Config, comp *Compone
 		gaCfg.DeterministicScorerEnabled = true
 	}
 
-	// E2: decide the G2 shadow-gate posture BEFORE wiring the system, so the
+	// Decide the G2 shadow-gate posture BEFORE wiring the system, so the
 	// lifecycle is constructed with the gate already suppressed (or kept)
 	// instead of un-registering it afterwards. The invariant: skipping
 	// PRE-deployment verification is allowed only when POST-deployment
@@ -354,7 +353,7 @@ func wireGAEvolution(ctx context.Context, cfg *ares_config.Config, comp *Compone
 	// hasScorer ⇔ gaCfg.Scorer != nil: buildShadowEvaluator sets an
 	// independent scorer on the evaluator exactly when cfg.Scorer is wired
 	// (the heuristic-only TieredScorer is NOT independent evidence).
-	// C2.6: when a deterministic (zero-LLM) scorer is wired, it counts as
+	// When a deterministic (zero-LLM) scorer is wired, it counts as
 	// independent evidence too — the attribution-derived score is a
 	// legitimate comparison source. This breaks the "zero-token ⇒ no G2"
 	// deadlock: with DeterministicScorerEnabled, the G2 gate stays
@@ -373,7 +372,7 @@ func wireGAEvolution(ctx context.Context, cfg *ares_config.Config, comp *Compone
 			"rollback_window", gaCfg.RollbackPolicyConfig.WindowSize,
 			"rollback_min_samples", gaCfg.RollbackPolicyConfig.MinSamples,
 		)
-		// E6: the absence must be meterable, not only logged once.
+		// The absence must be meterable, not only logged once.
 		if gaCfg.Metrics != nil {
 			gaCfg.Metrics.RecordEvolutionGateSkipped("shadow", gateReason)
 		}
@@ -384,7 +383,7 @@ func wireGAEvolution(ctx context.Context, cfg *ares_config.Config, comp *Compone
 		return fmt.Errorf("wire GA population adapter: %w", wErr)
 	}
 
-	// Live-chaos GA quiet-window probe (#12 Phase 2): expose whether a generation
+	// Live-chaos GA quiet-window probe: expose whether a generation
 	// is mid-flight so serve's chaos loop can defer injections.
 	newEvol.GAGenerationActive = wired.GenerationActive
 
@@ -396,15 +395,15 @@ func wireGAEvolution(ctx context.Context, cfg *ares_config.Config, comp *Compone
 		newEvol.GenomeReg,
 	)(popAdapter)
 
-	// P1-2 (B5 fix): wire the G3 eval-suite gate so independently-built
+	// Wire the G3 eval-suite gate so independently-built
 	// evaluators participate in the promote/rollback decision instead of
 	// sitting idle. The gate is built ONLY when a regression suite is
 	// configured (evolution.gates.eval_suite file path); otherwise NO gate
 	// is registered — honest absence, not a permanent pass-through pretending
-	// to be verification (review item B.2).
+	// to be verification.
 	if wired.Lifecycle != nil && comp.Evolution != nil {
 		// MinScore flows from the evolution.gates.eval_min_score YAML knob
-		// via gaCfg.Lifecycle (design doc §7); 0 falls back to the gate's
+		// via gaCfg.Lifecycle; 0 falls back to the gate's
 		// own 0.7 default.
 		var minScore float64
 		if wiredLifecycleCfg := gaCfg.Lifecycle; wiredLifecycleCfg != nil {
@@ -437,31 +436,31 @@ func wireGAEvolution(ctx context.Context, cfg *ares_config.Config, comp *Compone
 	}
 
 	// Wire the lifecycle's evidence store and start its watch loop so
-	// rollback detection runs against real runtime evidence (B1 fix).
+	// rollback detection runs against real runtime evidence.
 	if wired.Lifecycle != nil {
 		evolution.WithLifecycleEvidenceStore(newEvol.EvidenceStore)(wired.Lifecycle)
 		wired.Lifecycle.Start(ctx)
-		// K3 / release-plan T11: the watch goroutine must not outlive
+		// The watch goroutine must not outlive
 		// bootstrap — stop it (and wait) when the bootstrap context ends.
 		comp.bgGroup.Go(func() error {
 			<-ctx.Done()
 			wired.Lifecycle.Stop()
 			return nil
 		})
-		// P2-2: expose the lifecycle for the introspect control plane
+		// Expose the lifecycle for the introspect control plane
 		// so /api/evolution/lifecycle returns a state snapshot.
 		newEvol.Lifecycle = wired.Lifecycle
-		// §8 closure-assertion surfaces: the ASM (Previous/RollbackPolicy)
+		// Closure-assertion surfaces: the ASM (Previous/RollbackPolicy)
 		// and the G2 shadow evaluator (the comparison feeder).
 		newEvol.ActiveStrategyManager = wired.ActiveStrategyManager
 		newEvol.ShadowEvaluator = wired.ShadowEvaluator
 	}
 
-	// P2-3: wire the RuntimeObserver — the OBSERVE stage of the evolution
+	// Wire the RuntimeObserver — the OBSERVE stage of the evolution
 	// control plane. It converts task completed/failed events into
 	// normalized [0,1] strategy samples and writes KindFitness evidence
-	// (source "strategy"). Without it that source is empty, so the B1
-	// rollback watch loop's Window() never reaches ok=true and the B6
+	// (source "strategy"). Without it that source is empty, so the
+	// rollback watch loop's Window() never reaches ok=true and the
 	// staging score has no runtime fitness to read — the whole feedback
 	// chain starves regardless of how well the decision side is wired.
 	if comp.EventStore != nil && newEvol.EvidenceStore != nil {
@@ -483,22 +482,22 @@ func wireGAEvolution(ctx context.Context, cfg *ares_config.Config, comp *Compone
 		}
 	}
 
-	// Step Y.2/Y.3: the OBSERVE stage for the other two perception channels.
+	// The OBSERVE stage for the other two perception channels.
 	// The recorder is only built when a channel is armed AND the strategy is
 	// attributable — a recorder with no ASM would drop every record as
 	// unattributable, i.e. dead wiring that looks live.
 	newEvol.ChannelFeedback = startChannelFeedback(ctx, comp, newEvol, wired.ActiveStrategyManager, cfg.Evolution.ChannelFeedback)
 
-	// M4-D0: the ToolStep projection worker is deleted with its package (default-disabled, zero production readers of
+	// The ToolStep projection worker is deleted with its package (default-disabled, zero production readers of
 	// WindowToolStep). The per-(tool#arg_shape) fitness dimension is
-	// superseded by the L1 ToolClass graph (M5) fed from L2 execution stats
-	// (M6) — same key shape (toolName#argShape), live source instead of a
+	// superseded by the L1 ToolClass graph fed from L2 execution stats
+	// — same key shape (toolName#argShape), live source instead of a
 	// batch-projected one.
 	// In the full configuration, attach the GA adapter to the existing
 	// old-system scheduler; otherwise the GA system's own scheduler
 	// (registered above on the LLM callback registry) drives it.
 	//
-	// B4 fix: remember which scheduler the background ticker will drive.
+	// Remember which scheduler the background ticker will drive.
 	// Two instances exist: the LEGACY one (created+Registered in
 	// provide_evolution, so its score window receives task events) and the
 	// wired one (created in NewWiredEvolutionSystem WITHOUT Register — its
@@ -515,7 +514,7 @@ func wireGAEvolution(ctx context.Context, cfg *ares_config.Config, comp *Compone
 		legacySched.SetAdapter(popAdapter)
 	} else if wired.Scheduler != nil && comp.EventStore != nil {
 		wired.Scheduler.Register()
-		// B4: Register subscribes on its own context.Background() and parks a
+		// Register subscribes on its own context.Background() and parks a
 		// goroutine on the event channel; without a matching Shutdown that
 		// goroutine (and the EventStore subscriber feeding it) outlives the
 		// bootstrap for the life of the process. goleak found this; a
@@ -529,11 +528,11 @@ func wireGAEvolution(ctx context.Context, cfg *ares_config.Config, comp *Compone
 	}
 
 	// Start a background ticker that triggers evolution via the unified
-	// scheduler.Tick path (B4 fix). This replaces the old unconditional
+	// scheduler.Tick path. This replaces the old unconditional
 	// popAdapter.Run(ctx) call so evolution timing is always gated by
 	// shouldEvolve + checkGuardrails.
 	comp.bgGroup.Go(func() error {
-		// W3: honor evolution.min_interval from yaml (audit: the 5-minute
+		// Honor evolution.min_interval from yaml (the 5-minute
 		// ticker was hardcoded, leaving MinInterval dead config).
 		tick := 5 * time.Minute
 		if raw := cfg.Evolution.MinInterval; raw != "" {
@@ -546,7 +545,7 @@ func wireGAEvolution(ctx context.Context, cfg *ares_config.Config, comp *Compone
 		for {
 			select {
 			case <-evoTicker.C:
-				// B4 fix: route through a scheduler Tick that actually sees
+				// Route through a scheduler Tick that actually sees
 				// scores, so shouldEvolve + guardrails + MinInterval are
 				// always applied. legacySched is preferred (it is Registered
 				// and therefore receives score events); the wired scheduler
@@ -566,7 +565,7 @@ func wireGAEvolution(ctx context.Context, cfg *ares_config.Config, comp *Compone
 					}
 				}
 				// Record the generation trajectory into the shared tracer
-				// (v0.3.0 M3-1) so /evolution/trajectory returns live data
+				// so /evolution/trajectory returns live data
 				// instead of an empty list. wired.Population exposes the
 				// per-generation Stats after a run.
 				if comp.Observability != nil && comp.Observability.EvolutionTracer != nil && wired.Population != nil {
@@ -624,7 +623,7 @@ func wireGAEvolution(ctx context.Context, cfg *ares_config.Config, comp *Compone
 }
 
 // wireLLMScorer constructs the opt-in LLM-backed scorer for the GA evolution
-// system (Track B from the closure plan). It returns non-nil scorer functions
+// system. It returns non-nil scorer functions
 // only when all of the following hold:
 //   - cfg.Evolution.LLMScoring.Enabled is true,
 //   - comp.LLM and comp.LLM.Client are non-nil,
@@ -738,9 +737,9 @@ func findUnknownPoolTools(pool, known []string) map[string][]string {
 }
 
 // buildEvolutionGuardrails constructs the G1 population-level guardrails from
-// the YAML evolution section (B2).
+// the YAML evolution section.
 //
-// Before B2 this construction did not exist: gaCfg.Guardrails was never
+// Previously this construction did not exist: gaCfg.Guardrails was never
 // assigned, so GenomePopulationAdapter.runPreGuardrails / runPostGuardrails and
 // EvolutionScheduler.checkGuardrails all short-circuited on nil and passed
 // unconditionally. G1 was structurally present and operationally absent.
@@ -770,7 +769,7 @@ func findUnknownPoolTools(pool, known []string) map[string][]string {
 //
 // Returns:
 //   - *evolution.EvolutionGuardrails: nil on construction failure, which
-//     degrades to the pre-B2 behavior (all checks pass) rather than blocking
+//     degrades to the previous behavior (all checks pass) rather than blocking
 //     bootstrap.
 func buildEvolutionGuardrails(
 	ctx context.Context,
@@ -788,7 +787,7 @@ func buildEvolutionGuardrails(
 	if ec.TargetFitness > 0 {
 		opts = append(opts, evolution.WithBaselineScore(ec.TargetFitness/targetFitnessScale))
 	}
-	// C6: tool-set selection guardrails from the evolution.guardrails YAML block.
+	// Tool-set selection guardrails from the evolution.guardrails YAML block.
 	// All three are opt-in — zero-value disables, preserving prior behavior.
 	if gr := ec.Guardrails; gr.MaxToolsEnabled > 0 {
 		opts = append(opts, evolution.WithMaxToolsEnabled(gr.MaxToolsEnabled))
@@ -799,7 +798,7 @@ func buildEvolutionGuardrails(
 	if len(ec.Guardrails.KnownTools) > 0 {
 		opts = append(opts, evolution.WithKnownTools(ec.Guardrails.KnownTools))
 	}
-	// P2b: loud misconfiguration check — a tool_pool entry naming tools
+	// Loud misconfiguration check — a tool_pool entry naming tools
 	// outside the known vocabulary silently jails every candidate it produces
 	// (unknown-name guard), so the generation burns with no promotion and
 	// evolution looks stalled rather than misconfigured. Warn, don't
@@ -817,7 +816,7 @@ func buildEvolutionGuardrails(
 	}
 	g, err := evolution.NewEvolutionGuardrails(opts...)
 	if err != nil {
-		// C3.1: construction failure is fail-closed, not silent pass-through.
+		// Construction failure is fail-closed, not silent pass-through.
 		// Previously this returned nil, which caused checkGuardrails to
 		// short-circuit to true (all checks pass) — a guardrail that does
 		// not exist cannot block anything. Now we return a guardrail that
@@ -878,9 +877,9 @@ func wireLLMScorer(cfg *ares_config.Config, comp *Components) (genome.ScorerFunc
 // function so the closure contract is directly testable without the full
 // wireGAEvolution fixture.
 //
-// E3: the evidence store (comp.EvidenceStore — wired long before this point,
+// The evidence store (comp.EvidenceStore — wired long before this point,
 // so the call-site timing is unaffected) lets the provider also stream the
-// promote/rollback decision trail, closing the "P2-3 wrote evidence nobody
+// promote/rollback decision trail, closing the "wrote evidence nobody
 // consumed" gap. A nil evStore degrades to lineage-only output.
 func attachEvolutionKnowledgeProvider(
 	ctx context.Context,

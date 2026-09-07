@@ -1,7 +1,7 @@
 package ares_skills
 
 // IndexChange describes the difference between two index generations
-// (design §5: the index entry carries a content Hash for change detection;
+// (the index entry carries a content Hash for change detection;
 // MCP listChanged and skill version upgrades rebuild incrementally).
 type IndexChange struct {
 	// Added are skills present in the new index but absent in the old one.

@@ -12,7 +12,7 @@ import (
 )
 
 // JWT implementation (HS256) built on the standard library only. A third-party
-// JWT library is deliberately avoided (code_rules: prefer stdlib).
+// JWT library is deliberately avoided (prefer stdlib).
 // HS256 is HMAC-SHA256 over base64url(header).base64url(payload); only the
 // signed form is accepted on verify — the payload is never trusted as-is.
 //

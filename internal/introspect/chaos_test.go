@@ -11,7 +11,7 @@ import (
 )
 
 // TestChaosReporterSnapshot verifies the reporter merges config, shadow and
-// live state into one coherent frame (monitoring.md #12 Phase 3).
+// live state into one coherent frame.
 func TestChaosReporterSnapshot(t *testing.T) {
 	r := NewChaosReporter()
 	// Not yet configured: everything zero.
@@ -96,8 +96,8 @@ func TestCollectorChaosSource(t *testing.T) {
 
 // TestRunShadowSandboxRecovers verifies the shadow sandbox replay records a
 // recovery outcome. The scratch-fabric chain kill→lease-expire→recover must
-// leave the task recovered, not errored. (Moved from dashboard_test.go in
-// M4-D with runShadowSandbox; the Dashboard runtime is gone.)
+// leave the task recovered, not errored. (Moved from dashboard_test.go
+// with runShadowSandbox; the Dashboard runtime is gone.)
 func TestRunShadowSandboxRecovers(t *testing.T) {
 	res := runShadowSandbox(context.Background())
 	if res.Errored {
@@ -113,7 +113,7 @@ func TestRunShadowSandboxRecovers(t *testing.T) {
 
 // TestDashboardChaosReporterWired verifies the chaos reporter feeds the
 // collector Sources, so shadow-loop RecordShadow output stays observable
-// (P0-2 regression guard, kept from dashboard_test.go in M4-D).
+// (regression guard, kept from dashboard_test.go).
 func TestDashboardChaosReporterWired(t *testing.T) {
 	r := NewChaosReporter()
 	r.SetConfig(true, "shadow")

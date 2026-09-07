@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// BenchmarkFabric_Spawn measures the syscall-style agent creation (P3:
+// BenchmarkFabric_Spawn measures the syscall-style agent creation
 // identity, capabilities, provenance link) including the kill teardown so
 // each iteration starts from an empty registry.
 func BenchmarkFabric_Spawn(b *testing.B) {
@@ -27,7 +27,7 @@ func BenchmarkFabric_Spawn(b *testing.B) {
 }
 
 // BenchmarkFabric_SpawnWithResources measures spawn under a resource budget
-// (P5 admission: quota check before creating the agent).
+// (admission: quota check before creating the agent).
 func BenchmarkFabric_SpawnWithResources(b *testing.B) {
 	f := NewFabric().WithResourceBudget(map[string]float64{"cpu": 16, "memory": 8192})
 	ctx := context.Background()
@@ -67,7 +67,7 @@ func BenchmarkFabric_LifecycleSuspendResume(b *testing.B) {
 	}
 }
 
-// BenchmarkFabric_Children measures the Process Tree provenance lookup (P3).
+// BenchmarkFabric_Children measures the Process Tree provenance lookup.
 func BenchmarkFabric_Children(b *testing.B) {
 	f := NewFabric()
 	ctx := context.Background()

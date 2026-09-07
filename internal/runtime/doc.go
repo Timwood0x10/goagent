@@ -1,4 +1,4 @@
-// Package runtime is the ARES AgentOS service layer (convergence Phase 3).
+// Package runtime is the ARES AgentOS service layer.
 //
 // It owns everything above the kernel/fabric substrate that serves agents:
 // evolution, memory, evaluation, protocol adapters (MCP/skills/AHP),

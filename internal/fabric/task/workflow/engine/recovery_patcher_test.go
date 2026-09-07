@@ -185,7 +185,7 @@ func newHeterogeneousRecoveryDAG(t *testing.T) *MutableDAG {
 }
 
 // TestRecoveryPatchExecutor_ChangeStrategy_Rollback_RestoresPerStep reproduces
-// the C2 bug: the rollback patch captured only the last step's old strategy and
+// the bug: the rollback patch captured only the last step's old strategy and
 // reapplied that single value to every step. With heterogeneous configs the
 // rollback must restore each step to its own prior value, including removing the
 // policy that was created for the previously-policyless step C.
@@ -226,7 +226,7 @@ func TestRecoveryPatchExecutor_ChangeStrategy_Rollback_RestoresPerStep(t *testin
 }
 
 // TestRecoveryPatchExecutor_ChangeMaxRetries_Rollback_RestoresPerStep reproduces
-// the C2 bug for MaxRetries: rollback captured only the last step's old
+// the bug for MaxRetries: rollback captured only the last step's old
 // MaxAttempts and reapplied it to every step, corrupting heterogeneous configs.
 func TestRecoveryPatchExecutor_ChangeMaxRetries_Rollback_RestoresPerStep(t *testing.T) {
 	dag := newHeterogeneousRecoveryDAG(t)
@@ -307,7 +307,7 @@ func TestRecoveryPatchExecutor_ChangeBackoff_Rollback_RestoresPerStep(t *testing
 	assert.Nil(t, restored["C"], "step C policy must be removed on rollback")
 }
 
-// TestRecoveryPatchExecutor_ChangeStrategy_Concurrent_NoRace reproduces the C3
+// TestRecoveryPatchExecutor_ChangeStrategy_Concurrent_NoRace reproduces the
 // bug: applyChangeStrategy called Steps() (which released the read lock) and
 // then mutated the live *Step pointers without any lock. Two concurrent
 // applyChangeStrategy calls therefore race on step.RecoveryPolicy. Under -race

@@ -89,7 +89,7 @@ func (e *e2eAgent) ProcessStream(context.Context, any) (<-chan base.AgentEvent, 
 	return nil, nil
 }
 
-// TestE2EChaosRecovery_InjectKillAndVerifyRestore is the P2 chaos-recovery
+// TestE2EChaosRecovery_InjectKillAndVerifyRestore is the chaos-recovery
 // e2e: register a pool, inject kills through the arena Injector, and assert
 // the Manager resurrects the pool (factory calls >= killed count). It exercises
 // the production wiring shape rather than a mocked runtime.
@@ -129,7 +129,7 @@ func TestE2EChaosRecovery_InjectKillAndVerifyRestore(t *testing.T) {
 	}
 }
 
-// TestE2EChaosRecovery_Scale covers the P2 scale claim (1-200 agents): crash a
+// TestE2EChaosRecovery_Scale covers the scale claim (1-200 agents): crash a
 // fraction of pools of different sizes and assert resurrection keeps the pool
 // viable at each scale. Kept small (16/64/128) so the suite stays fast; 200 is
 // the documented upper bound and is reachable by bumping poolSizes.

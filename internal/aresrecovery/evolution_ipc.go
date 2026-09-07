@@ -12,7 +12,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/agentipc"
 )
 
-// Evolution-driven IPC protocol (v0.3.0 M2-3): the Evolution system chooses
+// Evolution-driven IPC protocol: the Evolution system chooses
 // the message wire format and compression policy at runtime. The wrapper
 // applies the policy when sending through the underlying IPC bus — "Evolution
 // decides; Kernel enforces", same as the spawn and quota managers.
@@ -55,7 +55,7 @@ type WireMessage struct {
 }
 
 // EvolutionAwareIPC wraps the IPC bus and applies the evolution message
-// policy on Send (v0.3.0 M2-3). The receiver sees a *WireMessage for policy-
+// policy on Send. The receiver sees a *WireMessage for policy-
 // encoded sends and the raw payload otherwise — Decode recovers the original.
 type EvolutionAwareIPC struct {
 	bus    *agentipc.Bus

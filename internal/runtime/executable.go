@@ -3,9 +3,9 @@
 // This file defines the Executable interface that unifies all node execution
 // types (Agent, Tool, FuncNode) under a single contract.
 //
-// Phase: P0 — interface extraction.
-// Existing types implement this interface via adapters. The single Runner
-// (P2) will consume it natively.
+// Current stage: interface extraction — existing types implement this
+// interface via adapters; the single Runner
+// will consume it natively.
 
 package runtime
 
@@ -21,7 +21,7 @@ type NodeOutput struct {
 }
 
 // ExecutionContext carries the input and shared state for a single node
-// execution. It is the P0-minimal version of the future ExecutionScope (§6.1).
+// execution. It is the minimal version of the future ExecutionScope.
 type ExecutionContext struct {
 	// Input is the node's resolved input string or structured data.
 	Input string
@@ -31,7 +31,7 @@ type ExecutionContext struct {
 
 // Executable is the common execution interface for all workflow node types.
 // Every node type — Agent, Tool, FuncNode — implements this
-// interface, allowing the future single Runner (§6) to execute any node
+// interface, allowing the future single Runner to execute any node
 // without type-switching on the binding.
 type Executable interface {
 	// Execute runs the node with the given context and returns the output.

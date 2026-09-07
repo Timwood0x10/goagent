@@ -95,7 +95,7 @@ type Tool interface {
 
 ### 2.3 真正执行工具的是 ToolBinder，不是 Registry
 
-`internal/agentfabric/chat_cognition.go` 里定义了 `ToolBinder` 接口（消费端接口，sub executor 和 fabric 都满足它）：
+`internal/fabric/agent/chat_cognition.go` 里定义了 `ToolBinder` 接口（消费端接口，sub executor 和 fabric 都满足它）：
 
 ```go
 type ToolBinder interface {

@@ -62,12 +62,12 @@ func ProvideEvolution(
 	adapter := evolution.NewFlightToExperienceAdapter(flightWrapper, expAdapter)
 
 	// 2. Scheduler
-	// The legacy scheduler must be gated by cfg.Evolution.Enabled (F02): when
+	// The legacy scheduler must be gated by cfg.Evolution.Enabled: when
 	// evolution is disabled, the scheduler must not force itself on. Callers
 	// that gate on Enabled (wireLegacyEvolution) pass true here; direct callers
 	// get the config-honest value instead of a hardcoded true.
 	var err error
-	// Enabled only when the config explicitly turns evolution on (F02); a nil
+	// Enabled only when the config explicitly turns evolution on; a nil
 	// config keeps the legacy default (enabled) for direct callers.
 	schedulerEnabled := cfg == nil || cfg.Enabled
 	opts := []evolution.SchedulerOption{evolution.WithEnabled(schedulerEnabled)}
@@ -80,7 +80,7 @@ func ProvideEvolution(
 	} else {
 		opts = append(opts, evolution.WithMinInterval(5*time.Minute))
 	}
-	// B2 (G1): the legacy scheduler previously got no guardrails at all, so
+	// The legacy scheduler previously got no guardrails at all, so
 	// EvolutionScheduler.checkGuardrails short-circuited on nil and every
 	// ticker-driven cycle ran unchecked. This instance is deliberately
 	// SEPARATE from the adapter-layer one built in wireGAEvolution: guardrails

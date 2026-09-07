@@ -1,6 +1,6 @@
 package introspect
 
-// K5 acceptance: the snapshot endpoint carries the System Runtime component
+// System Runtime snapshot acceptance: the snapshot endpoint carries the System Runtime component
 // graph when the provider is wired, keeps the legacy shape otherwise, and
 // stays 503-safe before the first collect.
 

@@ -1,8 +1,8 @@
 # ares 架构深度解析（二十八）：Skills 发现 — 不扫盘的能力目录（0.3.x）
 
-> 0.3.x 更新：Skills 发现落地为代码仓内 `internal/ares_skills` 的 **Capability Fabric**——框架原生的技能发现、索引、加载系统。`Catalog` 门面 + `SourceManager` 聚合四类声明源（project / user / registered / experience，其中 registered 又分 directory、git、http/oci 三类）。`CatalogTools` 暴露五件 catalog 工具（skill_search/load/activate/list/experience）。`ExperienceConfidenceSource` 把学习先验桥接为 `taskfabric.ConfidenceSource`，喂给 Kernel Scheduler 的 fabric。
+> 0.3.x 更新：Skills 发现落地为代码仓内 `internal/runtime/protocol/skills` 的 **Capability Fabric**——框架原生的技能发现、索引、加载系统。`Catalog` 门面 + `SourceManager` 聚合四类声明源（project / user / registered / experience，其中 registered 又分 directory、git、http/oci 三类）。`CatalogTools` 暴露五件 catalog 工具（skill_search/load/activate/list/experience）。`ExperienceConfidenceSource` 把学习先验桥接为 `taskfabric.ConfidenceSource`，喂给 Kernel Scheduler 的 fabric。
 
-> 说明：本文基于实际代码（`internal/ares_skills` 全部实现：source.go / indexer.go / discovery.go / resolver.go / loader.go / experience.go / experience_store.go / experience_confidence.go / outcome_recorder.go / git_source.go / http_source.go / changes.go / config.go / tools.go / types.go / fts5.go / catalog.go），是 docs 系列中 Capability Fabric 发现链路的专门篇。
+> 说明：本文基于实际代码（`internal/runtime/protocol/skills` 全部实现：source.go / indexer.go / discovery.go / resolver.go / loader.go / experience.go / experience_store.go / experience_confidence.go / outcome_recorder.go / git_source.go / http_source.go / changes.go / config.go / tools.go / types.go / fts5.go / catalog.go），是 docs 系列中 Capability Fabric 发现链路的专门篇。
 
 ## 一、Skills 发现：从"找"到"声明"
 
@@ -26,7 +26,7 @@ graph TB
 
 ## 二、SourceManager：只认识声明出来的源
 
-`internal/ares_skills/source.go` 的 `SourceManager` 永不扫整盘或 PATH——只枚举明确声明的目录根，且 `SkillDirs` 每个根只往下读**一层**子目录，还要 `hasDeclaredMarker` 校验目录内含 `SKILL.md` 或 `skill.yaml` 才计入 skill。**声明验证，绝非深递归扫描**；`SkillDirs` 对声明但缺失的根返回空集而非报错。
+`internal/runtime/protocol/skills/source.go` 的 `SourceManager` 永不扫整盘或 PATH——只枚举明确声明的目录根，且 `SkillDirs` 每个根只往下读**一层**子目录，还要 `hasDeclaredMarker` 校验目录内含 `SKILL.md` 或 `skill.yaml` 才计入 skill。**声明验证，绝非深递归扫描**；`SkillDirs` 对声明但缺失的根返回空集而非报错。
 
 四类 `SourceKind`（`types.go`）：
 
@@ -71,7 +71,7 @@ func (s *SourceManager) SkillDirs(source SourceDir) ([]string, error) {
 
 ## 三、Indexer：只存 metadata，不读 body
 
-`internal/ares_skills/indexer.go` 的 `Indexer.Index` 遍历声明源产出一个 `SkillIndexEntry`（`types.go`，Level-0 渐进披露）：
+`internal/runtime/protocol/skills/indexer.go` 的 `Indexer.Index` 遍历声明源产出一个 `SkillIndexEntry`（`types.go`，Level-0 渐进披露）：
 
 ```go
 // SkillIndexEntry is the metadata-only index record (Level 0 of progressive
@@ -97,7 +97,7 @@ type SkillIndexEntry struct {
 
 ## 四、Discovery：关键词匹配 + FTS5 回退
 
-`internal/ares_skills/discovery.go` 的 `Discovery` 只检索 Level-0 metadata：
+`internal/runtime/protocol/skills/discovery.go` 的 `Discovery` 只检索 Level-0 metadata：
 
 - **关键词匹配**（`keywordSearch`）：`splitTerms` 小写+空白切词 → `matchScore` 对 ID/name/keywords/capabilities/description 计数命中 → 命中数降序 + ID 升序（确定性）。
 - **FTS5 全文检索**（`fts5.go`）：`NewFTS5Index` 在**内存 SQLite FTS5 虚拟表**上建索引（`modernc.org/sqlite`，无 CGO），覆盖 id/name/description/keywords，`ORDER BY rank` 排序；通过 rowid↔条目下标映射回原条目。
@@ -130,7 +130,7 @@ graph LR
 
 ## 六、Experience：学习源不"生成"Skill
 
-`internal/ares_skills/experience.go` 的 `Experience` 记录 `{skill, task_pattern, success_rate}` 相关度**先验**（`types.go`：
+`internal/runtime/protocol/skills/experience.go` 的 `Experience` 记录 `{skill, task_pattern, success_rate}` 相关度**先验**（`types.go`：
 
 ```go
 type ExperienceRecord struct {
@@ -159,7 +159,7 @@ graph LR
 
 ## 七、Catalog 门面：一条链的封装
 
-`internal/ares_skills/catalog.go` 的 `Catalog` 组合全部组件：
+`internal/runtime/protocol/skills/catalog.go` 的 `Catalog` 组合全部组件：
 
 ```go
 func (c *Catalog) Build() error          // 索引全部声明源（git 先 sync、http 拉清单）
@@ -236,7 +236,7 @@ graph TB
 
 ### 9.1 基准与验证（无伪造数字）
 
-`internal/ares_skills/benchmark_test.go` 定义了 100-skill 场景的基准与断言，**但代码中没有写入具体毫秒/微秒实测值**（那是运行环境相关的口径，原文档的一串选定数字并非代码常数，应如实弃掉）：
+`internal/runtime/protocol/skills/benchmark_test.go` 定义了 100-skill 场景的基准与断言，**但代码中没有写入具体毫秒/微秒实测值**（那是运行环境相关的口径，原文档的一串选定数字并非代码常数，应如实弃掉）：
 
 | 基准 / 测试 | 度量什么 | 代码中的断言 |
 |------|------|------|

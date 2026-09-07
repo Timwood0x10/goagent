@@ -475,7 +475,7 @@ func TestWithRetry_NonRetryableDoesNotOpenBreaker(t *testing.T) {
 // the circuit and release the probe slot. Before the fix, withRetry only
 // called RecordFailure for retryable errors, so a 400 probe failure left
 // halfOpenInflight=1 and the breaker rejected every request until the leak
-// guard fired — the P2-1 regression.
+// guard fired — the original regression.
 func TestWithRetry_HalfOpenProbeNonRetryableReopens(t *testing.T) {
 	cb := NewCircuitBreaker(1, 20*time.Millisecond)
 	c := &Client{
@@ -495,7 +495,7 @@ func TestWithRetry_HalfOpenProbeNonRetryableReopens(t *testing.T) {
 	}
 
 	// Wait for the open timeout to elapse so the next Allow() admits a probe.
-	// Poll with a deadline instead of a fixed sleep (code rules §7.3).
+	// Poll with a deadline instead of a fixed sleep.
 	deadline := time.Now().Add(time.Second)
 	for time.Since(cb.lastFailureTime) <= cb.openTimeout {
 		if time.Now().After(deadline) {

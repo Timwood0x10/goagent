@@ -136,7 +136,7 @@ func NewEvidence(taskID, role, source string) *Evidence {
 func (e *Evidence) AddDimension(name string, score, max int, evidence []EvidenceItem, flag string) {
 	pass := false
 	if max > 0 {
-		// Float threshold (#45): integer division (max*2/3) truncates and
+		// Float threshold: integer division (max*2/3) truncates and
 		// disagrees with the float formula used elsewhere (e.g. max=2 →
 		// int 1 vs float 1.33). One formula everywhere.
 		pass = float64(score) >= float64(max)*2/3

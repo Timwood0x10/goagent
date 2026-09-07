@@ -32,7 +32,7 @@ type CatalogConfig struct {
 	// Builtins are the known framework builtin tool names.
 	Builtins []string
 	// ExperiencePath, when non-empty, persists learned relevance priors as a
-	// JSON file at this path (design §11).
+	// JSON file at this path.
 	ExperiencePath string
 }
 
@@ -283,7 +283,7 @@ func (c *Catalog) ResolveTools(id string) ([]ResolvedTool, error) {
 	if !ok {
 		return nil, ErrSkillNotFound
 	}
-	// P1-8: Remote skills (from HTTP manifest) don't have a local skill.yaml.
+	// Remote skills (from HTTP manifest) don't have a local skill.yaml.
 	if strings.HasPrefix(entry.Path, "http://") || strings.HasPrefix(entry.Path, "https://") {
 		return nil, nil
 	}
@@ -300,7 +300,7 @@ func (c *Catalog) ResolveTools(id string) ([]ResolvedTool, error) {
 // Refresh re-indexes all declared sources — re-syncing git sources, re-fetching
 // http/oci manifests and rebuilding the FTS5 index, exactly like Build — and
 // returns the diff against the previous index generation (content-hash based
-// change detection, design §5). On success the in-memory index, loader, FTS5
+// change detection). On success the in-memory index, loader, FTS5
 // and memory registry views are replaced atomically; on error the previous
 // index is kept intact.
 //
@@ -416,7 +416,7 @@ func (c *Catalog) SetMCPConnector(conn MCPConnector) {
 }
 
 // Activate loads a skill's body, resolves its tools and — for MCP tools —
-// lazily connects the declared servers (design §3 / acceptance #3). The skill
+// lazily connects the declared servers. The skill
 // must be indexed (Build) first.
 //
 // Args:

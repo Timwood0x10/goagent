@@ -274,7 +274,7 @@ func (s *CompactableEventStore) maybeCompact(ctx context.Context, streamID strin
 	s.lastChecked[streamID] = version
 	s.mu.Unlock()
 
-	// Pre-compaction archive flush (P3 safety net). Drains ALL pending rounds
+	// Pre-compaction archive flush (safety net). Drains ALL pending rounds
 	// so the compaction core cannot trim raw events belonging to an
 	// un-archived round (which would permanently lose its RoundRecord). Must
 	// run BEFORE CheckAndCompact. Best-effort: never fails compaction.

@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// TestKillCapturesLastCognitiveSnapshot is the A1 acceptance: an agent that
+// TestKillCapturesLastCognitiveSnapshot is the acceptance: an agent that
 // runs, writes cognition, and is then KILLED leaves behind a complete,
 // versioned snapshot — the raw material for in-place cognitive revival.
 func TestKillCapturesLastCognitiveSnapshot(t *testing.T) {
@@ -54,7 +54,7 @@ func TestKillCapturesLastCognitiveSnapshot(t *testing.T) {
 			snap.Cognitive.SchemaVersion, CognitiveStateSchemaVersion)
 	}
 	// Revival needs the declared capabilities and provenance to rebuild an
-	// equivalent body (fusion plan A1 rationale).
+	// equivalent body (the revival rationale).
 	if len(snap.Capabilities) != 2 || snap.Capabilities[0] != "audit" {
 		t.Fatalf("snapshot capabilities = %v, want [audit rust]", snap.Capabilities)
 	}
@@ -147,7 +147,7 @@ func TestClearSnapshotConsumesRecord(t *testing.T) {
 }
 
 // TestConcurrentKillAndSnapshotRead exercises the race surface called out in
-// the fusion plan A1 acceptance: concurrent kills of DIFFERENT agents plus
+// the acceptance: concurrent kills of DIFFERENT agents plus
 // concurrent snapshot reads/writes must be clean under -race (the store has
 // its own lock; capture happens under Fabric.mu + the agent's lock).
 func TestConcurrentKillAndSnapshotRead(t *testing.T) {
@@ -185,7 +185,7 @@ func TestConcurrentKillAndSnapshotRead(t *testing.T) {
 	}
 }
 
-// TestFindRevivableSnapshotPicksMostRecentDeath locks the A2 review fix: when
+// TestFindRevivableSnapshotPicksMostRecentDeath locks the fix: when
 // several dead agents share the requested capability, recovery must seed
 // revival from the MOST RECENT death (freshest cognition), never from Go's
 // random map iteration order.

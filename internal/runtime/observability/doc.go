@@ -1,4 +1,4 @@
-// Package observability is the ARES telemetry service (convergence Phase 3).
+// Package observability is the ARES telemetry service.
 //
 // It covers metrics, tracers (OTel/no-op), cost dashboards, and the flight
 // recorder (flight/ — per-task execution genealogy for inspect/replay).

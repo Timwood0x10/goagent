@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-// G2 config contract gate (ares-repair-plan-zh.md §8): every leaf field of
+// G2 config contract gate: every leaf field of
 // MemoryConfig/ServerConfig/... must be consumed outside the config package
 // itself (validate / defaults / redacted don't count — self-referential).
 // Fields with no consumer make the YAML a lie; wire them, remove them, or
@@ -30,8 +30,8 @@ import (
 
 // knownDead lists config subtrees (dot paths from Config, e.g.
 // "Memory.SessionMemory" exempts every leaf under it) or single leaves that
-// are display-only (C4), consumed only through receiver methods defined in
-// this package, or pending Phase 5 removal. Keys are ACCESS paths — Config
+// are display-only, consumed only through receiver methods defined in
+// this package, or pending removal. Keys are ACCESS paths — Config
 // field names, what callers write (cfg.Memory.X) — NOT type names. Adding an
 // entry requires a reason comment.
 var knownDead = map[string]string{

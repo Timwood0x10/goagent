@@ -74,8 +74,8 @@ func (dc *DreamCycle) runGAEvolution(ctx context.Context, cycleCtx context.Conte
 	if !hasBaseline {
 		// Cold-start first generation: BestEverScore returns the -1 sentinel.
 		// Using it as the baseline would inflate improvement by +1 and make
-		// the shadow comparison trivially favor any real score (#N2/#53
-		// residual). With no baseline there is nothing to improve upon —
+		// the shadow comparison trivially favor any real score (a
+		// residual bias). With no baseline there is nothing to improve upon —
 		// report zero and skip shadow bookkeeping this cycle.
 		slog.InfoContext(ctx, "[DreamCycle] GA cold start: no prior best-ever baseline; improvement recorded as 0")
 	}
@@ -106,7 +106,7 @@ func (dc *DreamCycle) runGAEvolution(ctx context.Context, cycleCtx context.Conte
 	// Step 4: Deploy the best strategy. The improvement is measured against the
 	// best-ever score captured before this cycle, so a cycle that raises the
 	// best-ever score registers a positive gain (previously always 0).
-	// On a cold-start cycle (no evaluated baseline) improvement is 0 (#N2):
+	// On a cold-start cycle (no evaluated baseline) improvement is 0:
 	// the -1 sentinel would otherwise inflate it by +1.
 	improvement := 0.0
 	if hasBaseline {

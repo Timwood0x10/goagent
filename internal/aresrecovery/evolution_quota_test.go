@@ -51,7 +51,7 @@ func TestEvolutionQuotaManagerAppliesBudget(t *testing.T) {
 }
 
 // TestEvolutionQuotaManagerDynamicAdjustment verifies the budget can be
-// tightened or loosened at runtime (M2-2: CPU/memory weight dynamic
+// tightened or loosened at runtime (CPU/memory weight dynamic
 // adjustment) without recreating the fabric.
 func TestEvolutionQuotaManagerDynamicAdjustment(t *testing.T) {
 	agents := agentfabric.NewFabric()

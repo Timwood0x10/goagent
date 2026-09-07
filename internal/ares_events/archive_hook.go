@@ -15,8 +15,7 @@ import "context"
 // The sink is invoked at round boundaries (task-terminal events) and before
 // compaction triggers, so a round's record is durable before the compaction
 // core can discard the raw events. Sink failures are best effort: the caller
-// logs them and never fails the Append or compaction path (see
-// plan/context_compression_strategy.md §4).
+// logs them and never fails the Append or compaction path.
 //
 // Args:
 //   - ctx: timeout/cancellation context.

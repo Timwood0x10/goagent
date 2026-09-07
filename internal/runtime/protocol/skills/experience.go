@@ -9,8 +9,8 @@ import (
 	"sync"
 )
 
-// ExperienceStore persists relevance priors (design §11: reuse the
-// refine.Store style — Get/Set by key). A nil store keeps Experience purely
+// ExperienceStore persists relevance priors (a refine.Store-style
+// key/value interface — Get/Set by key). A nil store keeps Experience purely
 // in memory.
 type ExperienceStore interface {
 	// Load returns all persisted records (empty slice when none).
@@ -20,7 +20,7 @@ type ExperienceStore interface {
 }
 
 // Experience is the Learned Source: it records task-pattern -> skill relevance
-// priors (design §11). It never invokes skills — it only biases future
+// priors. It never invokes skills — it only biases future
 // discovery ranking. A learned skill is indexable but never auto-executed.
 type Experience struct {
 	mu      sync.RWMutex

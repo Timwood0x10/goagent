@@ -103,19 +103,19 @@ graph LR
 
 | internal 包 | 职责 | 关键符号（仅列出已验证） |
 |------|------|--------------------------|
-| `internal/taskfabric` | 持久的 task 意图 + 状态机 + 租约 + 检查点 | `Task`、`TaskState`（READY/LEASED/RUNNING/SUSPENDED/COMPLETED/FAILED）、`Fabric.Create/Acquire/Start/Yield/Complete/Fail/Renew/Release/Preempt/Schedule`、租约 `Epoch`（fencing token）、`RetryPolicy`、`ErrEpochMismatch` |
-| `internal/agentfabric` | 一次性 Agent 生命周期 + 进程树 + 三层 Context；**不负责调度** | `Fabric`、`spawn/suspend/resume/retire/kill/recover`、`AgentType`、`Cognition`、`SpawnSpec` |
-| `internal/kernelscheduler` | "Agents are not orchestrated. They are scheduled." | `Scheduler`、`New`、`Run`、`Schedule→Acquire→RunQuantum→finalize`、`RegisterExecutor/UnregisterExecutor`、`PreemptLowerPriority`（合作式抢占）、`EventStore` 事件驱动 drain |
+| `internal/fabric/task` | 持久的 task 意图 + 状态机 + 租约 + 检查点 | `Task`、`TaskState`（READY/LEASED/RUNNING/SUSPENDED/COMPLETED/FAILED）、`Fabric.Create/Acquire/Start/Yield/Complete/Fail/Renew/Release/Preempt/Schedule`、租约 `Epoch`（fencing token）、`RetryPolicy`、`ErrEpochMismatch` |
+| `internal/fabric/agent` | 一次性 Agent 生命周期 + 进程树 + 三层 Context；**不负责调度** | `Fabric`、`spawn/suspend/resume/retire/kill/recover`、`AgentType`、`Cognition`、`SpawnSpec` |
+| `internal/kernel` | "Agents are not orchestrated. They are scheduled." | `Scheduler`、`New`、`Run`、`Schedule→Acquire→RunQuantum→finalize`、`RegisterExecutor/UnregisterExecutor`、`PreemptLowerPriority`（合作式抢占）、`EventStore` 事件驱动 drain |
 | `internal/aresrecovery` | 恢复子模块，证明 Runtime 扛得住 Agent 死亡 | `Recovery`、`RestartPolicy`、`EvolutionAwareSpawner`（进化感知的 spawn 门）、Chaos（故障注入验证） |
-| `internal/ares_experience` | 经验蒸馏 | `DistillationService`、`Distill`、`TaskResult → Experience`（成功/失败两类） |
+| `internal/runtime/memory/experience` | 经验蒸馏 | `DistillationService`、`Distill`、`TaskResult → Experience`（成功/失败两类） |
 | `internal/ares_events` | 事件流 / 飞行记录底座 | `Event`、`EventType`（task.created/ready/acquired/started/yielded/checkpointed/preempted/released/completed/failed/expired/stolen）、`EventStore`（Append/Read/Subscribe/StreamVersion） |
-| `internal/ares_evolution` | 进化（策略状态机） | `StrategyLifecycle`：`CANDIDATE→SHADOW→ACTIVE→DEGRADED`，验证门 + `Submit`，回滚策略 |
+| `internal/runtime/ares_evolution` | 进化（策略状态机） | `StrategyLifecycle`：`CANDIDATE→SHADOW→ACTIVE→DEGRADED`，验证门 + `Submit`，回滚策略 |
 | `internal/agentipc` | Peer-mesh 通信 | `Bus`、`Send/Request/Reply/Delegate/Handoff/Subscribe`、广播 `Broadcast/Unsubscribe`、`Message`、`DeadLetterStore`（有界 FIFO） |
 | `internal/ares_bootstrap` + `sdk` | 组件装配 + 统一入口 | `ares_bootstrap.Bootstrap`（装配内核）、`sdk.NewRuntime` |
 
 ## 关键机制
 
-### Task 状态机（`internal/taskfabric`）
+### Task 状态机（`internal/fabric/task`）
 
 Task 不依赖任何 Agent 存活。`TaskState` 的状态机：
 
@@ -135,7 +135,7 @@ stateDiagram-v2
 
 ### Execution Quantum：量子边界才切换
 
-LLM Agent 无法在任意 instruction 上被打断——它只在 quantum 边界把执行权交回 Runtime。一次任务的完整路径是 **Schedule → Acquire → RunQuantum → finalize（COMPLETED / FAILED / SUSPENDED）**。Scheduler 在 quantum 边界决定 continue / suspend / preempt（`kernelscheduler.Scheduler` 里能看到完整的这条路径，配合 `PreemptLowerPriority` 做**合作式**抢占——不是 OS 那种硬抢占）。
+LLM Agent 无法在任意 instruction 上被打断——它只在 quantum 边界把执行权交回 Runtime。一次任务的完整路径是 **Schedule → Acquire → RunQuantum → finalize（COMPLETED / FAILED / SUSPENDED）**。Scheduler 在 quantum 边界决定 continue / suspend / preempt（`kernel.Scheduler` 里能看到完整的这条路径，配合 `PreemptLowerPriority` 做**合作式**抢占——不是 OS 那种硬抢占）。
 
 ### Recovery：Agent 死亡 ≠ Task 死亡
 
@@ -147,11 +147,11 @@ LLM Agent 无法在任意 instruction 上被打断——它只在 quantum 边界
 
 `aresrecovery` 里的 Chaos 是**验证**手段：故意注入故障，然后调用 Recovery 证明 Runtime 真的能恢复——"Chaos breaks things on purpose; Recovery proves the Runtime survives."
 
-### 经验蒸馏（`internal/ares_experience`）
+### 经验蒸馏（`internal/runtime/memory/experience`）
 
 Task 的成败会被蒸馏成可复用经验。`DistillationService.Distill` 拿 `TaskResult`，经由 LLM 抽取 Problem / Solution / Constraints，产出 `success` 或 `failure` 两类 `Experience`（`ExperienceTypeSuccess` / `ExperienceTypeFailure`）。
 
-### 进化（`internal/ares_evolution`）
+### 进化（`internal/runtime/ares_evolution`）
 
 进化不是玄学——是一个 `StrategyLifecycle` 状态机：
 
@@ -192,7 +192,7 @@ Task Fabric 每次状态迁移都会往 `EventStore` 追加 `task.*` 事件（`E
 2026/06/14 19:46:29 INFO orchestrator: resuming agent from step id=agent-6 resume_from=agent-1 start_step=4 total_steps=3
 ```
 
-> 引用的 arena / orchestrator 具体标识为旧版本/演进过程文本，本篇不把它当成当前模块的准确 API；要落地验证请以 `internal/ares_arena` 与 `internal/ares_runtime` 的实际代码为准（待核实）。
+> 引用的 arena / orchestrator 具体标识为旧版本/演进过程文本，本篇不把它当成当前模块的准确 API；要落地验证请以 `internal/runtime/arena` 与 `internal/runtime` 的实际代码为准（待核实）。
 
 ## 最后
 
@@ -203,7 +203,7 @@ Task Fabric 每次状态迁移都会往 `EventStore` 追加 `task.*` 事件（`E
 ## 0.3.1 更新说明
 
 - **版本**：仓库 `VERSION` 当前是 `0.3.1`
-- **Leader/Sub 不是主路径**：Kernel 内没有"中央编排者"；调度由 `kernelscheduler.Scheduler` 完成（`PolicyLegacy` 仅在 `agentipc` 里作为库常量保留，供双轨验证用）
+- **Leader/Sub 不是主路径**：Kernel 内没有"中央编排者"；调度由 `kernel.Scheduler` 完成（`PolicyLegacy` 仅在 `agentipc` 里作为库常量保留，供双轨验证用）
 - **通信走 peer-mesh**：`internal/agentipc.Bus` 六原语，见系列第二篇
 - **恢复与进化是真实模块**：`aresrecovery` + `ares_evolution`，不是概念
 

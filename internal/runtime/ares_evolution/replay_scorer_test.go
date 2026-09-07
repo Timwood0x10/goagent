@@ -45,7 +45,7 @@ func (m *memEvidenceStore) Query(_ context.Context, f evidence.Filter) ([]eviden
 		// Time bounds are INCLUSIVE on both ends (since <= ts <= until),
 		// matching the production MemoryStore/PostgresStore so a shared
 		// boundary record is visible to the same windows it would hit in
-		// production (review P1-4 — the old half-open Until hid that the
+		// production (the old half-open Until hid that the
 		// sampler's abutting windows overlap by one boundary instant).
 		if !f.Since.IsZero() && ev.Timestamp.Before(f.Since) {
 			continue
@@ -199,14 +199,14 @@ func TestReplayWindowFromNilContext(t *testing.T) {
 	}
 }
 
-// TestReplayScorerSparseWindowScoresPrior pins the P1-1/P1-2 contract: a
+// TestReplayScorerSparseWindowScoresPrior pins the sparse-window contract: a
 // strategy with NO records inside its window scores the cold-start prior, NOT
 // a full-history mean. Widening a sparse window to all history would (a) be
 // silently truncated by replayQueryLimit on a production store (no server-side
 // strategy filter), and (b) make every sparse window of the same strategy
 // return the SAME mean — repeated evidence that satisfies MinSamples by
-// repetition, the exact failure C3.2 forbids. The prior-vs-prior tie this
-// produces is excluded from TotalComparisons by the evaluator (B-3).
+// repetition, the exact failure the windowed design forbids. The prior-vs-prior tie this
+// produces is excluded from TotalComparisons by the evaluator.
 func TestReplayScorerSparseWindowScoresPrior(t *testing.T) {
 	store := &memEvidenceStore{}
 	ctx := context.Background()
@@ -240,11 +240,12 @@ func TestReplayScorerSparseWindowScoresPrior(t *testing.T) {
 	}
 }
 
-// TestShadowSamplerUsesDisjointReplayWindows is the C3.2 acceptance check:
+// TestShadowSamplerUsesDisjointReplayWindows is the windowed-replay acceptance
+// check:
 // MinSamples must be satisfied by INDEPENDENT evidence, not by repeating one
 // verdict. Each comparison must read a different, non-overlapping slice of
 // history. The scorer does NOT widen a sparse window to full history (that
-// would reintroduce repetition — see P1-1/P1-2), so every query is a bounded
+// would reintroduce repetition), so every query is a bounded
 // window query and there are no fallback reads.
 func TestShadowSamplerUsesDisjointReplayWindows(t *testing.T) {
 	store := &memEvidenceStore{}
@@ -282,7 +283,7 @@ func TestShadowSamplerUsesDisjointReplayWindows(t *testing.T) {
 	if len(seen) != 4 {
 		t.Fatalf("distinct comparison windows = %d, want 4", len(seen))
 	}
-	// P1-4: windows are half-open [since, until) and tile history without
+	// Windows are half-open [since, until) and tile history without
 	// overlap. The scorer passes `until-1ns` to the inclusive stores so the
 	// shared boundary instant belongs to exactly one window; at the
 	// semantic level the adjacent window's since must equal the previous

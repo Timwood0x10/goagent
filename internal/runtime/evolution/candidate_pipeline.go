@@ -193,7 +193,7 @@ func (p *CandidatePipeline) Release(ctx context.Context, candidateID string) (bo
 
 	// Register the profile executor for this target so the coordinator can
 	// apply (or the deployment pipeline can stage) the instruction change.
-	// Replace, not Register (#25): the registry has no unregister path, so a
+	// Replace, not Register: the registry has no unregister path, so a
 	// second verified candidate for the same TargetRole must be able to
 	// supersede the first — Register would fail with "already registered".
 	target := profileTargetPrefix + c.TargetRole

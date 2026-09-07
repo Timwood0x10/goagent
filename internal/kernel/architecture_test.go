@@ -26,12 +26,12 @@ func TestSchedulerMustNotImportRuntime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read package dir: %v", err)
 	}
-	// C1.2: the banned list is a slice so it can grow. Adding
+	// The banned list is a slice so it can grow. Adding
 	// internal/fabric/task/workflow/engine prevents the kernel scheduler from
 	// importing the planner package — the projection runs in the cmd
 	// layer, never inside the kernel. This is a regression guard: the
 	// current import count is 0; the test ensures it stays 0.
-	// M4-D convergence: internal/ares_runtime moved to internal/runtime —
+	// internal/ares_runtime was moved to internal/runtime —
 	// the ban follows the package (kernel must not depend on the service
 	// layer at all, whichever directory it lives in).
 	banned := []string{

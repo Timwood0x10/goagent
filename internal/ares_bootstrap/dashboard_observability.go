@@ -1,8 +1,8 @@
-// Package ares_bootstrap — runtime observability adapters (v0.3.0 M3/M4).
+// Package ares_bootstrap — runtime observability adapters.
 //
 // Bridges aresrecovery's recording surfaces (EvolutionTracer / FeedbackStore
 // / GlobalTracer) to the introspection control plane's provider contracts
-// (internal/introspect, monitoring.md Phase 4) so the existing
+// (internal/introspect) so the existing
 // /api/evolution/trajectory, /api/evolution/feedback and
 // /api/observability/spans endpoints are backed by real components instead of
 // returning empty lists.
@@ -15,7 +15,7 @@ import (
 
 // evolutionTrajectoryAdapter adapts *aresrecovery.EvolutionTracer to
 // introspect.EvolutionTrajectoryProvider. The adapter also consumes the two
-// components the v0.3.0 review flagged as library-only:
+// components that were previously library-only:
 //
 //   - ChangeAttributor fills each generation change's Impact estimate (equal
 //     split of the score delta unless the evolution system supplied one);
@@ -42,9 +42,9 @@ var _ introspect.EvolutionTrajectoryProvider = (*evolutionTrajectoryAdapter)(nil
 // EvolutionTrajectory returns the recorded generations as JSON-friendly
 // values (oldest first), or nil when nothing is recorded. Each generation is
 // enriched with:
-//   - change attribution (M3-3): every change entry carries its estimated
+//   - change attribution: every change entry carries its estimated
 //     score impact, computed between adjacent generations;
-//   - combined fitness (M3-2): when human feedback exists for a top strategy,
+//   - combined fitness: when human feedback exists for a top strategy,
 //     the entry gains human_rating / combined_fitness (CombinedFitness blends
 //     the generation best score with the human rating) / feedback_approved.
 func (a *evolutionTrajectoryAdapter) EvolutionTrajectory() []map[string]any {

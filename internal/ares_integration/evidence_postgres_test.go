@@ -106,7 +106,7 @@ func TestEvidencePostgresStoreRoundTrip(t *testing.T) {
 	})
 }
 
-// TestEvidencePostgresTTLExpiry locks the N9 TTL closure: a record whose
+// TestEvidencePostgresTTLExpiry locks the TTL contract: a record whose
 // (ts + ttl) has passed must be (a) hidden from Query and (b) physically
 // removed by CleanupExpired, while a zero-TTL record is never expired.
 func TestEvidencePostgresTTLExpiry(t *testing.T) {

@@ -21,7 +21,7 @@ const (
 	// ChangeReplaceNode indicates a node was replaced (swap migration).
 	ChangeReplaceNode
 	// ChangeSetNodeMetadata indicates a node's Metadata map was replaced in
-	// place (C4 metadata patch).
+	// place (metadata patch).
 	ChangeSetNodeMetadata
 	// ChangeReconcile is not published by the DAG: it labels a ChangeResult
 	// produced by a full state reconcile (a subscriber compensating for

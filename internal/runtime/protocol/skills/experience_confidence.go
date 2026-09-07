@@ -5,7 +5,7 @@ import (
 )
 
 // Compile-time guarantee: ExperienceConfidenceSource satisfies the consumer-
-// side ConfidenceSource interface (code_rules §5.2: interfaces live on the
+// side ConfidenceSource interface (interfaces live on the
 // consumer; the adapter proves conformance at build time).
 var _ taskfabric.ConfidenceSource = (*ExperienceConfidenceSource)(nil)
 

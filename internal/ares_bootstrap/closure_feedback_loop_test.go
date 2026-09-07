@@ -1,4 +1,4 @@
-// Package ares_bootstrap — Runtime Closure Feedback Loop Tests (Stage 4).
+// Package ares_bootstrap — Runtime Closure Feedback Loop Tests.
 //
 // These tests verify the real data flow across the feedback chain
 // Event → Evidence → GA → Strategy → Agent. Unlike earlier stage tests that
@@ -167,7 +167,7 @@ func fitnessValue(t *testing.T, e evidence.Evidence) float64 {
 	return val
 }
 
-// ── §8 acceptance assertions (ga-runtime-evolution-design-zh.md §8, 1–4) ──
+// ── acceptance assertions (1–4) ──
 //
 // The four tests below exercise the promote/rollback control plane end to end
 // over the REAL bootstrap wiring: lifecycle → verify gates → ASM →
@@ -267,7 +267,7 @@ func emitTaskEvents(t *testing.T, store ares_events.EventStore, eventType ares_e
 	}
 }
 
-// TestClosure_VerifyGate_RejectsWorseCandidate (§8 assertion 1: the verify
+// TestClosure_VerifyGate_RejectsWorseCandidate (the verify
 // gate takes effect).
 // A candidate that LOSES its shadow comparisons must be rejected by the G2
 // gate: the active strategy (and therefore what the agent reads) is unchanged.
@@ -297,7 +297,7 @@ func TestClosure_VerifyGate_RejectsWorseCandidate(t *testing.T) {
 		"rejected candidate must not stay attached as pending")
 }
 
-// TestClosure_Promote_KeepsPrevious (§8 assertion 2: correct retention).
+// TestClosure_Promote_KeepsPrevious (correct retention).
 // A candidate that WINS its shadow comparisons is promoted, and the previous
 // strategy is preserved on the ASM for rollback.
 func TestClosure_Promote_KeepsPrevious(t *testing.T) {
@@ -324,7 +324,7 @@ func TestClosure_Promote_KeepsPrevious(t *testing.T) {
 	assert.Equal(t, "base-v1", prev.ID, "asm.Previous() must point at the old strategy")
 }
 
-// TestClosure_Degradation_TriggersRollback (§8 assertion 3: rollback on
+// TestClosure_Degradation_TriggersRollback (rollback on
 // degradation).
 // After a promote, runtime evidence drives the loop: completed tasks build a
 // healthy baseline window, then consecutive task.failed events drag the
@@ -379,7 +379,7 @@ func TestClosure_Degradation_TriggersRollback(t *testing.T) {
 		"last decision must record the rollback, got %q", snap.LastDecision)
 }
 
-// TestClosure_AgentPassivity_ReadOnlyStrategySource (§8 assertion 4: agent
+// TestClosure_AgentPassivity_ReadOnlyStrategySource (agent
 // passivity).
 // The agent's strategy surface is read-only by construction: it satisfies
 // exactly one method (GetActiveStrategy), and no mutation/evolution entry

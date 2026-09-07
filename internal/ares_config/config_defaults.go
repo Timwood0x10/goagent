@@ -47,7 +47,7 @@ const (
 	DefaultEvolutionSelectionStrategy = "tournament"
 )
 
-// M4-D0: DefaultToolProjection* removed with their package.
+// DefaultToolProjection* removed with their package.
 
 // NewMinimalConfig builds a fully-runnable Config from only the LLM endpoint
 // details, so a user does not need a YAML file to start the runtime: everything
@@ -200,9 +200,9 @@ func (c *Config) setDefaults() {
 	if c.Memory.MaxHistory == 0 {
 		c.Memory.MaxHistory = 10
 	}
-	// Distillation defaults (P0-3 decision: default TRUE). EnableDistillation
+	// Distillation defaults (default TRUE). EnableDistillation
 	// is a *bool: nil (unset) → true, so deployments relying on
-	// Storage+Embedding alone keep distillation after the C1 gate landed — an
+	// Storage+Embedding alone keep distillation after the gate landed — an
 	// explicit `false` in YAML is the only way to disable it.
 	if c.Memory.EnableDistillation == nil {
 		t := true
@@ -299,7 +299,7 @@ func (c *Config) setDefaults() {
 	if c.Evolution.LLMScoring.MaxCallsPerGeneration == 0 {
 		c.Evolution.LLMScoring.MaxCallsPerGeneration = 100
 	}
-	// M4-D0: tool_projection defaults removed with their package.
+	// tool_projection defaults removed with their package.
 	// Discovery defaults — opt-in via Enabled (default false). When enabled
 	// but Interval is unset, default to 5 minutes between discovery cycles.
 	if c.Discovery.Interval == 0 {

@@ -48,15 +48,15 @@ func buildTestPeerKernel(t *testing.T, ctx context.Context) (*kernelHandle, *rec
 	kernel.fabric = taskfabric.NewFabric()
 	agents := agentfabric.NewFabric()
 	kernel.agents = agents
-	// M4-D: the submission path always admits sessions, so the minimal
+	// The submission path always admits sessions, so the minimal
 	// kernel needs the same registry + coordinator pair createPeerAgents
 	// wires in production.
 	kernel.sessionReg = agentfabric.NewSessionRegistry()
 	kernel.compileCoord = planprojection.NewCompileCoordinator(kernel.fabric, nil)
 	cog := &recordingPeerCognition{}
 
-	// Spawn the peer agent WITH its execution body (A1), advertising the
-	// production L2 capability set (M4-D: no legacy capabilities).
+	// Spawn the peer agent WITH its execution body, advertising the
+	// production L2 capability set (no legacy capabilities).
 	if _, err := agents.Spawn(ctx, agentfabric.SpawnSpec{
 		Identity:     "coder",
 		Capabilities: peerCapabilities(nil),

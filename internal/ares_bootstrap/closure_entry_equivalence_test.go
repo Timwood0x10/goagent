@@ -1,4 +1,4 @@
-// Package ares_bootstrap — Entry Component Graph Equivalence Tests (Stage 6).
+// Package ares_bootstrap — Entry Component Graph Equivalence Tests.
 //
 // Verifies that building the same config through the serve-style entry path
 // (explicit EventStore via BootstrapDeps) and the start-style path (nil deps,
@@ -53,7 +53,7 @@ func graphEdges(t *testing.T, comp *Components) []componentEdge {
 
 // TestClosure_EntryComponentGraphEquivalence_ServeVsStart verifies the serve
 // entry (explicit EventStore dep) and the start entry (nil deps) produce the
-// identical component graph for the same config (Stage 6: entry equivalence).
+// identical component graph for the same config (entry equivalence).
 func TestClosure_EntryComponentGraphEquivalence_ServeVsStart(t *testing.T) {
 	cfg := &ares_config.Config{
 		LLM: ares_config.LLMConfig{
@@ -98,7 +98,7 @@ func TestClosure_EntryComponentGraphEquivalence_ServeVsStart(t *testing.T) {
 }
 
 // TestClosure_EntryGraph_DisabledComponentsAbsent verifies that config gates
-// (F01/F02) apply identically in both entry styles: a disabled component is
+// apply identically in both entry styles: a disabled component is
 // absent from the graph, never half-wired.
 func TestClosure_EntryGraph_DisabledComponentsAbsent(t *testing.T) {
 	cfg := &ares_config.Config{

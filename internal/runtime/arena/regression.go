@@ -88,7 +88,7 @@ type Scorer interface {
 	// Score evaluates a strategy and returns a numeric score.
 	// The input can be a strategy object, execution result, or any relevant data.
 	// The context allows slow (e.g., LLM-backed) scorers to observe
-	// cancellation and timeout instead of hanging the caller (M4).
+	// cancellation and timeout instead of hanging the caller.
 	Score(ctx context.Context, input any) (float64, error)
 }
 

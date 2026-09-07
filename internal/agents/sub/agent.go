@@ -35,14 +35,13 @@ type Agent interface {
 	// Execute runs a task to completion and returns its result (used by the
 	// message-driven path).
 	Execute(ctx context.Context, task *models.Task) (*models.TaskResult, error)
-	// ExecuteStep runs one execution quantum (plan P1.1 Execution Quantum).
+	// ExecuteStep runs one execution quantum.
 	// Done=false carries a resumable checkpoint: the task is SUSPENDED with
 	// the checkpoint preserved and a later quantum resumes from it.
 	ExecuteStep(ctx context.Context, task *models.Task) (*StepOutcome, error)
 }
 
-// StepOutcome is the result of one execution quantum (plan P1.1 Execution
-// Quantum). Done=false carries a resumable checkpoint so the caller (the
+// StepOutcome is the result of one execution quantum. Done=false carries a resumable checkpoint so the caller (the
 // kernel scheduler's RunQuantum step) can yield and resume the task in a later
 // quantum; Done=true carries the finalized task result.
 type StepOutcome struct {
@@ -52,9 +51,9 @@ type StepOutcome struct {
 }
 
 // stepExecutor is the optional quantum-capable contract. The interface lives
-// at the consumer (sub.Agent) per code_rules; executors that predate quantum
+// at the consumer (sub.Agent); executors that predate quantum
 // execution simply do not implement it and subAgent falls back to one-shot
-// Execute. (M4-D: the only implementation left is the cognition-backed
+// Execute. (The only implementation left is the cognition-backed
 // adapter — the ReAct tool loop is deleted.)
 type stepExecutor interface {
 	ExecuteStep(ctx context.Context, task *models.Task) (*StepOutcome, error)
@@ -69,7 +68,7 @@ type TaskExecutor interface {
 }
 
 // FallbackHandler computes a degraded result when normal execution is
-// unavailable. (Kept from the retired tool-loop executor in M4-D: part of
+// unavailable. (Kept from the retired tool-loop executor: part of
 // the TaskExecutor contract.)
 type FallbackHandler func(ctx context.Context, task *models.Task) ([]*models.RecommendItem, string, error)
 
@@ -79,9 +78,9 @@ type MessageHandler interface {
 }
 
 // ChatClient is the minimal LLM chat surface an executor needs (interface
-// at the consumer, code_rules). The optional params map carries per-call
+// at the consumer). The optional params map carries per-call
 // overrides (temperature, max_tokens, top_k) from the active evolution
-// strategy. (Relocated from the retired tool-loop executor in M4-D; the
+// strategy. (Relocated from the retired tool-loop executor; the
 // contract is unchanged.)
 type ChatClient interface {
 	Chat(ctx context.Context, messages []*core.LLMMessage, tools []core.Tool, params map[string]any) (*core.GenerateResponse, error)
@@ -454,7 +453,7 @@ func (a *subAgent) finalizeErr(ctx context.Context, task *models.Task, result *m
 // store is configured (ares-vs-prime-agent 5.3: action store). Append errors
 // are logged and non-fatal: audit must never break the execution path.
 //
-// The entry's SessionID comes from models.Task.SessionID (#61): upstream
+// The entry's SessionID comes from models.Task.SessionID: upstream
 // sources that know the owning conversation session populate it (e.g.
 // DistillTask via agent_checkpoints); session-less sources leave it empty,
 // and such entries are only reachable through List(""). Callers that need

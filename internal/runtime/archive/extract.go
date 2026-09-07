@@ -286,7 +286,7 @@ func extractToolArgs(ev *ares_events.Event) map[string]any {
 	if args, ok := ev.Payload["args"].(map[string]any); ok {
 		return args
 	}
-	// Shape 2: args as a JSON string (B17 — agentloop emitter may stringify).
+	// Shape 2: args as a JSON string (the agentloop emitter may stringify).
 	if argsStr, ok := ev.Payload["args"].(string); ok && argsStr != "" {
 		var args map[string]any
 		if err := json.Unmarshal([]byte(argsStr), &args); err == nil {

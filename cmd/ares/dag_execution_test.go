@@ -23,7 +23,7 @@ func (s *stubBody) ExecuteStep(_ context.Context, _ *models.Task) (*agentfabric.
 	return s.outcome, s.outcomeErr
 }
 
-// TestResolveMaxPlanDepth pins the M4-A2 depth mapping: zero/absent means the
+// TestResolveMaxPlanDepth pins the depth mapping: zero/absent means the
 // planner default (agentfabric.DefaultMaxPlanDepth), a positive value passes
 // through, and a negative — which validation rejects at load — can never
 // widen or remove the guard even if it reaches the resolver.
@@ -48,7 +48,7 @@ func TestResolveMaxPlanDepth(t *testing.T) {
 	}
 }
 
-// TestResolveReaperGrace pins the P0-1 grace mapping: zero/absent passes
+// TestResolveReaperGrace pins the grace mapping: zero/absent passes
 // through as 0 so the reaper's own 30s default stays the single source of
 // truth; a positive config value wins; a negative (unreachable through
 // Validate, defended anyway) degrades to the default rather than disabling
@@ -73,7 +73,7 @@ func TestResolveReaperGrace(t *testing.T) {
 	}
 }
 
-// TestPeerCapabilities_UnifiedL2Set pins the M4-D single path: every peer
+// TestPeerCapabilities_UnifiedL2Set pins the single path: every peer
 // advertises exactly the L2 set (ares/root, ares/plan, ares/answer,
 // tool/<name> per bound tool) and never a primary type — the canary
 // partition is retired with the gate.
@@ -104,7 +104,7 @@ func TestPeerCapabilities_UnifiedL2Set(t *testing.T) {
 	}
 }
 
-// TestSelectRecoveryBody pins the M4-D dispatch: L2-capability tasks take
+// TestSelectRecoveryBody pins the recovery dispatch: L2-capability tasks take
 // the router; a nil router or a non-routable capability falls back (nil =
 // caller builds a fresh cognition-backed executor, never ReAct).
 func TestSelectRecoveryBody(t *testing.T) {

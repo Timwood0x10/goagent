@@ -169,7 +169,7 @@ flowchart LR
 
 `agentipc` 里还有一层与"任务怎么派"相关的（`policy.go`），跟通信原语平行：`ExecutionPolicy`（`PolicyLegacy` / `PolicyTaskFabric`）和 `PolicyFlag`（`atomic.Int64`，0=legacy、1=task fabric，运行时翻转、不需要重启生效）。`DualTrackDispatcher` 持有 legacy 和 new 两条路径的 `Dispatcher`，按 flag 选一条 active；打开 shadow 时 inactive 路径也会跑，比较 outcome 是否一致（`Mismatches()`），这就是"双轨等价"验证的 surface。
 
-> 注意：当前生产只有 `PolicyTaskFabric`——Leader 运行时已移除。`PolicyLegacy` 只是作为库常量保留，供双轨验证/阴影模式用。原文档提到的"AHP 五消息类型/DLQ 自动重试"等旧协议细节，不在 `internal/agentipc` 里，相关旧路径以 `internal/ares_protocol/ahp` 与 `internal/agents/peer` 为准（本系列暂不展开，待核实）。
+> 注意：当前生产只有 `PolicyTaskFabric`——Leader 运行时已移除。`PolicyLegacy` 只是作为库常量保留，供双轨验证/阴影模式用。原文档提到的"AHP 五消息类型/DLQ 自动重试"等旧协议细节，不在 `internal/agentipc` 里，相关旧路径以 `internal/runtime/protocol/ahp/ahp` 与 `internal/agents/peer` 为准（本系列暂不展开，待核实）。
 
 ## 七、设计取舍（坦诚环节）
 

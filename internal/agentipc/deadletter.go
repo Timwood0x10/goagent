@@ -6,7 +6,7 @@ import (
 )
 
 // DeadLetter is one failed IPC request preserved for diagnosis and manual or
-// automatic redelivery. Native GAP-3 closure: the bus records every request
+// automatic redelivery. The bus records every request
 // that could not be delivered or timed out, so multi-agent messaging failures
 // are observable instead of vanishing at the error-return boundary.
 type DeadLetter struct {
@@ -17,7 +17,7 @@ type DeadLetter struct {
 	To      string
 	Topic   string
 	Payload any
-	// TraceID is the causal chain the failed request belonged to (A-3):
+	// TraceID is the causal chain the failed request belonged to:
 	// join it against logs and collaboration receipts for the full story.
 	TraceID string
 	// Reason is why delivery failed (e.g. ErrAgentNotRegistered / ErrTimeout).
@@ -28,7 +28,7 @@ type DeadLetter struct {
 
 // DeadLetterStore is a bounded FIFO of failed IPC requests. Thread-safe.
 // Capacity is capped so a long-running process cannot grow it without limit
-// (N8: bounded aggregation — same ring policy as the flight aggregates).
+// (bounded aggregation — same ring policy as the flight aggregates).
 type DeadLetterStore struct {
 	mu       sync.Mutex
 	next     uint64

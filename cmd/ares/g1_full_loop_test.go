@@ -8,8 +8,8 @@ import (
 	"github.com/Timwood0x10/ares/internal/storage/postgres/models"
 )
 
-// TestG1_FullLoopDistillToSpawnPrior verifies the G1 acceptance
-// (aresos-agentos-plan G1: Memory Distill 挂到 agent 生命周期 — 蒸馏异步产出 →
+// TestG1_FullLoopDistillToSpawnPrior verifies the acceptance
+// (Memory Distill 挂到 agent 生命周期 — 蒸馏异步产出 →
 // 经验仓库查询 → spawn 注入) end to end at the wiring layer: once distillation
 // has asynchronously produced an experience for an agent (here: a repo query
 // result, the same source the production loadExperiencePrior reads), a fresh
@@ -32,7 +32,7 @@ func TestG1_FullLoopDistillToSpawnPrior(t *testing.T) {
 		},
 	}}
 
-	// A fresh spawn of the same capability agent loads the prior (G1: 新 spawn
+	// A fresh spawn of the same capability agent loads the prior (新 spawn
 	// 的同 capability agent 能读到该经验先验).
 	fab := agentfabric.NewFabric()
 	if _, err := fab.Spawn(ctx, agentfabric.SpawnSpec{

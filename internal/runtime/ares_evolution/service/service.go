@@ -253,7 +253,7 @@ func (s *Service) CreateWiredSystem(cfg *SystemConfig) (*evolution.WiredEvolutio
 		return nil, fmt.Errorf("new wired evolution system: %w", err)
 	}
 
-	// Wire intelligence pipeline (Phase 3-5): reflection → hypothesis → meta.
+	// Wire intelligence pipeline: reflection → hypothesis → meta.
 	// Only when EnableIntelligence is set, LLMClient is available, and
 	// history tracking is enabled (required for meta-controller).
 	if cfg.EnableIntelligence && cfg.LLMClient != nil && cfg.HistoryMaxSize > 0 {
@@ -450,7 +450,7 @@ func (s *Service) Evolve(ctx context.Context, generations int) (*EvolutionResult
 	// Initialize scores before first generation so selection has meaningful data.
 	s.initScores(ctx)
 
-	// Lineage cursor (#54): collectLineages()/s.lineages return the FULL
+	// Lineage cursor: collectLineages()/s.lineages return the FULL
 	// accumulated genealogy each generation; appending the whole slice every
 	// generation made result.Lineages O(G × total) with massive duplication.
 	// Only the tail grown since the previous generation is appended.
@@ -470,7 +470,7 @@ func (s *Service) Evolve(ctx context.Context, generations int) (*EvolutionResult
 			}
 
 			// RunIdleEvolution → adapter.Run() → EvolveAfterScoring already
-			// post-scores all agents in Phase 3. No need to re-score here.
+			// post-scores all agents after evolving. No need to re-score here.
 
 			stats := s.collectStats()
 			result.Stats = append(result.Stats, stats)
@@ -498,7 +498,7 @@ func (s *Service) Evolve(ctx context.Context, generations int) (*EvolutionResult
 
 			// Record lineages for non-wired mode: track each offspring's
 			// parent-child relationship. Only this generation's additions go
-			// into the result (#54).
+			// into the result.
 			result.Lineages = append(result.Lineages, s.recordLineages()...)
 
 			stats := s.collectStats()
@@ -940,7 +940,8 @@ func toInternalEvidence(ev Evidence) (experience.Evidence, error) {
 // recordLineages records parent→child lineages for the current generation
 // into s.lineages (capped at maxLineages to prevent unbounded growth) and
 // returns exactly the entries added this generation, so callers append the
-// delta instead of the whole accumulated history (#54: O(G × total) duplication).
+// delta instead of the whole accumulated history (avoids O(G × total)
+// duplication).
 func (s *Service) recordLineages() []StrategyLineage {
 	if s.population == nil {
 		return nil

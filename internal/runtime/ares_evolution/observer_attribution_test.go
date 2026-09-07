@@ -12,7 +12,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/evidence"
 )
 
-// The E1 observation-side contract: events carry the submission-time
+// The observation-side attribution contract: events carry the submission-time
 // strategy_id (stamped by the fabric / sub-agent), the observer prefers it
 // over the current activeID, and the aggregator's per-strategy windows stay
 // isolated — the foundation per-task attribution needs before promotion is
@@ -81,7 +81,7 @@ func TestObserver_EventAttributionIsolation(t *testing.T) {
 
 // TestObserver_UnattributedEventFallsBackToActiveID locks the no-wiring
 // regression: an event WITHOUT strategy_id still attributes to the currently
-// active strategy — identical to the pre-E1 behavior.
+// active strategy — identical to the pre-attribution behavior.
 func TestObserver_UnattributedEventFallsBackToActiveID(t *testing.T) {
 	store := evidence.NewMemoryStore()
 	obs := NewRuntimeObserver(nil,

@@ -5,7 +5,7 @@ import (
 )
 
 // RegisterExecutor dynamically registers an executor under agentID so the
-// scheduler can execute tasks assigned to it (W1: production-grade recovery
+// scheduler can execute tasks assigned to it (production-grade recovery
 // 闭环). The recovery loop calls this after spawning a replacement agent so
 // the new agent is a real executor, not a phantom. Safe for concurrent use
 // with drain goroutines: execMu guards the map.
@@ -54,8 +54,8 @@ func (s *Scheduler) RegisterExecutorIfAbsent(agentID string, executor Capability
 	return executor, true
 }
 
-// RegisterExecutorForTask registers an executor bound to exactly one task
-// (W1 recovery). The executor is only ever offered as a candidate for taskID
+// RegisterExecutorForTask registers an executor bound to exactly one task.
+// The executor is only ever offered as a candidate for taskID
 // — execute() filters it out for every other READY task, so a replacement
 // spawned for a recovered task can never hijack a brand-new task. When the
 // task reaches a terminal state (COMPLETED / FAILED) execute() unregisters
@@ -138,7 +138,7 @@ func (s *Scheduler) HasCapableExecutor(taskID string) bool {
 		if s.isBoundToAnyTask(agentID) {
 			continue
 		}
-		// C1: same single-source rule as executeUnbound — with the fabric
+		// Same single-source rule as executeUnbound — with the fabric
 		// wired, unbound static registrations are managed fabric agents.
 		// (isBoundToAnyTask already checked above, so this is just s.agents != nil)
 		if s.agents != nil {
@@ -153,7 +153,7 @@ func (s *Scheduler) HasCapableExecutor(taskID string) bool {
 			return true
 		}
 	}
-	// B1: a live, IDLE, executable fabric agent can also resume the task.
+	// A live, IDLE, executable fabric agent can also resume the task.
 	if s.agents != nil {
 		for _, id := range s.agents.Agents() {
 			if _, ok := execs[id]; ok {
@@ -224,7 +224,7 @@ func (s *Scheduler) allExecutors() map[string]CapabilityExecutor {
 
 // Capabilities lists the distinct executor types across the registry AND the
 // live agent fabric. The graph-submission endpoint uses it to reject requests
-// no peer can serve. M4-D: the static pool is empty in production (fabric
+// no peer can serve. The static pool is empty in production (fabric
 // only), so without the fabric half this would report nothing routable.
 func (s *Scheduler) Capabilities() []string {
 	s.execMu.RLock()
