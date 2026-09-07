@@ -90,9 +90,9 @@ We welcome feature suggestions! Please:
    go test -race -short ./...
    ```
 
-5. **Run examples**:
+5. **Run examples**: the demos live under `examples/_fixtures/` — pick one and run it with:
    ```bash
-   ./scripts/run_example.sh
+   go run ./examples/_fixtures/<demo-name>
    ```
 
 ## Coding Standards
