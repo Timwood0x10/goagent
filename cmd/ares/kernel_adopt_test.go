@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Timwood0x10/ares/internal/agentfabric"
 	"github.com/Timwood0x10/ares/internal/ares_bootstrap"
 	"github.com/Timwood0x10/ares/internal/ares_events"
 	"github.com/Timwood0x10/ares/internal/aresrecovery"
+	"github.com/Timwood0x10/ares/internal/fabric/agent"
+	"github.com/Timwood0x10/ares/internal/fabric/task"
 	"github.com/Timwood0x10/ares/internal/kernel"
-	"github.com/Timwood0x10/ares/internal/taskfabric"
 )
 
 // TestKernelAdopt_SixPillarsAdoptedAndStopped is the K2 acceptance: a fully

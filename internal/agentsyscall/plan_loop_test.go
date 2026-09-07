@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Timwood0x10/ares/internal/taskfabric"
+	"github.com/Timwood0x10/ares/internal/fabric/task"
 )
 
 // drivePlanTask completes a loop-compiled task under a synthetic worker

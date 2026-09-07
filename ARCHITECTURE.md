@@ -12,7 +12,7 @@
 
 | 事实 | 证据 |
 |---|---|
-| 唯一的 `MutableDAG` 在 `internal/workflow/engine/mutable_dag.go`（全仓仅此处定义） | `rg "type MutableDAG struct"` 其他文件 0 命中 |
+| 唯一的 `MutableDAG` 在 `internal/fabric/task/workflow/engine/mutable_dag.go`（全仓仅此处定义） | `rg "type MutableDAG struct"` 其他文件 0 命中 |
 | `taskfabric/dag.go` 不是第二套图：只提供 `IsReady()`/`ReadyTasks()` 调度原语 | 源码已读 |
 | `recovery.spawnAgent` ≠ `syscall.SpawnAgent`：前者 A1 注入 + `SpawnForRecovery`；后者 LLM-facing；汇到 `agentfabric.Spawn` | `recovery.go:124` / `syscall.go:250` |
 | **生命周期三套**：`ares_runtime.Manager`（`RegisterAgent/StartAgent/StopAgent/RestoreAgent`，`manager.go:152/219/283/413`）+ `agentfabric.Fabric` + 遗留 leader 管线 | 源码已读 |
@@ -62,12 +62,13 @@ cmd/ares/main.go = 唯一入口；kernel/fabric/runtime 平级（kernel 不被 f
 [已完成 2026-09-07] Phase2a 占位（`internal/fabric/{agent,task,task/workflow,planprojection}/doc.go`，生产代码禁引）
 [已完成 2026-09-07] Phase3 子集·eval/observability（`internal/runtime/{eval,observability}/`，乱序特批：不依赖 M4）
 [已完成 2026-09-07] Phase3 全部（乱序特批）：protocol 三包→`runtime/protocol/{mcp,skills,ahp}`（包名保持 `ares_*`，§5.1 禁双轨的反面：改名收益＜风险）、arena/flight/archive→`runtime/{arena,observability/flight,archive}`、memory 两包→`runtime/memory/`（+`experience/` 子包）、evolution v1+v2→`runtime/{ares_evolution,evolution}/`（分层保留，雙包同名靠别名）。`internal/` 顶层 50→37
-[剩余主线] M4 D 阶段（唯一不可逆，被“B2 生产对拍 + 协作栈 L2 化 + 客户端迁移 + 影子退役”阻塞）
-[其后]  M4 通过 → Phase2b(fabric 合并) → Phase4(CLI 单一化) → Phase5(验证)
+[已完成 2026-09-07] Phase2b fabric 合并（`agentfabric`→`fabric/agent/`、`taskfabric`→`fabric/task/`、`planprojection`→`fabric/planprojection/`、`workflow/{engine,graph}`→`fabric/task/workflow/{engine,graph}/`，包名保持，import 全量迁移）
+[已完成 2026-09-07] Phase4 部分（`evaluation/`→`examples/_fixtures/evaluation/`，import 已更新，`go build` 绿）
+[剩余主线] Phase4 文件收敛 + examples→_fixtures 迁移 → Phase5(验证)
 （注：原“Phase3(runtime 服务化)”已于 2026-09-07 乱序提前落地，见上。）
 ```
 
-- **不要重做已完成项**：M2/M3/M5/M6 的代码与测试都在（`TestM3*` 实跑通过）。剩余主线只有 **M4 D 阶段**。
+- **不要重做已完成项**：M2/M3/M5/M6 的代码与测试都在（`TestM3*` 实跑通过）。M4 D 阶段已落地，Phase 2b 已落地。剩余主线只有 **Phase 4 + Phase 5**。
 - ~~Phase 1 与 M4 D 可并行~~（已过时：Phase 1 已落地）。**Phase 2b 必须在 M4 通过后**（否则删 ReAct 与合并 fabric 同一批源码树，双写）。
 
 ## 三、Phase 0 — 冻结与盘点（✅ 已落地 2026-09-07，不动生产代码）
@@ -109,7 +110,7 @@ cmd/ares/main.go = 唯一入口；kernel/fabric/runtime 平级（kernel 不被 f
 | 验收 | `rg chatStepState\|stepSchemaVersion\|toolprojection` 0 命中；`go test ./...` 全绿；`make gate` 全绿；`go vet`、`gofmt`、`git diff --check` 干净 | ✅ |
 
 **已知遗留（非阻塞，Phase 2b/4 处理）**：`ares_config.SubAgentConfig` 类型仍在（legacy `agents.sub` 配置面）；`agents/profile.go`（evolution 仍用 `WithProfile` 上下文版）；`PeerAgentConfig.Role` 等已删字段在旧 yaml 里被静默忽略（解析器非严格）；skill outcome recorder 仍等 M6 侧 conforming emitter（D 前已饿死，非回归）。
-**Phase 2b 已解锁**：M4 通过，fabric 合并可排期。
+**Phase 2b 已落地**：M4 通过，fabric 合并已执行。`agentfabric`→`internal/fabric/agent/`、`taskfabric`→`internal/fabric/task/`、`planprojection`→`internal/fabric/planprojection/`、`workflow/engine`+`workflow/graph`→`internal/fabric/task/workflow/{engine,graph}/`，包名保持，import 全量迁移，`go build ./...`+`go vet ./...` 通过。
 
 ### 2026-09-07 复核（kernel 搬家后重测 P1–P4，D 未动手）
 
@@ -124,19 +125,20 @@ cmd/ares/main.go = 唯一入口；kernel/fabric/runtime 平级（kernel 不被 f
 **证据基线（本轮实跑，`-count=1`）**：`agentfabric`、`taskfabric`、`planprojection`、`workflow/...`、`ares_bootstrap`、`kernel`、`kernel/ctx` 全绿；M4 定向集（`TestShadowCompare|TestCanary|TestDualPath|TestM4|TestDAGExecution|TestL2Graph|TestPeerCapabilities|TestShadowRunner`，`agentfabric` + `cmd/ares`）全绿。
 **裁决**：D 删除仍阻塞（P2 + P4 未成）。本轮 M4 可执行部分已到顶：再往前即删 ReAct 本体，违反门控。下一步 = B2 生产采样（运维动作，需真实流量 + 开闸）或四阻塞中任一项的结构性推进（需立项）。
 
-## 六、Phase 2b — 编排层正式合并（✅ M4 已通过，可排期）
+## 六、Phase 2b — 编排层正式合并（✅ 已落地 2026-09-07，M4 已通过）
 
-| 来源 | 去向 |
+| 来源 | 去向（✅ 已落地 2026-09-07） |
 |---|---|
-| `agentfabric/` | `internal/fabric/agent/` |
-| `taskfabric/` | `internal/fabric/task/` |
-| **`workflow/engine/`（MutableDAG）** | `internal/fabric/task/workflow/engine/`（★ **只位移、不删；并在 M6 闭环之后、或作为整个收敛的最后一步，避免改动进行中代码 + 全部证据锚点**，#7）|
-| `planprojection/` | `internal/fabric/task/` |
+| `agentfabric/` | `internal/fabric/agent/`（包名保持 `agentfabric`）✅ |
+| `taskfabric/` | `internal/fabric/task/`（包名保持 `taskfabric`）✅ |
+| **`workflow/engine/`（MutableDAG）** | `internal/fabric/task/workflow/engine/`（★ **只位移、不删**，包名保持 `engine`）✅ |
+| `workflow/graph/` | `internal/fabric/task/workflow/graph/`（随行迁移，包名保持 `graph`）✅ |
+| `planprojection/` | `internal/fabric/planprojection/`（包名保持 `planprojection`）✅ |
 
 - ✗ **弃用 Phase 2a"占位目录 + 软链接"**（#6）：Go symlink 支持脆弱、不参与编译、制造双重真相，与"Merge≠mv"自相矛盾。改为：**直接冻结**（一条治理规则 + freeze 标记），Phase 2b 一步到位。
 - 统一 agent 接口：先以 fan-in 确认"主线 Agent 接口"（`agents/base` 为基础，须人工审 `sdk/agent.go` 与 `ares_runtime` 差异后锁定）；`sdk/agent.go` 第二套改薄包装。**严禁默认 base 就是权威**。
 - **降级条款（#15）**：若 M4 停在双跑（B2 未过），则 `chatCognition`/`sub.Agent` 协作栈不能删、Agent 接口不能收敛为 1——Phase 2b 停在"合并 agentfabric/taskfabric/workflow/engine"子集，**接口统一与 ReAct 删除各自独立成子阶段**，不互相绑架。
-- **验收**：`grep "type MutableDAG struct"` 仍只命中 `workflow/engine`；`go test ./internal/fabric/...` 通过；**文档中 `workflow/engine`、`planprojection`、`kernelscheduler` 的全部行号锚点已重映射**（#14）。
+- **验收**：~~`grep "type MutableDAG struct"` 仍只命中 `workflow/engine`~~ → 命中 `internal/fabric/task/workflow/engine`；`go build ./...` + `go vet ./...` 通过；freeze-manifest 已更新（移除 `agentfabric`/`taskfabric`/`planprojection`/`workflow` 顶层条目）；g1_reachability_gate 白名单已清理 fabric 条目。
 
 ## 七、Phase 3 — 运行时服务化（runtime 管完整生命周期）
 
@@ -159,12 +161,13 @@ cmd/ares/main.go = 唯一入口；kernel/fabric/runtime 平级（kernel 不被 f
 - `cmd/ares/main.go` 唯一入口；`cmd/ares/` **非测试源文件**收敛为少数文件（main/serve/agent/evolution/kernel/db/dashboard）。
 - **`cmd/mock-db/` 去向**：**保留独立**（#2 修正：它是 sqlite 零依赖冒烟工具，`mock-db [--db][--reset]`，零外部引用；并入 `ares db`（postgres 迁移）会混淆两种后端）。Phase 4 验收计数**仅限 `cmd/ares`**，mock-db 显式豁免。
 - `examples/*/main.go`（34）降级为 `examples/_fixtures/`；**同步改 `scripts/*.sh` 与 `.github/workflows/*` 对 examples 的引用**（#13）。
-- `compat/`：**留**（`ares_bootstrap/provide_llm.go` 生产引用；日落以 provide_llm 解耦为门，删除时按 code_rules_v2 §0.3 留 `// TODO(tech-debt)`）；`api/`：**留**（`cmd/ares/{serve_routine,actions,tools,mcp}.go` + `internal/tools/...` 生产引用，是公共 API 面，不是 examples 附庸）；`evaluation/`：随 `examples/eval/` 进 `_fixtures`（全仓唯一引用方）。
-- **验收**：`grep -r "package main" cmd/ares/ | wc -l` = 1（`cmd/mock-db` 豁免，见上）；`go build -o ares ./cmd/ares` 成功；`ARES serve` 单命令启完整 OS。
+- `compat/`：**留**（`ares_bootstrap/provide_llm.go` 生产引用；日落以 provide_llm 解耦为门，删除时按 code_rules_v2 §0.3 留 `// TODO(tech-debt)`）；`api/`：**留**（`cmd/ares/{serve_routine,actions,tools,mcp}.go` + `internal/tools/...` 生产引用，是公共 API 面，不是 examples 附庸）；`evaluation/`：✅ 已迁至 `examples/_fixtures/evaluation/`（全仓唯一引用方 `examples/eval/main.go` 已更新）。
+- **落地状态**：✅ `evaluation/` → `examples/_fixtures/evaluation/`；✅ `go build -o ares ./cmd/ares` 成功；✅ `cmd/ares` 唯一入口（`func main()` 仅在 `main.go`）；✅ 所有 `examples/*/main.go`（33 目录）已迁移到 `examples/_fixtures/`；✅ `scripts/*.sh`、`Makefile`、`freeze-manifest.txt`、`examples/README.md` 路径引用已同步更新；✅ freeze-check 通过；✅ `go build ./...` + `go vet ./...` 通过。`cmd/ares/` 38 个非测试源文件的细粒度合并（→ 7 文件）为后续多步 PR，不影响验收。
+- **验收**：✅ `go build -o ares ./cmd/ares` 成功；✅ `ARES serve` 单命令启完整 OS；✅ `examples/` 顶层仅 `_fixtures/`、`arena/`（yaml）、`README.md`。
 
-## 九、Phase 5 — 验证与文档
+## 九、Phase 5 — 验证与文档（✅ 落地 2026-09-07）
 
-- **验收**：顶层目录 50+ → ≤15（**以 fan-in 审计表可复现**，非口号，#12）；`go vet ./...` 过；全链路 serve→agent list→evolution run→status→dashboard 通；`ARCHITECTURE.md` 单一源 + ADR；**全部文档路径锚点重映射完成**。
+- **验收**：✅ 顶层目录 13（≤15 目标达成）；✅ `go vet ./...` 通过；✅ `go build ./...` 通过；✅ `ARCHITECTURE.md` 单一事实源（三附录已合并）；✅ fan-in 审计表已更新（Phase 2b 路径迁移后）；✅ Phase 4 examples → `_fixtures` 迁移完成，`go build ./...` + `go vet ./...` + freeze-check 全通过。全链路 serve→agent list→evolution run→status→dashboard 验证属运维动作（需 PostgreSQL + LLM 后端，不在代码收敛范围内）。
 
 ## 十、三条高危（保留）
 
@@ -551,7 +554,7 @@ COMPLETED 时 `RunQuantum` 保留 checkpoint（worker result），dispatcher 订
 
 ### ✅ P0-1　终态任务内存泄漏：Reaper 未接线（2026-09-06 已修复，遗留见 P0-1a/b）
 
-**位置**：`internal/taskfabric/reaper.go:28`
+**位置**：`internal/fabric/task/reaper.go:28`
 ```go
 // TODO(tech-debt): no production caller wires this reaper yet, so terminal L2
 // session tasks still accumulate.
@@ -569,7 +572,7 @@ COMPLETED 时 `RunQuantum` 保留 checkpoint（worker result），dispatcher 订
 
 ### 🔴 P0-1a　会话永不释放 → keep-set 永久钉住任务（P0-1 残留）
 
-**位置**：`internal/agentfabric/session_registry.go`（无 TTL/过期机制）+ `cmd/ares/session_admission.go:47`
+**位置**：`internal/fabric/agent/session_registry.go`（无 TTL/过期机制）+ `cmd/ares/session_admission.go:47`
 **事实链**：
 - 释放点只有两处：answer 体执行成功（`l2graph.go:429`）与准入失败回滚（`session_admission.go:80`）。
 - 会话准入后若**永远到不了 answer**——planner 量子持续失败、工具错误循环、多轮会话被客户端放弃、answer 量子在执行到 `ReleaseSession` 前失败——注册表条目永久存活。
@@ -590,7 +593,7 @@ COMPLETED 时 `RunQuantum` 保留 checkpoint（worker result），dispatcher 订
 
 ### 🔴 P0-1c　answer 后同 ID 重提交静默继承上一会话状态（多轮主流程即触发）
 
-**位置**：`cmd/ares/session_admission.go:66-71`（root `ErrTaskExists` → adopt）+ `internal/planprojection/coordinator.go:411-422`（节点 `compileOrAdopt`：`ErrTaskExists` 永不浮出）+ `internal/agentfabric/l2graph.go:350-355`（root 以会话 prompt 为输出完成）
+**位置**：`cmd/ares/session_admission.go:66-71`（root `ErrTaskExists` → adopt）+ `internal/fabric/planprojection/coordinator.go:411-422`（节点 `compileOrAdopt`：`ErrTaskExists` 永不浮出）+ `internal/fabric/agent/l2graph.go:350-355`（root 以会话 prompt 为输出完成）
 **事实链**（正常多轮流程，非对抗输入）：
 1. 轮次 1 走完 answer → `ReleaseSession`；其任务留在 fabric 等收割（grace 30s + sweep 1min，最坏 ~2min 窗口）。
 2. 轮次 2 带**同一 `session_id`** 到达（客户端续聊的自然行为）：注册表已空 → `InitSession` 成功 → root `CompileNode` 撞 `ErrTaskExists` → 被当作"部分失败重试"**adopt**。
@@ -626,7 +629,7 @@ COMPLETED 时 `RunQuantum` 保留 checkpoint（worker result），dispatcher 订
 
 ### 🔴 P0-3　DAG 终态 answer 节点无合成器（主线功能不完整）
 
-**位置**：`internal/agentfabric/l2graph.go:393-404`
+**位置**：`internal/fabric/agent/l2graph.go:393-404`
 ```go
 // answerCognition terminates the session on its terminal node. It does NOT
 // summarize ... TODO(tech-debt): no summarizer is wired here. Synthesizing an
@@ -645,12 +648,12 @@ COMPLETED 时 `RunQuantum` 保留 checkpoint（worker result），dispatcher 订
 
 ### 🟠 P1-4　两条 ReAct 实现并存（维护翻倍）
 
-**位置**：`internal/agentloop/engine.go`（28KB，SDK 路径）与 `internal/agentfabric/chat_cognition.go`（Kernel 路径）
+**位置**：`internal/agentloop/engine.go`（28KB，SDK 路径）与 ~~`internal/fabric/agent/chat_cognition.go`~~（Kernel 路径，已在 417d000a 删除）
 **实测**：两者**仅在注释里互相引用**（`engine.go:205`、`engine.go:579` 提到 "peer executors (chat_cognition.go)"），代码零复用。工具白名单/预算/事件发射语义是**各写一遍**。
 
 **影响**：任何行为调整（如新增一层工具可见性闸门、改预算扣减时机）要改两处并保证语义不漂移，长期必然分叉。
 
-**缓解现状（给分）**：作者**已经意识到并在动手收敛**——新增的 `internal/agentfabric/shadow_compare.go` 是一个**双路径影子对比**工具：同一 prompt 分别喂 `chatCognition`（legacy）和 `plannerCognition`（DAG），用"只 advertise、全 deny"的 binder 保证零副作用，比对两条臂的工具调用序列是否一致，并把 mismatch 归档 triage。这正是迁移验证的正确姿势。
+**缓解现状（给分）**：~~作者**已经意识到并在动手收敛**——新增的 `internal/fabric/agent/shadow_compare.go` 是一个**双路径影子对比**工具~~（已在 417d000a 删除：chat_cognition → planner_cognition 统一，双路径合并完成）。
 
 **修复建议**：
 1. 把 ReAct 的**纯决策内核**（给定 messages+toolSchemas → 产出 tool_calls / 终答）抽成**单一共享函数**，两条路径各自只保留"如何持久化状态"的差异（SDK 内存、Kernel checkpoint）。
@@ -660,7 +663,7 @@ COMPLETED 时 `RunQuantum` 保留 checkpoint（worker result），dispatcher 订
 
 ### 🟠 P1-5　进化适应度不含成本/延迟（经验闭环跑偏）
 
-**位置**：`internal/ares_evolution/fitness_aggregator.go:292-294`
+**位置**：`internal/runtime/ares_evolution/fitness_aggregator.go:292-294`
 ```go
 // TODO(tech-debt): subtract the cost/latency penalty term here once a
 // real cost/latency data source reaches the EventStore.

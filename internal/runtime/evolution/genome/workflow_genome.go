@@ -8,8 +8,8 @@ import (
 	"math/rand"
 
 	"github.com/Timwood0x10/ares/internal/evidence"
+	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
 	"github.com/Timwood0x10/ares/internal/logger"
-	"github.com/Timwood0x10/ares/internal/workflow/engine"
 )
 
 var wfLog = logger.Module("genome.workflow")

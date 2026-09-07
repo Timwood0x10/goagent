@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
+	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
 	"github.com/Timwood0x10/ares/internal/runtime/evolution/coordinator"
 	"github.com/Timwood0x10/ares/internal/runtime/evolution/diff"
 	"github.com/Timwood0x10/ares/internal/runtime/evolution/genome"
 	"github.com/Timwood0x10/ares/internal/runtime/evolution/patch"
-	"github.com/Timwood0x10/ares/internal/workflow/engine"
 )
 
 // ── Benchmarks for the new evolution system ──

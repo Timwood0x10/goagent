@@ -4,7 +4,7 @@
 # 规则（见 docs/convergence/freeze-manifest.txt）：
 #   R1  examples/ 顶层条目必须是 manifest [examples] 的子集（禁新增 demo 目录）。
 #   R2  internal/ 顶层包必须是 manifest [internal] 的子集（禁新增顶层包）。
-#   R3  生产代码不得 import internal/fabric 占位包（Phase 2b 前）。
+#   R3  internal/fabric/* 包已迁移到位（Phase 2b 落地），生产代码可正常 import。
 # 计划内删除只告警、不失败；新增一律 exit 1。
 #
 # 用法：scripts/check_convergence_freeze.sh [repo_root]（默认脚本所在目录的上级）
@@ -56,16 +56,7 @@ check_dir() {
 check_dir "examples" "examples" "examples/"
 check_dir "internal" "internal" "internal/"
 
-# R3：生产代码不得引用 fabric 占位包。
-FABRIC_REFS=$(grep -rln "Timwood0x10/ares/internal/fabric" \
-  "$ROOT/cmd" "$ROOT/internal" "$ROOT/sdk" "$ROOT/services" "$ROOT/api" \
-  --include="*.go" 2>/dev/null | grep -v "^$ROOT/internal/fabric/" || true)
-if [ -n "$FABRIC_REFS" ]; then
-  echo "freeze-check FAIL: production code imports internal/fabric placeholder (R3):" >&2
-  printf '%s\n' "$FABRIC_REFS" | sed 's/^/  * /' >&2
-  FAIL=1
-else
-  echo "freeze-check OK: no production imports of internal/fabric."
-fi
+# R3 (Phase 2b 落地)：fabric 包已迁移，生产代码可正常 import，不再检查。
+# FABRIC_REFS check removed — fabric is now the real home for agent/task/workflow.
 
 exit "$FAIL"

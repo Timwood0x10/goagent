@@ -47,7 +47,7 @@ cd "$ROOT" && go run ./cmd/ares db migrate
 if [ -n "$SAVE_PATH" ]; then
   echo ""
   echo "=== Importing document: $SAVE_PATH ==="
-  cd "$ROOT/examples/knowledge-base" && go run main.go --save "$SAVE_PATH"
+  cd "$ROOT/examples/_fixtures/knowledge-base" && go run main.go --save "$SAVE_PATH"
 fi
 
 echo ""

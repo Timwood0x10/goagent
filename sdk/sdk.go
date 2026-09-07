@@ -39,11 +39,12 @@ import (
 	"github.com/Timwood0x10/ares/api/mcp"
 	"github.com/Timwood0x10/ares/api/service/llm"
 	"github.com/Timwood0x10/ares/api/tools"
-	"github.com/Timwood0x10/ares/internal/agentfabric"
 	"github.com/Timwood0x10/ares/internal/agentloop"
 	"github.com/Timwood0x10/ares/internal/agentsyscall"
 	ares_bootstrap "github.com/Timwood0x10/ares/internal/ares_bootstrap"
 	ares_events "github.com/Timwood0x10/ares/internal/ares_events"
+	"github.com/Timwood0x10/ares/internal/fabric/agent"
+	"github.com/Timwood0x10/ares/internal/fabric/task"
 	"github.com/Timwood0x10/ares/internal/kernel"
 	"github.com/Timwood0x10/ares/internal/knowledge"
 	"github.com/Timwood0x10/ares/internal/knowledge/adapter"
@@ -52,7 +53,6 @@ import (
 	aresexp "github.com/Timwood0x10/ares/internal/runtime/memory/experience"
 	"github.com/Timwood0x10/ares/internal/storage/postgres"
 	"github.com/Timwood0x10/ares/internal/storage/postgres/repositories"
-	"github.com/Timwood0x10/ares/internal/taskfabric"
 )
 
 const strategyPriority = "priority"

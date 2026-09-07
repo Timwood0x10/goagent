@@ -17,10 +17,10 @@
 
 | 包 | 非测试引用数 | 合并去向 |
 |---|---|---|
-| `internal/taskfabric` | 25 | `internal/fabric/task/` |
-| `internal/agentfabric` | 21 | `internal/fabric/agent/` |
-| `internal/planprojection` | 3 | `internal/fabric/task/` |
-| `internal/workflow`（engine/graph） | 16 | `internal/fabric/task/workflow/`（engine 只位移不删，M6 后/最后一步） |
+| `internal/fabric/task` | 25 | `internal/fabric/task/` |
+| `internal/fabric/agent` | 21 | `internal/fabric/agent/` |
+| `internal/fabric/planprojection` | 3 | `internal/fabric/task/` |
+| `internal/fabric/task/workflow`（engine/graph） | 16 | `internal/fabric/task/workflow/`（engine 只位移不删，M6 后/最后一步） |
 
 ## 运行时服务（Phase 3 合并目标）
 

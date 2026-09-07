@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Timwood0x10/ares/internal/taskfabric"
+	"github.com/Timwood0x10/ares/internal/fabric/task"
 )
 
 // seedCollabTask creates a collab-prefixed task in the requested state:

@@ -7,10 +7,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Timwood0x10/ares/internal/agentfabric"
 	"github.com/Timwood0x10/ares/internal/core/models"
+	"github.com/Timwood0x10/ares/internal/fabric/agent"
+	"github.com/Timwood0x10/ares/internal/fabric/task"
 	kctx "github.com/Timwood0x10/ares/internal/kernel/ctx"
-	"github.com/Timwood0x10/ares/internal/taskfabric"
 )
 
 // stubExecutor is a minimal Executor for testing.

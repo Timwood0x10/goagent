@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/Timwood0x10/ares/internal/core/models"
-	"github.com/Timwood0x10/ares/internal/taskfabric"
+	"github.com/Timwood0x10/ares/internal/fabric/task"
 )
 
 // kernelFabricDispatcher is the kernel's Task Fabric dispatch path. Its D()

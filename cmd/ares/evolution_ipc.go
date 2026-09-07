@@ -27,10 +27,10 @@ import (
 	"github.com/Timwood0x10/ares/internal/ares_bootstrap"
 	"github.com/Timwood0x10/ares/internal/aresrecovery"
 	"github.com/Timwood0x10/ares/internal/core/models"
+	"github.com/Timwood0x10/ares/internal/fabric/task"
 	"github.com/Timwood0x10/ares/internal/logger"
 	evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
 	"github.com/Timwood0x10/ares/internal/runtime/protocol/ahp"
-	"github.com/Timwood0x10/ares/internal/taskfabric"
 )
 
 // peerTopic is the bus topic used for peer-channel messages routed through the
@@ -331,9 +331,12 @@ func executeAskViaSession(ctx context.Context, k *kernelHandle, taskID, prompt s
 // for a session. It scans fabric task ids (sess/<sid>/…/answer#…) rather
 // than the session graph: the answer body releases its session on success
 // (B2-2), so the registry entry is already gone by the time we poll.
+// The sess/<sid>/ boundary match keeps sibling sessions (ipc-sess-tk-1 vs
+// ipc-sess-tk-12) from shadowing each other.
 func completedSessionAnswer(k *kernelHandle, sessionID string) (string, bool) {
+	prefix := "sess/" + sessionID + "/"
 	for _, id := range k.fabric.IDs() {
-		if !strings.Contains(id, sessionID) || !strings.Contains(id, "/answer#") {
+		if !strings.HasPrefix(id, prefix) || !strings.Contains(id, "/answer#") {
 			continue
 		}
 		tk, err := k.fabric.Task(id)

@@ -9,6 +9,8 @@ import (
 
 	apiembedding "github.com/Timwood0x10/ares/api/embedding"
 	"github.com/Timwood0x10/ares/internal/evidence"
+	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
+	wfgraph "github.com/Timwood0x10/ares/internal/fabric/task/workflow/graph"
 	"github.com/Timwood0x10/ares/internal/knowledge"
 	"github.com/Timwood0x10/ares/internal/knowledge/pipeline"
 	"github.com/Timwood0x10/ares/internal/knowledge/planner"
@@ -26,8 +28,6 @@ import (
 	"github.com/Timwood0x10/ares/internal/runtime/evolution/patch"
 	aresmemory "github.com/Timwood0x10/ares/internal/runtime/memory"
 	"github.com/Timwood0x10/ares/internal/storage"
-	"github.com/Timwood0x10/ares/internal/workflow/engine"
-	wfgraph "github.com/Timwood0x10/ares/internal/workflow/graph"
 )
 
 // NewEvolutionComponents holds the new evolution system components.

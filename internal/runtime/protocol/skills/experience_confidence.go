@@ -1,7 +1,7 @@
 package ares_skills
 
 import (
-	"github.com/Timwood0x10/ares/internal/taskfabric"
+	"github.com/Timwood0x10/ares/internal/fabric/task"
 )
 
 // Compile-time guarantee: ExperienceConfidenceSource satisfies the consumer-

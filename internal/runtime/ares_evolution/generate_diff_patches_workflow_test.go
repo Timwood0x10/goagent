@@ -7,10 +7,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
 	"github.com/Timwood0x10/ares/internal/runtime/evolution/diff"
 	evogenome "github.com/Timwood0x10/ares/internal/runtime/evolution/genome"
 	"github.com/Timwood0x10/ares/internal/runtime/evolution/patch"
-	"github.com/Timwood0x10/ares/internal/workflow/engine"
 )
 
 // buildDiffTestDAG builds a small deterministic MutableDAG for diff tests.

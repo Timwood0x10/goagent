@@ -117,7 +117,7 @@ linters:
         linters:
           - goconst
       # Workflow engine configuration strings.
-      - path: internal/workflow/engine/
+      - path: internal/fabric/task/workflow/engine/
         linters:
           - goconst
       # Config defaults: paths, default values repeated for documentation.

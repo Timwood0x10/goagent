@@ -1,8 +1,8 @@
 package main
 
 import (
+	"github.com/Timwood0x10/ares/internal/fabric/task"
 	"github.com/Timwood0x10/ares/internal/kernel"
-	"github.com/Timwood0x10/ares/internal/taskfabric"
 )
 
 // This file is the cmd/ares compatibility layer over the shared

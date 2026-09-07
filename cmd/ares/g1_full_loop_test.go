@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Timwood0x10/ares/internal/agentfabric"
+	"github.com/Timwood0x10/ares/internal/fabric/agent"
 	"github.com/Timwood0x10/ares/internal/storage/postgres/models"
 )
 

@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
 	"github.com/Timwood0x10/ares/internal/runtime/evolution/genome"
-	"github.com/Timwood0x10/ares/internal/workflow/engine"
 )
 
 func TestDifferInterface(t *testing.T) {

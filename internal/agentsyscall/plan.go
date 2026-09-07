@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/Timwood0x10/ares/internal/agentfabric"
+	"github.com/Timwood0x10/ares/internal/fabric/agent"
+	"github.com/Timwood0x10/ares/internal/fabric/task"
 	kctx "github.com/Timwood0x10/ares/internal/kernel/ctx"
-	"github.com/Timwood0x10/ares/internal/taskfabric"
 )
 
 // CreatePlanTool is the tool name exposed to the LLM for submitting a

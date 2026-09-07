@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Timwood0x10/ares/internal/fabric/task"
 	"github.com/Timwood0x10/ares/internal/kernel"
-	"github.com/Timwood0x10/ares/internal/taskfabric"
 )
 
 // TestChaosReporterSnapshot verifies the reporter merges config, shadow and

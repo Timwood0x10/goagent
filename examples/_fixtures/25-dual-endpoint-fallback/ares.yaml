@@ -1,0 +1,55 @@
+# ARES serve configuration — TEMPLATE (no real credentials).
+#
+# This is the version-safe example of the dual-endpoint LLM fallback chain
+# used by serve. Copy it to the repo root as `ares.yaml` and fill in your
+# keys, OR export the env vars (LLM_API_KEY / LLM_BASE_URL / LLM_MODEL)
+# which override this file at load time (config.go LoadFromEnv).
+#
+# Rotation policy: the PRIMARY endpoint is tried first; on failure the
+# FALLBACK chain takes over (config.go LLMConfig.Fallbacks). Both endpoints
+# are OpenAI-compatible gateways, so `provider: openai` works for both.
+
+server:
+  host: "localhost"
+  port: 8080
+
+llm:
+  provider: "openai"
+  api_key: "sk-REPLACE_ME_PRIMARY"                 # ← primary gateway key
+  base_url: "https://apihub.agnes-ai.com/v1"       # ← primary endpoint
+  model: "agens-2.5-flash"                         # ← primary model
+  timeout: 120
+  max_tokens: 2048
+  fallbacks:
+    - provider: "openai"
+      api_key: "sk-REPLACE_ME_FALLBACK"            # ← fallback gateway key
+      base_url: "https://tokenrhythm.studio/v1"    # ← fallback endpoint
+      model: "deepseek-v4-flash-0731"              # ← fallback model
+      timeout: 60
+      max_tokens: 2048
+
+memory:
+  enabled: true
+  enable_distillation: false
+  distillation_threshold: 0
+  max_history: 50
+  max_sessions: 100
+
+agents:
+  # C1 flat peer structure: equal capability agents, no leader.
+  peers:
+    - id: "worker_01"
+      capabilities: ["worker"]
+      priority: 1.0
+
+kernel:
+  policy: "taskfabric"
+
+tools:
+  builtin: true
+
+reflection:
+  enabled: false
+
+evolution:
+  enabled: false

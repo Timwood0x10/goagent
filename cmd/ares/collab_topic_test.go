@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/Timwood0x10/ares/api/core"
-	"github.com/Timwood0x10/ares/internal/agentfabric"
 	"github.com/Timwood0x10/ares/internal/agents/base"
 	"github.com/Timwood0x10/ares/internal/agents/sub"
 	"github.com/Timwood0x10/ares/internal/core/models"
-	"github.com/Timwood0x10/ares/internal/planprojection"
+	"github.com/Timwood0x10/ares/internal/fabric/agent"
+	"github.com/Timwood0x10/ares/internal/fabric/planprojection"
+	"github.com/Timwood0x10/ares/internal/fabric/task"
 	"github.com/Timwood0x10/ares/internal/runtime/protocol/ahp"
-	"github.com/Timwood0x10/ares/internal/taskfabric"
 )
 
 // collabStubAgent satisfies sub.Agent minimally: the session-routed

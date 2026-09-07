@@ -10,7 +10,7 @@
 #   ./scripts/start_interview_demo.sh
 #
 # Environment Variables:
-#   CONFIG_PATH  - Path to server.yaml (default: examples/interview-demo/config/server.yaml)
+#   CONFIG_PATH  - Path to server.yaml (default: examples/_fixtures/interview-demo/config/server.yaml)
 #   SEARXNG_URL  - SearXNG base URL (default: http://localhost:5605)
 #
 
@@ -124,7 +124,7 @@ fi
 # ── 3. Build and start the Interview Agent ──────
 log_step "Starting Interview Agent"
 
-CONFIG_PATH="${CONFIG_PATH:-examples/interview-demo/config/server.yaml}"
+CONFIG_PATH="${CONFIG_PATH:-examples/_fixtures/interview-demo/config/server.yaml}"
 if [ ! -f "$CONFIG_PATH" ]; then
   log_error "Config not found: $CONFIG_PATH"
   exit 1
@@ -132,7 +132,7 @@ fi
 export CONFIG_PATH
 
 log_info "Building interview-demo..."
-if ! go build -o /tmp/interview-demo ./examples/interview-demo/; then
+if ! go build -o /tmp/interview-demo ./examples/_fixtures/interview-demo/; then
   log_error "Build failed."
   exit 1
 fi

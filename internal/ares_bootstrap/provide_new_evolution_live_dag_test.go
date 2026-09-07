@@ -7,10 +7,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
+	wfgraph "github.com/Timwood0x10/ares/internal/fabric/task/workflow/graph"
 	"github.com/Timwood0x10/ares/internal/runtime/evolution/genome"
 	"github.com/Timwood0x10/ares/internal/runtime/evolution/patch"
-	"github.com/Timwood0x10/ares/internal/workflow/engine"
-	wfgraph "github.com/Timwood0x10/ares/internal/workflow/graph"
 )
 
 // TestUpdateLiveDAG_DoesNotFailOnRegisteredExecutors verifies the fix for the

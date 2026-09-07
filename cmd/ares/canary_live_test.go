@@ -34,14 +34,14 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/Timwood0x10/ares/api/core"
-	"github.com/Timwood0x10/ares/internal/agentfabric"
 	"github.com/Timwood0x10/ares/internal/ares_bootstrap"
 	"github.com/Timwood0x10/ares/internal/ares_config"
 	"github.com/Timwood0x10/ares/internal/core/models"
+	"github.com/Timwood0x10/ares/internal/fabric/agent"
+	"github.com/Timwood0x10/ares/internal/fabric/planprojection"
+	"github.com/Timwood0x10/ares/internal/fabric/task"
+	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
 	"github.com/Timwood0x10/ares/internal/llm"
-	"github.com/Timwood0x10/ares/internal/planprojection"
-	"github.com/Timwood0x10/ares/internal/taskfabric"
-	"github.com/Timwood0x10/ares/internal/workflow/engine"
 )
 
 // liveLLMClient loads the real model: base config from ./ares.yaml with the

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/Timwood0x10/ares/internal/evidence"
-	"github.com/Timwood0x10/ares/internal/workflow/engine"
+	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
 )
 
 // RecoveryGenomeConfig controls the recovery strategy evolution behaviour.

@@ -157,7 +157,7 @@ test-core:
 # Other modules — check total coverage across tools packages
 test-tools:
 	@echo "Running tools module tests with coverage..."
-	@go test -cover -coverprofile=coverage.out ./internal/llm/... ./internal/workflow/... ./internal/ares_memory/... ./internal/ares_shutdown/... ./internal/ares_ratelimit/... ./internal/tools/... ./internal/storage/... ./internal/agents/...
+	@go test -cover -coverprofile=coverage.out ./internal/llm/... ./internal/fabric/task/workflow/... ./internal/ares_memory/... ./internal/ares_shutdown/... ./internal/ares_ratelimit/... ./internal/tools/... ./internal/storage/... ./internal/agents/...
 	@echo ""
 	@echo "--- Per-package coverage ---"
 	@go tool cover -func=coverage.out | grep "total:" || true
@@ -273,26 +273,22 @@ benchmark-save:
 # ──────────────────────────────────────────────
 test-eval:  ## Run evaluation tests
 	@echo "📊 Running evaluation tests..."
-	@go test -count=1 -timeout=300s ./evaluation/...
+	@go test -count=1 -timeout=300s ./examples/_fixtures/evaluation/...
 	@echo "✅ Evaluation tests complete"
 
-# Demo: MCP + Dashboard
-# Usage: make demo-mcp TARGET=/path/to/analyze ADDR=:8090
-demo-mcp: TARGET ?= .
-demo-mcp: ADDR ?= :8090
+# Demo: MCP service registry (discovery + lifecycle walkthrough)
+# Usage: make demo-mcp
 demo-mcp:
-	@echo "Building MCP dashboard demo..."
-	@go build -o /tmp/mcp-dashboard ./examples/mcp-dashboard/
+	@echo "Building MCP registry demo..."
+	@go build -o /tmp/mcp-registry-demo ./examples/_fixtures/mcp-registry/
 	@echo "Starting in background..."
-	@PORT=$$(echo $(ADDR) | sed 's/://'); \
-		/tmp/mcp-dashboard -target $(TARGET) -addr $(ADDR) > /tmp/mcp-dashboard.log 2>&1 & \
+	@/tmp/mcp-registry-demo > /tmp/mcp-registry-demo.log 2>&1 & \
 		PID=$$!; \
 		echo "PID: $$PID"; \
-		echo "Logs: tail -f /tmp/mcp-dashboard.log"; \
-		echo "Dashboard: http://localhost:$$PORT"; \
+		echo "Logs: tail -f /tmp/mcp-registry-demo.log"; \
 		echo "Stop: kill $$PID"; \
 		sleep 2; \
-		open http://localhost:$$PORT 2>/dev/null || true
+		tail -n 20 /tmp/mcp-registry-demo.log || true
 
 # ──────────────────────────────────────────────
 # Demo: Docker + Integration Tests
@@ -347,19 +343,19 @@ demo-smoke:
 # ──────────────────────────────────────────────
 quickstart:  ## 5 分钟快速开始
 	@echo "🚀 Running quickstart example..."
-	@go run examples/01-quickstart/main.go
+	@go run examples/_fixtures/01-quickstart/main.go
 
 # ──────────────────────────────────────────────
 # Examples — build all examples
 # ──────────────────────────────────────────────
-examples:  ## Build all examples
-	@echo "Building all examples..."
-	@for d in examples/*/; do \
+examples:  ## Build all example fixtures
+	@echo "Building all example fixtures..."
+	@for d in examples/_fixtures/*/; do \
 		name=$$(basename $$d); \
 		echo "  building $$name..."; \
-		go build ./examples/$$name/... || exit 1; \
+		go build ./examples/_fixtures/$$name/... || exit 1; \
 	done
-	@echo "✅ All examples built successfully"
+	@echo "✅ All example fixtures built successfully"
 
 # Help
 help:

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Timwood0x10/ares/internal/agentfabric"
+	"github.com/Timwood0x10/ares/internal/fabric/agent"
 )
 
 // This file is the P3.4 + P4 end-to-end proof using the IPC Bus

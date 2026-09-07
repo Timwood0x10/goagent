@@ -8,8 +8,8 @@ import (
 
 	"github.com/Timwood0x10/ares/internal/agents/sub"
 	"github.com/Timwood0x10/ares/internal/core/models"
+	"github.com/Timwood0x10/ares/internal/fabric/task"
 	"github.com/Timwood0x10/ares/internal/kernel"
-	"github.com/Timwood0x10/ares/internal/taskfabric"
 )
 
 // This file implements the H1/H2 merge (aresos-agentos-plan H1/H2: merge SDK

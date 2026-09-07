@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/Timwood0x10/ares/internal/ares_config"
+	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
 	resources "github.com/Timwood0x10/ares/internal/tools/resources/core"
-	"github.com/Timwood0x10/ares/internal/workflow/engine"
 )
 
 // errNoLiveAgentDAG is returned when no peers are configured: the caller

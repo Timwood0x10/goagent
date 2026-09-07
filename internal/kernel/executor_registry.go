@@ -1,7 +1,7 @@
 package kernel
 
 import (
-	"github.com/Timwood0x10/ares/internal/taskfabric"
+	"github.com/Timwood0x10/ares/internal/fabric/task"
 )
 
 // RegisterExecutor dynamically registers an executor under agentID so the

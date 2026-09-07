@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Timwood0x10/ares/internal/taskfabric"
+	"github.com/Timwood0x10/ares/internal/fabric/task"
 )
 
 // Collaboration graphs (fusion plan Phase C) execute as KERNEL fabric tasks:

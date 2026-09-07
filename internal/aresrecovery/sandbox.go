@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Timwood0x10/ares/internal/agentfabric"
-	"github.com/Timwood0x10/ares/internal/taskfabric"
+	"github.com/Timwood0x10/ares/internal/fabric/agent"
+	"github.com/Timwood0x10/ares/internal/fabric/task"
 )
 
 // Simulation sandbox (v0.3.0 M4-2): replay recorded events to verify recovery

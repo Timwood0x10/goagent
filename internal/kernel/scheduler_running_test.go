@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/Timwood0x10/ares/internal/core/models"
-	"github.com/Timwood0x10/ares/internal/taskfabric"
+	"github.com/Timwood0x10/ares/internal/fabric/task"
 )
 
 // TestSchedulerRunningFlag covers the K5 readiness contract: Running is

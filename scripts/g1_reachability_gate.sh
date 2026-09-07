@@ -12,14 +12,7 @@ WHITELIST=(
   "internal/knowledge/retriever"        # 0 imports (D6 verified)
   "internal/knowledge/service"          # examples-only (D6 verified)
   "internal/knowledge/workflow"         # examples-only (D6 verified)
-  # M4-D forward placeholders (Phase 2a): doc.go only, production import
-  # forbidden by scripts/check_convergence_freeze.sh R3 until Phase 2b
-  # moves the real code in. Remove entries as Phase 2b lands each package.
-  "internal/fabric"
-  "internal/fabric/agent"
-  "internal/fabric/planprojection"
-  "internal/fabric/task"
-  "internal/fabric/task/workflow"
+  "internal/fabric"                    # parent package (doc.go only); sub-packages are reachable
 )
 
 cd "$(dirname "$0")/.."

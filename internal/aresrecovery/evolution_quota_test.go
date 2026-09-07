@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Timwood0x10/ares/internal/agentfabric"
+	"github.com/Timwood0x10/ares/internal/fabric/agent"
 )
 
 // stubQuotaPolicySource returns a fixed quota policy for tests.

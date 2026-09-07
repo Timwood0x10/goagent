@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Timwood0x10/ares/internal/evidence"
-	"github.com/Timwood0x10/ares/internal/workflow/engine"
+	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
 )
 
 // buildGenome constructs a fresh genome of the given name wired to the

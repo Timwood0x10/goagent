@@ -3,15 +3,15 @@ package main
 import (
 	"context"
 
-	"github.com/Timwood0x10/ares/internal/agentfabric"
 	"github.com/Timwood0x10/ares/internal/agentipc"
 	"github.com/Timwood0x10/ares/internal/agents/peer"
 	"github.com/Timwood0x10/ares/internal/agentsyscall"
 	"github.com/Timwood0x10/ares/internal/ares_runtime"
 	"github.com/Timwood0x10/ares/internal/aresrecovery"
+	"github.com/Timwood0x10/ares/internal/fabric/agent"
+	"github.com/Timwood0x10/ares/internal/fabric/planprojection"
+	"github.com/Timwood0x10/ares/internal/fabric/task"
 	"github.com/Timwood0x10/ares/internal/introspect"
-	"github.com/Timwood0x10/ares/internal/planprojection"
-	"github.com/Timwood0x10/ares/internal/taskfabric"
 )
 
 // kernelHandle carries the assembled kernel from agent construction to the

@@ -3,47 +3,19 @@
 # 治理规则（ARCHITECTURE.md §三）：
 #   R1  examples/ 顶层条目必须是 [examples] 的子集 —— 禁止新增 demo 目录。
 #   R2  internal/ 顶层包必须是 [internal] 的子集 —— 禁止新增顶层包。
-#   R3  internal/fabric/* 占位包在 Phase 2b 前不得被生产代码 import（巡查脚本强制）。
-#   缺失（计划内删除，如 kernelscheduler→kernel）只告警、不失败；新增一律失败。
+#   R3  internal/fabric/* 包已迁移到位（Phase 2b 落地）。
+#   缺失（计划内删除，如 kernelscheduler→kernel、agentfabric→fabric/agent）只告警、不失败；新增一律失败。
 #   巡查脚本：scripts/check_convergence_freeze.sh（Makefile ci-freeze + ci.yml 接入）。
 
 [examples]
-01-quickstart
-02-tool-calling
-03-dag-workflow
-04-multi-agent
-05-evolution-demo
-06-chaos-resilience
-07-human-in-loop
-08-mcp-integration
-09-full-app
-10-ga-full-evolution
-11-knowledge-import
-12-yaml-driven-flags
-13-archive-akg-chain
-14-tool-discovery
-15-llm-evolution-suite
-19-ga-candidate-e2e
-21-ai-assistant-integration
-22-evolution-blocks
-25-dual-endpoint-fallback
-26-runtime-scheduling-demo
-27-peer-spawn-demo
-28-collab-graphs
-29-akf-graph-node
+# Phase 4: all example code moved to examples/_fixtures/ (2026-09-07).
+# Top-level examples/ now only holds _fixtures/, arena/ (yaml scenarios),
+# and README.md. No new top-level example dirs allowed (R1 still enforced).
+_fixtures
 arena
-aresos-demo
-custom-store
-discovery
-eval
-external-tools
-knowledge-fabric
-mcp-registry
 README.md
-runtime_evolution
 
 [internal]
-agentfabric
 agentipc
 agentloop
 agents
@@ -72,11 +44,8 @@ knowledge
 llm
 llmservice
 logger
-planprojection
 runtime
 scoreutil
 storage
-taskfabric
 tools
 truncate
-workflow

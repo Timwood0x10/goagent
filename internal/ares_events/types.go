@@ -53,7 +53,7 @@ const (
 	EventSubAgentFailed   EventType = "sub_agent.failed"   // sub crashed (panic captured)
 
 	// Task Fabric lifecycle events (ares-runtime P2-C, 2026-08-16): published
-	// by internal/taskfabric on every task state transition so scheduler /
+	// by internal/fabric/task on every task state transition so scheduler /
 	// task / lease state can be rebuilt from the stream. Pure addition —
 	// EventTaskCreated / EventTaskCompleted / EventTaskFailed already exist
 	// above; the remaining lifecycle states are added here.

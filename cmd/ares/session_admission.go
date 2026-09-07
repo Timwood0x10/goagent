@@ -7,10 +7,10 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/Timwood0x10/ares/internal/agentfabric"
-	"github.com/Timwood0x10/ares/internal/planprojection"
-	"github.com/Timwood0x10/ares/internal/taskfabric"
-	"github.com/Timwood0x10/ares/internal/workflow/engine"
+	"github.com/Timwood0x10/ares/internal/fabric/agent"
+	"github.com/Timwood0x10/ares/internal/fabric/planprojection"
+	"github.com/Timwood0x10/ares/internal/fabric/task"
+	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
 )
 
 // ensureSessionAdmission admits one L2 session before its first task is

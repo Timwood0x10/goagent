@@ -4,7 +4,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Timwood0x10/ares/internal/taskfabric"
+	"github.com/Timwood0x10/ares/internal/fabric/task"
 )
 
 // capCode is the test capability shared by the confidence/score fixtures.

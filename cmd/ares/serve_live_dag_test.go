@@ -10,9 +10,9 @@ import (
 	"github.com/Timwood0x10/ares/internal/ares_bootstrap"
 	"github.com/Timwood0x10/ares/internal/ares_config"
 	"github.com/Timwood0x10/ares/internal/evidence"
+	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
 	"github.com/Timwood0x10/ares/internal/runtime/evolution/patch"
 	core_tools "github.com/Timwood0x10/ares/internal/tools/resources/core"
-	"github.com/Timwood0x10/ares/internal/workflow/engine"
 )
 
 // TestBuildLiveAgentDAG_FromPeers pins the live-topology contract: one node

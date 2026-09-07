@@ -98,7 +98,7 @@ TESTS=(
 echo -e "${CYAN}🔧 Building Capability Planner test harness...${NC}"
 cd "$ROOT"
 
-HARNESS="./examples/tool-intelligence/cmd/check/"
+HARNESS="./examples/_fixtures/tool-intelligence/cmd/check/"
 
 # ── Verify harness builds ─────────────────────────────────
 if ! go build "$HARNESS" 2>/dev/null; then
@@ -197,7 +197,7 @@ echo ""
 
 # ── Run the full example as integration check ─────────────
 echo -e "${CYAN}🔍 Running full tool-intelligence example...${NC}"
-go run ./examples/tool-intelligence/ > /tmp/planner_demo_output.txt 2>&1
+go run ./examples/_fixtures/tool-intelligence/ > /tmp/planner_demo_output.txt 2>&1
 if [ $? -eq 0 ]; then
     echo -e "  ${GREEN}✓${NC} Full example runs successfully"
 else

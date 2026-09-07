@@ -120,7 +120,7 @@ build_project() {
 
     # Build the example
     print_status "Building example..."
-    go build -o bin/example ./examples/simple
+    go build -o bin/example ./examples/_fixtures/simple
 
     print_status "Build completed"
 }
@@ -132,7 +132,7 @@ run_example() {
     cd "$PROJECT_ROOT"
 
     # Set environment variables
-    export CONFIG_PATH="./examples/simple/config/server.yaml"
+    export CONFIG_PATH="./examples/_fixtures/simple/config/server.yaml"
 
     # Run the example
     ./bin/example

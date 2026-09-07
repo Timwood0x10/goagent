@@ -27,13 +27,13 @@ func TestSchedulerMustNotImportRuntime(t *testing.T) {
 		t.Fatalf("read package dir: %v", err)
 	}
 	// C1.2: the banned list is a slice so it can grow. Adding
-	// internal/workflow/engine prevents the kernel scheduler from
+	// internal/fabric/task/workflow/engine prevents the kernel scheduler from
 	// importing the planner package — the projection runs in the cmd
 	// layer, never inside the kernel. This is a regression guard: the
 	// current import count is 0; the test ensures it stays 0.
 	banned := []string{
 		"internal/ares_runtime",
-		"internal/workflow/engine",
+		"internal/fabric/task/workflow/engine",
 	}
 	for _, e := range entries {
 		name := e.Name()

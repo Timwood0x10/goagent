@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Timwood0x10/ares/internal/taskfabric"
+	"github.com/Timwood0x10/ares/internal/fabric/task"
 )
 
 // maxRecordedDecisions bounds the scheduling-decision ring. Decisions are
