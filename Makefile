@@ -1,6 +1,6 @@
 # Makefile for ARES — Agent Runtime & Evolution System
 
-.PHONY: all lint test test-race check check-core check-tools help clean install install-cli ci benchmark quickstart examples cover cover-html ci-test-race-short
+.PHONY: all lint test test-race check check-core check-tools help clean install install-cli ci ci-freeze benchmark quickstart examples cover cover-html ci-test-race-short
 
 # Default target
 all: lint test
@@ -11,7 +11,7 @@ install:
 	go get ./...
 
 # CI target - runs all CI checks locally (matches .github/workflows/ci.yml)
-ci: ci-deps ci-fmt ci-vet ci-lint ci-build ci-test-race ci-security
+ci: ci-deps ci-fmt ci-freeze ci-vet ci-lint ci-build ci-test-race ci-security
 	@echo ""
 	@echo "✅ All CI checks PASSED"
 
@@ -71,6 +71,14 @@ ci-security:
 	@echo "Running gosec security scan..."
 	@go run github.com/securego/gosec/v2/cmd/gosec@latest ./internal/... ./api/...
 	@echo "Security scan: OK"
+
+# Convergence freeze patrol (ARCHITECTURE.md Phase 0). Fails on new
+# examples/ dirs, new internal/ packages, or production imports of the
+# internal/fabric placeholder before Phase 2b.
+ci-freeze:
+	@echo "Checking convergence freeze..."
+	@bash scripts/check_convergence_freeze.sh
+	@echo "Freeze check: OK"
 
 # Format code
 # Uses golangci-lint --fix to auto-format with the same gci version it checks

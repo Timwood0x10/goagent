@@ -57,32 +57,34 @@ cmd/ares/main.go = 唯一入口；kernel/fabric/runtime 平级（kernel 不被 f
 
 ```
 [已完成] M0 · M1 · M1.5 · M2(planner+registry+reaper) · M3(图路径上下文) · M5(prior/约束) · M6(信号链)
-[当前]  Phase0 冻结/盘点 → Phase1 内核收敛
-[剩余主殿线] M4 D 阶段（唯一不可逆，被“B2 生产对拍 + 协作栈 L2 化 + 客户端迁移 + 影子退役”阻塞）
+[已完成 2026-09-07] Phase0 三件套（freeze-manifest.txt + 巡查脚本 + fanin.md v2，CI 已接入）
+[已完成 2026-09-07] Phase1 内核收敛（`kernelscheduler/kernelctx/system_runtime` → `internal/kernel/`，旧目录已删，import 零残留）
+[已完成 2026-09-07] Phase2a 占位（`internal/fabric/{agent,task,task/workflow,planprojection}/doc.go`，生产代码禁引）
+[剩余主线] M4 D 阶段（唯一不可逆，被“B2 生产对拍 + 协作栈 L2 化 + 客户端迁移 + 影子退役”阻塞）
 [其后]  M4 通过 → Phase2b(fabric 合并) → Phase3(runtime 服务化) → Phase4(CLI 单一化) → Phase5(验证)
 ```
 
-- **不要重做已完成项**：M2/M3/M5/M6 的代码与测试都在（M2 已提交；M5/M6 含未提交测试）。剩余主线只有 **M4 D 阶段**。
-- Phase 1 与 M4 D 可并行（Phase 1 动 `kernelscheduler/kernelctx/system_runtime`，不碰 ReAct/协作栈）。**Phase 2b 必须在 M4 通过后**（否则删 ReAct 与合并 fabric 同一批源码树，双写）。
+- **不要重做已完成项**：M2/M3/M5/M6 的代码与测试都在（`TestM3*` 实跑通过）。剩余主线只有 **M4 D 阶段**。
+- ~~Phase 1 与 M4 D 可并行~~（已过时：Phase 1 已落地）。**Phase 2b 必须在 M4 通过后**（否则删 ReAct 与合并 fabric 同一批源码树，双写）。
 
-## 三、Phase 0 — 冻结与盘点（不动代码）
+## 三、Phase 0 — 冻结与盘点（✅ 已落地 2026-09-07，不动生产代码）
 
 - `ARCHITECTURE.md` **已是单一事实源**（本文件，含三附录；`CONVERGENCE_PLAN`/`TOOL_DAG`/`ARCHITECTURE_AND_DATAFLOW`/`ARES_PROJECT_REVIEW` 已并入后删除）。✓（#18 已解决）
-- 冻结 `examples/`（34 目录）：**用一份 `docs/convergence/freeze-manifest.txt` + 顶层目录巡查脚本**，路径前缀匹配即 CI fail（**不是**"git 时间窗"这种不可复现验收，#16）。
-- 跑全仓 fan-in 审计，产出"留主线/归档"表（`docs/convergence/fanin.md`）。
-- **验收**：`ARCHITECTURE.md` 存在；`freeze-manifest.txt` + 巡查脚本接入 CI；fan-in 表落库。
+- 冻结 `examples/`（34 条目）：`docs/convergence/freeze-manifest.txt` + `scripts/check_convergence_freeze.sh`（路径前缀匹配即 fail，#16），`Makefile ci-freeze` + `ci.yml` 已接入，本地正反向实测通过。✓
+- 全仓 fan-in 审计：`docs/convergence/fanin.md` v2（35 包逐一定向 + 方法注记）。✓
+- **验收**：~~`ARCHITECTURE.md` 存在；`freeze-manifest.txt` + 巡查脚本接入 CI；fan-in 表落库~~ —— 三项全部达成（`make ci-freeze` 绿）。
 
-## 四、Phase 1 — 内核单一化（唯一调度器）
+## 四、Phase 1 — 内核单一化（✅ 已落地 2026-09-07，commit 96c3ed70）
 
-| 来源 | 去向 |
+| 来源 | 去向（已执行） |
 |---|---|
-| `kernelscheduler/`（scheduler/quantum/load_tracker/executor_registry/decision_recorder/fabric_executor/shadow） | `internal/kernel/` |
-| `kernelctx/` | `internal/kernel/ctx.go` |
-| `system_runtime/`（component/orchestrator/registry/snapshot/state） | `internal/kernel/runtime.go` |
-| **`ares_runtime.Manager`（生命周期、非调度）** | **`internal/runtime/`**（不并入 kernel——生命周期是 runtime 职责，#1） |
+| `kernelscheduler/` | `internal/kernel/`（scheduler/quantum/load_tracker/executor_registry/decision_recorder/fabric_executor/shadow 全在）✅ |
+| `kernelctx/` | `internal/kernel/ctx/`（子包形式，优于原计划单文件）✅ |
+| `system_runtime/` | `internal/kernel/`（component/orchestrator/registry/snapshot/state）✅ |
+| **`ares_runtime.Manager`（生命周期、非调度）** | **待 Phase 3** → `internal/runtime/`（不并入 kernel——生命周期是 runtime 职责，#1） |
 
-**⚠️ 去重纠正**：`aresrecovery.spawnAgent` 与 `syscall.SpawnAgent` 都汇到 `agentfabric.Spawn`；收敛点是 `agentfabric.Spawn`，recovery 保留 `SpawnForRecovery`。`RestartAgent → kernel.Restart`（可）。
-**验收**：`internal/kernel/` 存在；三目录删除；`grep -r "kernelscheduler\|kernelctx\|system_runtime"` 0 命中（文档锚点另在 Phase 5 重映射，#14）；`go build ./...`、`go test ./internal/kernel/...` 通过。
+**⚠️ 去重纠正**：`aresrecovery.spawnAgent` 与 `syscall.SpawnAgent` 都汇到 `agentfabric.Spawn`（`agentfabric/lifecycle.go:69` 实测存在）；收敛点是 `agentfabric.Spawn`，recovery 保留 `SpawnForRecovery`。`RestartAgent → kernel.Restart`（可）。
+**验收**：~~`internal/kernel/` 存在；三目录删除；`grep -r "kernelscheduler\|kernelctx\|system_runtime"` 0 命中~~ —— 三目录已删；import 路径全仓 0 残留（仅剩日志串/注释/快照 JSON 键等非 import 提及，属线格式不得改）；`go build ./...`、`go vet ./internal/kernel/ ./internal/fabric/...` 通过（2026-09-07 实测）。
 
 ## 五、M4 D 阶段（真剩余主线；唯一不可逆）
 
@@ -112,19 +114,21 @@ cmd/ares/main.go = 唯一入口；kernel/fabric/runtime 平级（kernel 不被 f
 | `ares_evolution/`(v1) + `evolution/`(v2) | `internal/runtime/evolution/`（**v1/v2 都保留、分层**——v1 持部署/闸门/fitness 接线含 M6；v2 持基因组/补丁引擎；**不删 v1**，#5）|
 | `ares_mcp/` `ares_skills/` `ares_protocol/` | `internal/runtime/protocol/` |
 | `ares_observability/` | `internal/runtime/observability/` |
-| **`ares_arena/` `ares_flight/`** | **留在 ${runtime/arena,observability}（主线能力，CLI 依赖它们）** ✗ 不再归档 examples（#3）|
+| `ares_arena/` | `internal/runtime/arena/`（主线能力：`cmd/ares/arena.go` 直接 import；归档 examples 会造成 cmd→examples 反向依赖，#3） |
+| `ares_flight/` | `internal/runtime/observability/flight/`（与 `ares_observability/` 合流；`cmd/ares/flight.go` 直接 import，#3） |
+| `ares_archive/` | `internal/runtime/archive/`（`cmd/ares/recall.go` + `serve.go:155-159` 直接 import，同属生产 CLI 依赖，同样不能归档 examples） |
 | `ares_eval/` + `eval/` | `internal/runtime/eval/` |
 
-- **记忆边界表的后端/表结构断言（`distilled_memories`/`QueryByVec` 等）标注为"待核实"**（#10）——本次复核未逐一确认，执行前先跑核实再写进验收。
-- 验收：agent 生命周期闭环（serve→spawn→process→snapshot→stop→restore 重启一致）；`evolution run` 触发闭环（C1–C7 + E1–E6）——**此项依赖 M6 已落地，Timing 上放在 M6 之后*（#8：验收门不能早于依赖的里程碑）；`go test ./internal/runtime/...` 通过。
+- **记忆边界已核实（#10 关闭）**：`distilled_memories` 是 postgres 表（`storage/postgres/migrate_storage.go:396-397`，`base_repository.go:41` 注册）；`ares_memory` 依赖经验仓储（`NewMemoryManagerWithDistiller(..., expRepo distillation.ExperienceRepository)`，`manager_impl.go:167`）——两包是"上下游"不是"重复"，合并方式是"同一模块、按粒度分 API"；`ares_experience` 有异步 embedding 回填（`distillation_service.go`，`embedding.EmbeddingClient`）。**未证实、不写进验收**：全仓无 `QueryByVec` 符号；sqlite-vec 仅见 `knowledge/adapter/distill.go:346` 注释。向量检索实现位置 Phase 3 开工时再定。
+- 验收：agent 生命周期闭环（serve→spawn→process→snapshot→stop→restore 重启一致）；`evolution run` 触发闭环（C1–C7 + E1–E6）——**此项依赖 M6 已落地，Timing 上放在 M6 之后（#8：验收门不能早于依赖的里程碑）；`go test ./internal/runtime/...` 通过。
 
 ## 八、Phase 4 — 入口单一化（唯一 CLI）
 
 - `cmd/ares/main.go` 唯一入口；`cmd/ares/` **非测试源文件**收敛为少数文件（main/serve/agent/evolution/kernel/db/dashboard）。
-- **`cmd/mock-db/` 去向**：并回 `cmd/ares` 下的 db 子命令或独立 `cmd/ares/db` 包，消除第二个 `package main`（#2）。
+- **`cmd/mock-db/` 去向**：**保留独立**（#2 修正：它是 sqlite 零依赖冒烟工具，`mock-db [--db][--reset]`，零外部引用；并入 `ares db`（postgres 迁移）会混淆两种后端）。Phase 4 验收计数**仅限 `cmd/ares`**，mock-db 显式豁免。
 - `examples/*/main.go`（34）降级为 `examples/_fixtures/`；**同步改 `scripts/*.sh` 与 `.github/workflows/*` 对 examples 的引用**（#13）。
-- `compat/` 评估去留；`api/` 若仅被 examples 引用则归档。
-- **验收**：`grep -r "package main" cmd/ | wc -l` = **1（需先处理 mock-db）**；`go build -o ares ./cmd/ares` 成功；`ARES serve` 单命令启完整 OS。
+- `compat/`：**留**（`ares_bootstrap/provide_llm.go` 生产引用；日落以 provide_llm 解耦为门，删除时按 code_rules_v2 §0.3 留 `// TODO(tech-debt)`）；`api/`：**留**（`cmd/ares/{serve_routine,actions,tools,mcp}.go` + `internal/tools/...` 生产引用，是公共 API 面，不是 examples 附庸）；`evaluation/`：随 `examples/eval/` 进 `_fixtures`（全仓唯一引用方）。
+- **验收**：`grep -r "package main" cmd/ares/ | wc -l` = 1（`cmd/mock-db` 豁免，见上）；`go build -o ares ./cmd/ares` 成功；`ARES serve` 单命令启完整 OS。
 
 ## 九、Phase 5 — 验证与文档
 
@@ -136,6 +140,9 @@ cmd/ares/main.go = 唯一入口；kernel/fabric/runtime 平级（kernel 不被 f
 2. **`workflow/engine.MutableDAG` 禁止删除**：L1 作动面 + L2 图载体；删即删掉主线根基。
 3. **recovery 恢复语义不汇入 LLM-facing syscall**：收敛点 `agentfabric.Spawn`，recovery 保留 `SpawnForRecovery`。
 4. **（新增）`ares_runtime.Manager` 不得归入 kernel**：生命周期是 runtime 职责，调度才是 kernel 职责。
+5. **（新增）方向门（code_rules_v2 §0.4）**：Phase 1 起，凡涉架构方向（新增执行管线、改公共 API 语义、跨模块闭环）先经用户认可再动手，不认可不动。
+6. **（新增）质量门（code_rules_v2 §8）**：每阶段合入前 `gofmt -l`（空）+ `go vet` + `staticcheck` + `golangci-lint`（0 issues）+ `go test` + `go test -race` + `git diff --check`；删代码后全仓 grep 确认符号引用归零（§8.4），禁提交注释掉的代码块。
+7. **（新增）删模块留痕（code_rules_v2 §0.3）**：删除/绕过任何模块时在调用处留 `// TODO(tech-debt): <原因> <后续计划>`。
 
 ## 十一、回滚（修正过过于乐观，#11）
 
@@ -143,6 +150,7 @@ cmd/ares/main.go = 唯一入口；kernel/fabric/runtime 平级（kernel 不被 f
 > - 每小步 PR 可独立 revert；
 > - tag 用于**整体回退**（branch 恢复到 tag / restore），不做单点 revert；
 > - M4 D 阶段：D 前 tag + runbook（无配置手柄）。
+> - 所有 tag/提交由用户执行（code_rules_v2 §0.1：禁止 AI 擅自 commit/push），计划只给命令。
 
 | 阶段 | tag 时机 | 回滚方式 |
 |---|---|---|
@@ -150,23 +158,58 @@ cmd/ares/main.go = 唯一入口；kernel/fabric/runtime 平级（kernel 不被 f
 | M4 | D 前必须 tag | restore tag + rebuild |
 | Phase 2b/3/4 每小步 | `convergence/p{2,3,4}-*` | revert 该小步 |
 
-## 十二、覆盖缺口（#12：50 顶层包未全映射）
+## 十二、包去向总表（#12：fan-in 初核已定，Phase 0 表以此为底本复核）
 
-方向性原则：**每个 `internal/*` 顶层包必须落到 六类（kernel / fabric / runtime / protocol / 公共服务 / 归档）之一**。当前未映射、需在 fan-in 审计后逐一定向的：`ares_bootstrap`（组装根→runtime 或根目录）、`agentsyscall`/`agentipc`/`agentloop`（**TOOL_DAG D5 已裁定冻结不删**）、`ares_config`/`ares_security`/`ares_ratelimit`/`ares_shutdown`/`ares_events`/`ares_callbacks`/`ares_ctxutil`、`core`/`llm`/`llmservice`/`storage`/`knowledge`/`introspect`/`feedback`/`evidence`/`detector`/`discovery`/`truncate`/`scoreutil`/`workflow/graph`、`sdk/`（对外 API）、`services/embedding`、`api/`、`compat/`、`evaluation/`、`test/`、`benchmarks/`。
-> "50+ → ≤15" 的验收**以 fan-in 表为准**（每个包在其去向列），否则不可审计。
+> 方法：`grep -rln "ares/internal/<pkg>" cmd internal sdk services --include="*.go" | grep -v 自包 | grep -v _test`（初核；Phase 0 落 `docs/convergence/fanin.md` 时复核）。
+> 方向性原则：每个 `internal/*` 顶层包必须落到六类（kernel / fabric / runtime / protocol / 公共服务 / 归档）之一。
+
+| 包 | 生产引用数 | 去向 |
+|---|---|---|
+| `ares_events` | 57 | 公共服务（事件总线，留） |
+| `core` | 49 | 公共服务（留） |
+| `ares_config` | 30 | 公共服务（留） |
+| `storage` | 30 | 公共服务（留） |
+| `evidence` | 30 | 公共服务（留） |
+| `knowledge` | 22 | 公共服务（留） |
+| `llm` | 18 | 公共服务（留） |
+| `workflow` | 16 | fabric（engine 唯一图；graph 子包随行） |
+| `ares_bootstrap` | 13 | 组装根→runtime（Phase 3 定，或独立保留） |
+| `truncate` | 12 | 公共服务（留） |
+| `ares_callbacks` | 8 | 公共服务（留） |
+| `introspect` | 7 | 公共服务（留，dashboard 能力） |
+| `ares_security` | 5 | 公共服务（留） |
+| `agentipc` | 5 | protocol 或 fabric（Phase 2b 定；冻结不删） |
+| `scoreutil` | 5 | 公共服务（留） |
+| `agentsyscall` | 4 | protocol 或 fabric（Phase 2b 定；冻结不删） |
+| `feedback` | 4 | 公共服务（留） |
+| `ares_ratelimit` | 4 | 公共服务（留） |
+| `agentloop` | 3 | D5 已裁定冻结不删 |
+| `ares_shutdown` | 2 | 公共服务（留） |
+| `ares_ctxutil` | 2 | 公共服务（留） |
+| `detector` | 1（`sdk/quickstart.go`） | 留 |
+| `discovery` | 1（`provide_discovery.go`） | 留 |
+| `llmservice` | 0（仅 `api/service/llm` 引用） | 随 `api/` 留 |
+| `evaluation` | 0（仅 `examples/eval` 引用） | 随 examples 进 `_fixtures` |
+| `compat`（顶层包，非 internal） | 唯一生产引用 `provide_llm.go`（4 个 import：compat/llm/ollama/openai） | 留，日落门 = provide_llm 解耦 |
+| `sdk/` | 对外 API | 留（位置不动；内部第二套 Agent 接口改薄包装） |
+| `services/embedding` | 0 Go 引用（独立进程） | 留（不进 Go 包合并范围） |
+| `api/` | 生产引用（cmd + internal/tools） | 留（公共 API 面） |
+| `test/` `benchmarks/` | 非生产资产 | 原样保留，不计入"≤15" |
+
+> "50+ → ≤15" 的验收**以此表为准**：生产包每个都有去向列；`test/`/`benchmarks/`/`examples/_fixtures/` 不计入分子。
 
 ## 十三、判定标准（留主线 / 归档）
 
 **留主线**（同时满足）：fan-in > 0（非仅测试）；属 OS 原语（调度/IPC/上下文/资源）或核心编排（生命周期/任务图/事件总线）；被 `cmd/ares` 或 `sdk` 直接依赖。
 **归档/删除**：fan-in=0 且 fan-out=0 孤立包（examples 34 目录大多在此）；确属重复实现；仅验证 demo。
-**强制例外**：`ares_arena/ares_flight` 虽可视为验证，但被生产 CLI 依赖 → **留主线**，不套"归档 examples"。
+**强制例外**：`ares_arena`/`ares_flight`/`ares_archive` 虽可视为验证/归档类，但被生产 CLI 依赖 → **留主线**，不套"归档 examples"。
 
 ## 十四、待补齐（非阻塞，按序处理）
 
 - #6 已弃用（Phase 2a 假阶段删除，改直接冻结）✓
 - #7 已处置（workflow/engine 位移延后到 M6 后/收敛最后步）✓
 - #8 已处置（Phase 3 验收门以 M6 已落地为前提，时序后置）✓
-- #10 已标"待核实"（记忆边界后端断言）✓
+- #10 已关闭（记忆边界已核实：postgres `distilled_memories` 表 + `ExperienceRepository` 上下游 + embedding 回填；`QueryByVec` 不存在，不写进验收）✓
 - #14 deduction 已并入 Phase 2b/5 验收（文档锚点重映射）✓
 - #16/#17 已处置（freeze 清单+CI；B2 独立 gate）✓
 - 剩余未逐条展开：记忆合并的 API 设计（per-session vs 蒸馏两套读路径）——随 Phase 3 开工时细做。
