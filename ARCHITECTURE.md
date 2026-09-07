@@ -61,7 +61,9 @@ cmd/ares/main.go = 唯一入口；kernel/fabric/runtime 平级（kernel 不被 f
 [已完成 2026-09-07] Phase1 内核收敛（`kernelscheduler/kernelctx/system_runtime` → `internal/kernel/`，旧目录已删，import 零残留）
 [已完成 2026-09-07] Phase2a 占位（`internal/fabric/{agent,task,task/workflow,planprojection}/doc.go`，生产代码禁引）
 [已完成 2026-09-07] Phase3 子集·eval/observability（`internal/runtime/{eval,observability}/`，乱序特批：不依赖 M4）
-[已完成 2026-09-07] Phase3 全部（乱序特批）：protocol 三包→`runtime/protocol/{mcp,skills,ahp}`（包名保持 `ares_*`，§5.1 禁双轨的反面：改名收益＜风险）、arena/flight/archive→`runtime/{arena,observability/flight,archive}`、memory 两包→`runtime/memory/`（+`experience/` 子包）、evolution v1+v2→`runtime/{ares_evolution,evolution}/`（分层保留，雙包同名靠别名）。`internal/` 顶层 50→37
+[已完成 2026-09-07] Phase3 全部（乱序特批）：protocol 三包→`runtime/protocol/{mcp,skills,ahp}`（包名保持 `ares_*`，§5.1 禁双轨的反面：改名收益＜风险）、arena/flight/archive→`runtime/{arena,observability/flight,archive}`、memory 两包→`runtime/memory/`（+`experience/` 子包）、evolution v1+v2→`runtime/{ares_evolution,evolution}/`（分层保留，雙包同名靠别名）
+[已完成 2026-09-07] Phase3 收尾·`ares_runtime/`→`internal/runtime/` 根（包改名 `runtime`；`Manager` 收编完成，“一个 runtime 管生命周期”落字；`ares_bootstrap`（组装层倒置）与 `aresrecovery`（恢复语义独立）定为原地保留，收敛终态）. `internal/` 顶层 50→32
+[已完成 2026-09-07] A-3 IPC TraceID（`Message.TraceID` + ctx 贯穿 + DeadLetter 带 trace + 双记录缺口；见附录 A-3 落地注）（移除 21：Phase-1 三件、2b 四件、Phase-3 十三件、ares_runtime；新增 kernel/fabric/runtime 三件；manifest 同步，巡查绿）
 [已完成 2026-09-07] Phase2b fabric 合并（`agentfabric`→`fabric/agent/`、`taskfabric`→`fabric/task/`、`planprojection`→`fabric/planprojection/`、`workflow/{engine,graph}`→`fabric/task/workflow/{engine,graph}/`，包名保持，import 全量迁移）
 [已完成 2026-09-07] Phase4 部分（`evaluation/`→`examples/_fixtures/evaluation/`，import 已更新，`go build` 绿）
 [剩余主线] Phase4 文件收敛 + examples→_fixtures 迁移 → Phase5(验证)
@@ -144,6 +146,7 @@ cmd/ares/main.go = 唯一入口；kernel/fabric/runtime 平级（kernel 不被 f
 
 | 来源 | 去向（✅ 全部落地 2026-09-07，乱序特批） |
 |---|---|
+| `ares_runtime/` | `internal/runtime/` ✅ 已落地（包改名 `runtime`；`Manager` 即生命周期编排者，#1 关闭；附带修 kernel 依赖方向门禁 banned 路径 + runtime 架构门禁扫描路径） |
 | `ares_memory/` + `ares_experience/` | `internal/runtime/memory/` + `memory/experience/`（同模块分 API；包名保持，纯路径迁移） |
 | `ares_evolution/`(v1) + `evolution/`(v2) | `internal/runtime/ares_evolution/` + `runtime/evolution/`（分层保留；双包同名 `evolution` 靠既有别名，不合并，#5）|
 | `ares_mcp/` `ares_skills/` `ares_protocol/` | `internal/runtime/protocol/{mcp,skills,ahp}/`（包名保持 `ares_mcp`/`ares_skills`：前者有局部变量冲突，后者与 `skills.Registry` 包撞名；ahp 压平一层） |
@@ -817,6 +820,8 @@ P3（加固，非重构）
 2. 接收端 handler 用消息里的 `TraceID` **重建 ctx**，使下游 LLM 调用/工具执行/事件写入挂到同一 trace。
 3. 让 `taskfabric` 的 `Origin`（`task.go:30-35`，已是 Kernel 校验的 provenance）与 `TraceID` 关联——`Origin` 给了**任务谱系**，`TraceID` 给**运行时链路**，两者拼起来才是完整的分布式可观测。
 4. 与 P0-2（IPC 死信）合并设计：DLQ 记录里带 `TraceID`，丢消息可直接定位到是哪条链路断的。
+
+> ✅ **落地 2026-09-07（A-3 关闭）**：`Message.TraceID` + `ContextWithTraceID`/`TraceIDFromContext` + bus-local 生成（`trace.go`）；Send/Request（含 Delegate/Handoff）/Broadcast 全量贯穿，直返 reply 自动继承，async `Reply` 走文档化复制契约；`DeadLetter` 带 TraceID，`Record` 加参；补上两个 GAP-3 缺口（Request-to-未知对象此前静默不记、Broadcast 拒收此前不记）。与附录建议的两处有意偏离：① 未复用 `llm/client.go` tracer——agentipc 是下层包，反向依赖 llm 会倒置分层，bus-local `trace-<seq>` 对进程内总线充分；② 未做 Origin↔TraceID 关联（provenance vs 运行时链路的拼图仍是 open 项，不 blocking）。测试：6 个传播/死信单测 + 全包 `-race` 绿。
 
 ### 🟢 A-4　适用边界：优势场景 vs 现实阻碍（B 评级的由来）
 

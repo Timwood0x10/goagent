@@ -1,7 +1,7 @@
 package kernel
 
 // Architecture red line (agent-os-loop-wiring plan gate 6.3): the kernel
-// scheduler must never import internal/ares_runtime. The dependency direction
+// scheduler must never import internal/runtime. The dependency direction
 // is one-way — cmd/ares adapts the runtime plugin ecosystem INTO the
 // scheduler via the QuantumHook interface — so the engine stays free of the
 // runtime plugin graph. If this test fails, the plugin bus leaked into the
@@ -31,8 +31,11 @@ func TestSchedulerMustNotImportRuntime(t *testing.T) {
 	// importing the planner package — the projection runs in the cmd
 	// layer, never inside the kernel. This is a regression guard: the
 	// current import count is 0; the test ensures it stays 0.
+	// M4-D convergence: internal/ares_runtime moved to internal/runtime —
+	// the ban follows the package (kernel must not depend on the service
+	// layer at all, whichever directory it lives in).
 	banned := []string{
-		"internal/ares_runtime",
+		"internal/runtime",
 		"internal/fabric/task/workflow/engine",
 	}
 	for _, e := range entries {

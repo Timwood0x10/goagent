@@ -13,7 +13,6 @@ import (
 	"github.com/Timwood0x10/ares/internal/ares_callbacks"
 	"github.com/Timwood0x10/ares/internal/ares_config"
 	"github.com/Timwood0x10/ares/internal/ares_events"
-	"github.com/Timwood0x10/ares/internal/ares_runtime"
 	"github.com/Timwood0x10/ares/internal/aresrecovery"
 	"github.com/Timwood0x10/ares/internal/evidence"
 	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
@@ -22,6 +21,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/knowledge/adapter"
 	knowledgeruntime "github.com/Timwood0x10/ares/internal/knowledge/runtime"
 	"github.com/Timwood0x10/ares/internal/knowledge/skills"
+	"github.com/Timwood0x10/ares/internal/runtime"
 	evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
 	"github.com/Timwood0x10/ares/internal/runtime/eval"
 	"github.com/Timwood0x10/ares/internal/runtime/evolution/deployment"
@@ -46,7 +46,7 @@ type Components struct {
 	LLM          *LLMComponents
 	Evolution    *EvolutionComponents
 	NewEvolution *NewEvolutionComponents
-	Runtime      *ares_runtime.Manager
+	Runtime      *runtime.Manager
 	Memory       ares_memory.MemoryManager
 	EventStore   ares_events.EventStore
 	Distillation *aresexp.DistillationService
@@ -566,7 +566,7 @@ func Bootstrap(ctx context.Context, cfg *ares_config.Config, deps *BootstrapDeps
 	// system can apply workflow patches to the live DAG (v0.5.0 DAG reflux).
 	// When a real agent DAG is registered later, it replaces this minimal one.
 	if comp.Runtime != nil && dag != nil {
-		comp.Runtime.RegisterAgentDAG(ares_runtime.AgentDAGEvolutionKey, dag)
+		comp.Runtime.RegisterAgentDAG(runtime.AgentDAGEvolutionKey, dag)
 	}
 
 	// Closure plan N-4 / Step 7.3: a standalone Bootstrap has no agent
@@ -578,7 +578,7 @@ func Bootstrap(ctx context.Context, cfg *ares_config.Config, deps *BootstrapDeps
 	if cfg.Evolution.Enabled {
 		log.InfoContext(ctx, "bootstrap: evolution verdicts available but no live agent topology to act on",
 			"live_dag_registered", false,
-			"synthetic_dag_key", ares_runtime.AgentDAGEvolutionKey,
+			"synthetic_dag_key", runtime.AgentDAGEvolutionKey,
 		)
 	}
 

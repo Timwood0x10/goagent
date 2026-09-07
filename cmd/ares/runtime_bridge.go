@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/Timwood0x10/ares/internal/ares_events"
-	"github.com/Timwood0x10/ares/internal/ares_runtime"
 	"github.com/Timwood0x10/ares/internal/kernel"
+	"github.com/Timwood0x10/ares/internal/runtime"
 )
 
-// pluginBusHook adapts ares_runtime.PluginBus to the kernel.QuantumHook
+// pluginBusHook adapts runtime.PluginBus to the kernel.QuantumHook
 // contract, so the runtime plugin ecosystem (observer/checkpoint/tool/...)
 // participates in the Agent OS scheduling loop without the kernel depending on
 // the runtime package (the adapter lives in the cmd assembly layer — the only
@@ -36,9 +36,9 @@ import (
 //   - the stop flag is its own atomic.Bool, kept purely as a fast path so an
 //     exhausted clock stops touching the plugin on every later quantum.
 type pluginBusHook struct {
-	bus *ares_runtime.PluginBus
+	bus *runtime.PluginBus
 	// loop is the registered round-clock plugin; nil disables the beat.
-	loop *ares_runtime.LoopPlugin
+	loop *runtime.LoopPlugin
 	// roundQuanta / maxRounds are the loop clock knobs (from kernelLoopConfig).
 	roundQuanta int64
 	maxRounds   int64
@@ -55,7 +55,7 @@ type pluginBusHook struct {
 // loop may be nil (no loop clock). roundQuanta is normalized HERE (<=1 → 1)
 // rather than trusting the caller: the boundary arithmetic divides by it, so
 // the invariant belongs to the type, not to every construction site.
-func newPluginBusHook(bus *ares_runtime.PluginBus, loop *ares_runtime.LoopPlugin, loopCfg kernelLoopConfig) *pluginBusHook {
+func newPluginBusHook(bus *runtime.PluginBus, loop *runtime.LoopPlugin, loopCfg kernelLoopConfig) *pluginBusHook {
 	roundQuanta := int64(loopCfg.LoopRoundQuanta)
 	if roundQuanta <= 0 {
 		roundQuanta = 1
@@ -75,11 +75,11 @@ func newPluginBusHook(bus *ares_runtime.PluginBus, loop *ares_runtime.LoopPlugin
 // BeforeQuantum implements kernel.QuantumHook: projects the quantum
 // onto the bus as a before-step hook invocation.
 func (h *pluginBusHook) BeforeQuantum(ctx context.Context, taskID, agentID string) error {
-	return h.bus.BeforeStep(ctx, taskID, &ares_runtime.Step{
+	return h.bus.BeforeStep(ctx, taskID, &runtime.Step{
 		ID:        taskID,
 		Name:      taskID,
 		AgentType: agentID,
-		Status:    ares_runtime.StepStatusRunning,
+		Status:    runtime.StepStatusRunning,
 		StartedAt: time.Now(),
 	})
 }
@@ -89,17 +89,17 @@ func (h *pluginBusHook) BeforeQuantum(ctx context.Context, taskID, agentID strin
 // loop clock. Both paths are observational — the hook never blocks or fails
 // the scheduler.
 func (h *pluginBusHook) AfterQuantum(ctx context.Context, taskID, agentID string, qerr error) {
-	res := &ares_runtime.StepResult{
+	res := &runtime.StepResult{
 		StepID:   taskID,
 		Name:     taskID,
 		Duration: 0,
 		Metadata: map[string]string{"agent_id": agentID},
 	}
 	if qerr != nil {
-		res.Status = ares_runtime.StepStatusFailed
+		res.Status = runtime.StepStatusFailed
 		res.Error = qerr.Error()
 	} else {
-		res.Status = ares_runtime.StepStatusCompleted
+		res.Status = runtime.StepStatusCompleted
 	}
 	_ = h.bus.AfterStep(ctx, taskID, res) // observational; bus already logs hook failures
 	h.driveLoopRound(ctx)
@@ -198,17 +198,17 @@ func (h *pluginBusHook) driveLoopRound(ctx context.Context) {
 //
 // Returns:
 //
-//	*ares_runtime.PluginBus - the started bus (nil when nothing to wire).
-func startPluginBus(ctx context.Context, store ares_events.EventStore, sched *kernel.Scheduler, loopCfg kernelLoopConfig) *ares_runtime.PluginBus {
+//	*runtime.PluginBus - the started bus (nil when nothing to wire).
+func startPluginBus(ctx context.Context, store ares_events.EventStore, sched *kernel.Scheduler, loopCfg kernelLoopConfig) *runtime.PluginBus {
 	if sched == nil {
 		return nil
 	}
-	bus := ares_runtime.NewPluginBus()
+	bus := runtime.NewPluginBus()
 	_ = store // the bus subscribes via Subscribe(); store passthrough not needed
 
 	// Register BEFORE Start (see doc comment: Register-after-Start is a
 	// guaranteed silent no-op).
-	loop := ares_runtime.NewLoopPlugin("kernel-loop", ares_runtime.LoopConfig{
+	loop := runtime.NewLoopPlugin("kernel-loop", runtime.LoopConfig{
 		MaxIterations: loopCfg.LoopMaxIterations,
 		// UntilCondition stays nil: the kernel round clock does no variable
 		// assertion — the round budget is the only stop condition.

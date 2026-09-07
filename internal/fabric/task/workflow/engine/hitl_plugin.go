@@ -3,17 +3,17 @@ package engine
 import (
 	"context"
 
-	"github.com/Timwood0x10/ares/internal/ares_runtime"
+	"github.com/Timwood0x10/ares/internal/runtime"
 )
 
 // HITLFeedbackPlugin wraps an InterruptHandler and InterruptStore as a
-// ares_runtime.RuntimePlugin. It implements both RuntimePlugin and WorkflowHook,
+// runtime.RuntimePlugin. It implements both RuntimePlugin and WorkflowHook,
 // emitting lifecycle events for observability and evolution scoring.
 type HITLFeedbackPlugin struct {
 	name    string
 	handler InterruptHandler
 	store   InterruptStore
-	bus     ares_runtime.EventBus
+	bus     runtime.EventBus
 }
 
 // NewHITLFeedbackPlugin creates a HITLFeedbackPlugin.
@@ -31,10 +31,10 @@ func NewHITLFeedbackPlugin(name string, handler InterruptHandler, store Interrup
 }
 
 func (p *HITLFeedbackPlugin) Name() string { return p.name }
-func (p *HITLFeedbackPlugin) Capabilities() []ares_runtime.Capability {
-	return []ares_runtime.Capability{ares_runtime.CapObserver}
+func (p *HITLFeedbackPlugin) Capabilities() []runtime.Capability {
+	return []runtime.Capability{runtime.CapObserver}
 }
-func (p *HITLFeedbackPlugin) Start(_ context.Context, bus ares_runtime.EventBus) error {
+func (p *HITLFeedbackPlugin) Start(_ context.Context, bus runtime.EventBus) error {
 	p.bus = bus
 	return nil
 }
@@ -47,20 +47,20 @@ func (p *HITLFeedbackPlugin) InterruptHandler() InterruptHandler { return p.hand
 func (p *HITLFeedbackPlugin) InterruptStore() InterruptStore { return p.store }
 
 // BeforeStep is a no-op.
-func (p *HITLFeedbackPlugin) BeforeStep(_ context.Context, _ string, _ *ares_runtime.Step) error {
+func (p *HITLFeedbackPlugin) BeforeStep(_ context.Context, _ string, _ *runtime.Step) error {
 	return nil
 }
 
 // AfterStep inspects step results for interrupt-related metadata and emits events.
-func (p *HITLFeedbackPlugin) AfterStep(_ context.Context, executionID string, result *ares_runtime.StepResult) error {
+func (p *HITLFeedbackPlugin) AfterStep(_ context.Context, executionID string, result *runtime.StepResult) error {
 	if result.Metadata != nil {
-		if action, ok := result.Metadata[ares_runtime.PayloadKeyInterruptAction]; ok {
-			feedback := result.Metadata[ares_runtime.PayloadKeyInterruptFeedback]
+		if action, ok := result.Metadata[runtime.PayloadKeyInterruptAction]; ok {
+			feedback := result.Metadata[runtime.PayloadKeyInterruptFeedback]
 			p.emitEvent(executionID, result.StepID, action, feedback)
 			return nil
 		}
 	}
-	if result.Status == ares_runtime.StepStatusSkipped && result.Error != "" {
+	if result.Status == runtime.StepStatusSkipped && result.Error != "" {
 		p.emitEvent(executionID, result.StepID, "reject", result.Error)
 	}
 	return nil
@@ -70,11 +70,11 @@ func (p *HITLFeedbackPlugin) emitEvent(executionID, stepID, action, feedback str
 	if p.bus == nil {
 		return
 	}
-	p.bus.Emit(context.Background(), executionID, ares_runtime.EventInterruptCreated, "workflow", map[string]any{
-		ares_runtime.PayloadKeyExecutionID: executionID,
-		ares_runtime.PayloadKeyStepID:      stepID,
-		"action":                           action,
-		"feedback":                         feedback,
+	p.bus.Emit(context.Background(), executionID, runtime.EventInterruptCreated, "workflow", map[string]any{
+		runtime.PayloadKeyExecutionID: executionID,
+		runtime.PayloadKeyStepID:      stepID,
+		"action":                      action,
+		"feedback":                    feedback,
 	})
 	log.Debug("hitl feedback plugin: recorded interrupt",
 		"execution_id", executionID,

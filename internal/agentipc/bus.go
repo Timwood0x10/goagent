@@ -22,6 +22,11 @@ type Message struct {
 	Topic string
 	// CorrelationID pairs a reply with its request (empty for fire-and-forget).
 	CorrelationID string
+	// TraceID identifies the causal chain this message belongs to (A-3).
+	// Stamped by the bus on Send/Request/Broadcast (continued from the
+	// caller's context when present, else minted); inherited by replies.
+	// Empty only on messages constructed by hand outside the bus.
+	TraceID string
 	// Payload is the message body.
 	Payload any
 	// At is the send timestamp.
@@ -59,7 +64,9 @@ type Bus struct {
 	// nil reply is delivered to signal an error)
 	pendingErr map[string]error
 	idSeq      uint64
-	now        func() time.Time
+	// traceSeq mints bus-local trace ids (A-3); guarded by mu like idSeq.
+	traceSeq uint64
+	now      func() time.Time
 	// deadLetters records failed requests (undeliverable / timed out) for
 	// observability and redelivery (GAP-3). Never nil after NewBus.
 	deadLetters *DeadLetterStore

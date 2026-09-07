@@ -14,9 +14,9 @@ import (
 
 	api_tools "github.com/Timwood0x10/ares/api/tools"
 	"github.com/Timwood0x10/ares/internal/agents/base"
-	"github.com/Timwood0x10/ares/internal/ares_runtime"
 	"github.com/Timwood0x10/ares/internal/ares_security"
 	"github.com/Timwood0x10/ares/internal/core/models"
+	"github.com/Timwood0x10/ares/internal/runtime"
 )
 
 const testActionJWTSecret = "test-action-jwt-secret"
@@ -25,13 +25,13 @@ const testActionJWTSecret = "test-action-jwt-secret"
 // registered agent, plus a JWT middleware and audit sink on the same secret.
 type actionTestEnv struct {
 	h        *actionHandler
-	mgr      *ares_runtime.Manager
+	mgr      *runtime.Manager
 	auditBuf *bytes.Buffer
 }
 
 func newActionTestEnv(t *testing.T) *actionTestEnv {
 	t.Helper()
-	mgr := ares_runtime.New(nil, nil, nil)
+	mgr := runtime.New(nil, nil, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(func() { cancel(); _ = mgr.Stop() })
 	require.NoError(t, mgr.Start(ctx))

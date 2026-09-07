@@ -10,14 +10,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	ares_runtime "github.com/Timwood0x10/ares/internal/ares_runtime"
+	"github.com/Timwood0x10/ares/internal/runtime"
 )
 
 // mockRuntime implements RuntimeProvider for testing.
 type mockRuntime struct {
 	mu              sync.Mutex
 	stopAgentFn     func(ctx context.Context, agentID string) error
-	listAgentsFn    func() []ares_runtime.AgentInfo
+	listAgentsFn    func() []runtime.AgentInfo
 	pauseAgentFn    func(ctx context.Context, agentID string) error
 	resumeAgentFn   func(ctx context.Context, agentID string) error
 	slowAgentFn     func(ctx context.Context, agentID string, delay time.Duration) error
@@ -141,7 +141,7 @@ func (m *mockRuntime) InjectLLMFailure(ctx context.Context, agentID string, errT
 	return nil
 }
 
-func (m *mockRuntime) ListAgents() []ares_runtime.AgentInfo {
+func (m *mockRuntime) ListAgents() []runtime.AgentInfo {
 	if m.listAgentsFn != nil {
 		return m.listAgentsFn()
 	}
@@ -286,8 +286,8 @@ func TestKillAgent_RuntimeError(t *testing.T) {
 
 func TestKillLeader_Success(t *testing.T) {
 	rt := &mockRuntime{
-		listAgentsFn: func() []ares_runtime.AgentInfo {
-			return []ares_runtime.AgentInfo{
+		listAgentsFn: func() []runtime.AgentInfo {
+			return []runtime.AgentInfo{
 				{ID: "worker-1", Type: "sub"},
 				{ID: "leader-1", Type: "leader"},
 				{ID: "worker-2", Type: "sub"},
@@ -304,8 +304,8 @@ func TestKillLeader_Success(t *testing.T) {
 
 func TestKillLeader_NotFound(t *testing.T) {
 	rt := &mockRuntime{
-		listAgentsFn: func() []ares_runtime.AgentInfo {
-			return []ares_runtime.AgentInfo{
+		listAgentsFn: func() []runtime.AgentInfo {
+			return []runtime.AgentInfo{
 				{ID: "worker-1", Type: "sub"},
 			}
 		},
@@ -318,7 +318,7 @@ func TestKillLeader_NotFound(t *testing.T) {
 
 func TestKillLeader_EmptyList(t *testing.T) {
 	rt := &mockRuntime{
-		listAgentsFn: func() []ares_runtime.AgentInfo {
+		listAgentsFn: func() []runtime.AgentInfo {
 			return nil
 		},
 	}
@@ -396,7 +396,7 @@ func TestRemoveEdge_DAGError(t *testing.T) {
 func TestNewInjector_NilDeps(t *testing.T) {
 	inj := NewInjector(nil, nil)
 	assert.NotNil(t, inj)
-	assert.Nil(t, inj.ares_runtime)
+	assert.Nil(t, inj.runtime)
 	assert.Nil(t, inj.dag)
 }
 
@@ -405,7 +405,7 @@ func TestNewInjector_WithDeps(t *testing.T) {
 	dag := &mockDAG{}
 	inj := NewInjector(rt, dag)
 	assert.NotNil(t, inj)
-	assert.NotNil(t, inj.ares_runtime)
+	assert.NotNil(t, inj.runtime)
 	assert.NotNil(t, inj.dag)
 }
 

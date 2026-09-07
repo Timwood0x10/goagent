@@ -70,9 +70,13 @@ func (b *Bus) Send(ctx context.Context, from, to, topic string, payload any) err
 	b.mu.RLock()
 	h, ok := b.handlers[to]
 	b.mu.RUnlock()
+	// A-3: resolve the trace once — continued from the caller when present,
+	// else a fresh root. Every exit below (delivered or dead-lettered)
+	// carries this same id.
+	traceID := b.traceOrNew(ctx)
 	if !ok {
 		// GAP-3: the target does not exist — the message is undeliverable.
-		b.deadLetters.Record(from, to, topic, payload, ErrAgentNotRegistered.Error())
+		b.deadLetters.Record(from, to, topic, payload, ErrAgentNotRegistered.Error(), traceID)
 		outcome = feedback.OutcomeNotFound
 		return ErrAgentNotRegistered
 	}
@@ -81,13 +85,14 @@ func (b *Bus) Send(ctx context.Context, from, to, topic string, payload any) err
 		From:    from,
 		To:      to,
 		Topic:   topic,
+		TraceID: traceID,
 		Payload: payload,
 		At:      b.allocNow(),
 	}
-	_, err := h(ctx, msg)
+	_, err := h(ContextWithTraceID(ctx, traceID), msg)
 	if err != nil {
 		// GAP-3: record undelivered/failed fire-and-forget sends.
-		b.deadLetters.Record(from, to, topic, payload, err.Error())
+		b.deadLetters.Record(from, to, topic, payload, err.Error(), traceID)
 		outcome = feedback.OutcomeFailure
 		return err
 	}
@@ -144,8 +149,13 @@ func (b *Bus) Request(ctx context.Context, from, to, topic string, payload any, 
 	b.mu.RLock()
 	h, ok := b.handlers[to]
 	b.mu.RUnlock()
+	// A-3: resolve the trace once (see Send). The unregistered-target exit
+	// below is a genuine delivery failure — record it like Send does
+	// (previously this arm returned silently, the one GAP-3 hole).
+	traceID := b.traceOrNew(ctx)
 	if !ok {
 		outcome = feedback.OutcomeNotFound
+		b.deadLetters.Record(from, to, topic, payload, ErrAgentNotRegistered.Error(), traceID)
 		return nil, ErrAgentNotRegistered
 	}
 	corrID := b.allocID() + "-corr"
@@ -161,6 +171,7 @@ func (b *Bus) Request(ctx context.Context, from, to, topic string, payload any, 
 		To:            to,
 		Topic:         topic,
 		CorrelationID: corrID,
+		TraceID:       traceID,
 		Payload:       payload,
 		At:            b.allocNow(),
 	}
@@ -187,7 +198,7 @@ func (b *Bus) Request(ctx context.Context, from, to, topic string, payload any, 
 	var replyErr error
 	defer func() {
 		if replyErr != nil {
-			b.deadLetters.Record(from, to, topic, payload, replyErr.Error())
+			b.deadLetters.Record(from, to, topic, payload, replyErr.Error(), traceID)
 		}
 	}()
 	select {
@@ -258,7 +269,7 @@ func (b *Bus) invokeHandler(ctx context.Context, h Handler, req *Message, corrID
 		_ = b.deliverReply(corrID, nil) // best-effort: an orphan reply is a documented no-op
 	}()
 
-	reply, err := h(ctx, req)
+	reply, err := h(ContextWithTraceID(ctx, req.TraceID), req)
 	if err != nil {
 		// Surface the error: deliver a sentinel nil reply so the caller
 		// wakes up; the actual error is stashed on the pending entry.
@@ -270,8 +281,11 @@ func (b *Bus) invokeHandler(ctx context.Context, h Handler, req *Message, corrID
 		// Copy the handler-returned reply and stamp it — never mutate the
 		// caller's message (the handler may return a shared template
 		// across concurrent requests, so in-place stamping would race).
+		// A-3: the trace rides along — a reply belongs to its request's
+		// causal chain by construction.
 		stamped := *reply
 		stamped.CorrelationID = corrID
+		stamped.TraceID = req.TraceID
 		stamped.To = from
 		stamped.From = to
 		_ = b.deliverReply(corrID, &stamped) // best-effort: see deliverReply
@@ -471,6 +485,9 @@ func (b *Bus) Broadcast(ctx context.Context, from, topic string, payload any) in
 	copy(subs, b.subscribers[topic])
 	b.mu.RUnlock()
 
+	// A-3: one trace for the whole fan-out — every delivery shares the
+	// broadcast's causal id.
+	traceID := b.traceOrNew(ctx)
 	delivered := 0
 	for _, subID := range subs {
 		b.mu.RLock()
@@ -484,11 +501,16 @@ func (b *Bus) Broadcast(ctx context.Context, from, topic string, payload any) in
 			From:    from,
 			To:      subID,
 			Topic:   topic,
+			TraceID: traceID,
 			Payload: payload,
 			At:      b.allocNow(),
 		}
-		if _, err := h(ctx, msg); err == nil {
+		if _, err := h(ContextWithTraceID(ctx, traceID), msg); err == nil {
 			delivered++
+		} else {
+			// GAP-3: a fan-out delivery the target rejected is a genuine
+			// failure — record it without stopping the fan-out.
+			b.deadLetters.Record(from, subID, topic, payload, err.Error(), traceID)
 		}
 	}
 	return delivered

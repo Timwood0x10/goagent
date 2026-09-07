@@ -17,6 +17,9 @@ type DeadLetter struct {
 	To      string
 	Topic   string
 	Payload any
+	// TraceID is the causal chain the failed request belonged to (A-3):
+	// join it against logs and collaboration receipts for the full story.
+	TraceID string
 	// Reason is why delivery failed (e.g. ErrAgentNotRegistered / ErrTimeout).
 	Reason string
 	// At is when the failure was recorded.
@@ -43,7 +46,7 @@ func NewDeadLetterStore(capacity int) *DeadLetterStore {
 }
 
 // Record appends a failed request, evicting the oldest entry when full.
-func (s *DeadLetterStore) Record(from, to, topic string, payload any, reason string) {
+func (s *DeadLetterStore) Record(from, to, topic string, payload any, reason, traceID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.next++
@@ -53,6 +56,7 @@ func (s *DeadLetterStore) Record(from, to, topic string, payload any, reason str
 		To:      to,
 		Topic:   topic,
 		Payload: payload,
+		TraceID: traceID,
 		Reason:  reason,
 		At:      time.Now(),
 	})

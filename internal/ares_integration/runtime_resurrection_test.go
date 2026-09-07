@@ -15,8 +15,8 @@ import (
 
 	"github.com/Timwood0x10/ares/internal/agents/base"
 	"github.com/Timwood0x10/ares/internal/ares_events"
-	ares_runtime "github.com/Timwood0x10/ares/internal/ares_runtime"
 	"github.com/Timwood0x10/ares/internal/core/models"
+	"github.com/Timwood0x10/ares/internal/runtime"
 )
 
 // --- Test helpers for ares_runtime resurrection tests ---
@@ -108,12 +108,12 @@ func (a *resurrectionAgent) getRestoredState() map[string]any {
 // register agent -> start -> emit ares_events -> kill -> verify resurrection -> verify state recovery.
 func TestRuntimeResurrection_FullCycle(t *testing.T) {
 	eventStore := ares_events.NewMemoryEventStore()
-	config := &ares_runtime.Config{
+	config := &runtime.Config{
 		HealthCheckInterval: 50 * time.Millisecond,
 		MaxRestartsPerAgent: 5,
 		MaxReplayEvents:     100,
 	}
-	mgr := ares_runtime.New(config, eventStore, nil)
+	mgr := runtime.New(config, eventStore, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -141,7 +141,7 @@ func TestRuntimeResurrection_FullCycle(t *testing.T) {
 	}, 0)
 	require.NoError(t, err)
 
-	// Start the ares_runtime.
+	// Start the runtime.
 	require.NoError(t, mgr.Start(ctx))
 
 	// Wait for the agent to start.
@@ -179,7 +179,7 @@ func TestRuntimeResurrection_FullCycle(t *testing.T) {
 	require.NotNil(t, newAgent)
 	// The runtime wraps every agent in a chaos-injection decorator, so peel it
 	// back to reach the concrete resurrectionAgent before asserting the type.
-	statefulAgent, ok := ares_runtime.UnwrapAgent(newAgent).(*resurrectionAgent)
+	statefulAgent, ok := runtime.UnwrapAgent(newAgent).(*resurrectionAgent)
 	require.True(t, ok, "restored agent should be resurrectionAgent")
 
 	deadline = time.Now().Add(2 * time.Second)
@@ -198,11 +198,11 @@ func TestRuntimeResurrection_FullCycle(t *testing.T) {
 // verifies both resurrect independently while the third remains untouched.
 func TestRuntimeResurrection_MultipleAgents(t *testing.T) {
 	eventStore := ares_events.NewMemoryEventStore()
-	config := &ares_runtime.Config{
+	config := &runtime.Config{
 		HealthCheckInterval: 50 * time.Millisecond,
 		MaxRestartsPerAgent: 5,
 	}
-	mgr := ares_runtime.New(config, eventStore, nil)
+	mgr := runtime.New(config, eventStore, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -275,12 +275,12 @@ func TestRuntimeResurrection_MultipleAgents(t *testing.T) {
 // another is being resurrected, verifying no race conditions or panics.
 func TestRuntimeResurrection_ConcurrentKillAndResurrect(t *testing.T) {
 	eventStore := ares_events.NewMemoryEventStore()
-	config := &ares_runtime.Config{
+	config := &runtime.Config{
 		HealthCheckInterval: 50 * time.Millisecond,
 		MaxRestartsPerAgent: 5,
 		RestoreTimeout:      5 * time.Second,
 	}
-	mgr := ares_runtime.New(config, eventStore, nil)
+	mgr := runtime.New(config, eventStore, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -346,11 +346,11 @@ func TestRuntimeResurrection_ConcurrentKillAndResurrect(t *testing.T) {
 // is nil, resurrection still works but without state recovery.
 func TestRuntimeResurrection_EventStoreUnavailable(t *testing.T) {
 	// Pass nil EventStore.
-	config := &ares_runtime.Config{
+	config := &runtime.Config{
 		HealthCheckInterval: 50 * time.Millisecond,
 		MaxRestartsPerAgent: 5,
 	}
-	mgr := ares_runtime.New(config, nil, nil)
+	mgr := runtime.New(config, nil, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -392,7 +392,7 @@ func TestRuntimeResurrection_EventStoreUnavailable(t *testing.T) {
 	newAgent := mgr.GetAgent("no-store-agent")
 	require.NotNil(t, newAgent)
 	// Peel the chaos-injection decorator to reach the concrete resurrectionAgent.
-	stateful, ok := ares_runtime.UnwrapAgent(newAgent).(*resurrectionAgent)
+	stateful, ok := runtime.UnwrapAgent(newAgent).(*resurrectionAgent)
 	require.True(t, ok)
 
 	// With nil EventStore, replayEvents returns nil, so no state is restored.
@@ -404,12 +404,12 @@ func TestRuntimeResurrection_EventStoreUnavailable(t *testing.T) {
 func TestRuntimeResurrection_MaxRestartsExceeded(t *testing.T) {
 	eventStore := ares_events.NewMemoryEventStore()
 	const maxRestarts = 3
-	config := &ares_runtime.Config{
+	config := &runtime.Config{
 		HealthCheckInterval: 50 * time.Millisecond,
 		MaxRestartsPerAgent: maxRestarts,
 		RestoreTimeout:      2 * time.Second,
 	}
-	mgr := ares_runtime.New(config, eventStore, nil)
+	mgr := runtime.New(config, eventStore, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

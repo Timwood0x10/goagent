@@ -12,7 +12,7 @@ import (
 
 // Node represents an executable unit in the graph.
 //
-// Node implementations are adapted to ares_runtime.Executable by the unified
+// Node implementations are adapted to runtime.Executable by the unified
 // Runner's adapter layer: the adapter maps between *State (graph-local) and
 // *ExecutionContext (unified scope) at execution time.
 type Node interface {

@@ -6,12 +6,12 @@ import (
 	"github.com/Timwood0x10/ares/internal/agentipc"
 	"github.com/Timwood0x10/ares/internal/agents/peer"
 	"github.com/Timwood0x10/ares/internal/agentsyscall"
-	"github.com/Timwood0x10/ares/internal/ares_runtime"
 	"github.com/Timwood0x10/ares/internal/aresrecovery"
 	"github.com/Timwood0x10/ares/internal/fabric/agent"
 	"github.com/Timwood0x10/ares/internal/fabric/planprojection"
 	"github.com/Timwood0x10/ares/internal/fabric/task"
 	"github.com/Timwood0x10/ares/internal/introspect"
+	"github.com/Timwood0x10/ares/internal/runtime"
 )
 
 // kernelHandle carries the assembled kernel from agent construction to the
@@ -65,7 +65,7 @@ type kernelHandle struct {
 	sessionReg *agentfabric.SessionRegistry
 	// pluginBus is the runtime plugin ecosystem hooked to the scheduler's
 	// quantum boundary (runtime_bridge.go). Nil when the scheduler is absent.
-	pluginBus *ares_runtime.PluginBus
+	pluginBus *runtime.PluginBus
 	// schedulerStop / schedulerDone drive the scheduler drain loop's managed
 	// teardown (K2): Stop cancels the loop context, Wait joins the goroutine.
 	// Nil on partial paths — the adopt adapter skips those hooks.

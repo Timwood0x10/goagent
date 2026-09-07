@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	ares_runtime "github.com/Timwood0x10/ares/internal/ares_runtime"
+	"github.com/Timwood0x10/ares/internal/runtime"
 )
 
 func setupHandler(rt RuntimeProvider, dag DAGProvider) (*Handler, *Service) {
@@ -24,8 +24,8 @@ func setupHandler(rt RuntimeProvider, dag DAGProvider) (*Handler, *Service) {
 
 func TestHandleKillLeader_Success(t *testing.T) {
 	rt := &mockRuntime{
-		listAgentsFn: func() []ares_runtime.AgentInfo {
-			return []ares_runtime.AgentInfo{{ID: "leader-1", Type: "leader"}}
+		listAgentsFn: func() []runtime.AgentInfo {
+			return []runtime.AgentInfo{{ID: "leader-1", Type: "leader"}}
 		},
 	}
 	h, _ := setupHandler(rt, nil)
@@ -43,8 +43,8 @@ func TestHandleKillLeader_Success(t *testing.T) {
 
 func TestHandleKillLeader_NoLeader(t *testing.T) {
 	rt := &mockRuntime{
-		listAgentsFn: func() []ares_runtime.AgentInfo {
-			return []ares_runtime.AgentInfo{{ID: "worker-1", Type: "sub"}}
+		listAgentsFn: func() []runtime.AgentInfo {
+			return []runtime.AgentInfo{{ID: "worker-1", Type: "sub"}}
 		},
 	}
 	h, _ := setupHandler(rt, nil)

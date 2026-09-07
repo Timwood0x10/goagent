@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	ares_runtime "github.com/Timwood0x10/ares/internal/ares_runtime"
+	"github.com/Timwood0x10/ares/internal/runtime"
 )
 
 func TestRobustness_ConcurrentFaults(t *testing.T) {
@@ -44,8 +44,8 @@ func TestRobustness_ConcurrentFaults(t *testing.T) {
 			mu.Unlock()
 			return nil
 		},
-		listAgentsFn: func() []ares_runtime.AgentInfo {
-			return []ares_runtime.AgentInfo{{ID: "agent-1", Type: "worker"}}
+		listAgentsFn: func() []runtime.AgentInfo {
+			return []runtime.AgentInfo{{ID: "agent-1", Type: "worker"}}
 		},
 	}
 	svc := newTestService(rt, &mockDAG{}, nil)
@@ -85,8 +85,8 @@ func TestRobustness_FaultCascade(t *testing.T) {
 			killCount.Add(1)
 			return nil
 		},
-		listAgentsFn: func() []ares_runtime.AgentInfo {
-			return []ares_runtime.AgentInfo{
+		listAgentsFn: func() []runtime.AgentInfo {
+			return []runtime.AgentInfo{
 				{ID: "leader-1", Type: "leader"},
 				{ID: "worker-1", Type: "worker"},
 				{ID: "worker-2", Type: "worker"},
@@ -129,8 +129,8 @@ func TestRobustness_WorkflowRecovery(t *testing.T) {
 			mu.Unlock()
 			return nil
 		},
-		listAgentsFn: func() []ares_runtime.AgentInfo {
-			return []ares_runtime.AgentInfo{{ID: "agent-1", Type: "worker"}}
+		listAgentsFn: func() []runtime.AgentInfo {
+			return []runtime.AgentInfo{{ID: "agent-1", Type: "worker"}}
 		},
 	}
 	svc := newTestService(rt, &mockDAG{}, nil)
@@ -222,8 +222,8 @@ func TestRobustness_LLMFailureRecovery(t *testing.T) {
 			mu.Unlock()
 			return nil
 		},
-		listAgentsFn: func() []ares_runtime.AgentInfo {
-			return []ares_runtime.AgentInfo{{ID: "agent-1", Type: "worker"}}
+		listAgentsFn: func() []runtime.AgentInfo {
+			return []runtime.AgentInfo{{ID: "agent-1", Type: "worker"}}
 		},
 	}
 	svc := newTestService(rt, &mockDAG{}, nil)
@@ -253,8 +253,8 @@ func TestRobustness_MCPDisconnectAndReconnect(t *testing.T) {
 			atomic.AddInt32(&disconnects, 1)
 			return nil
 		},
-		listAgentsFn: func() []ares_runtime.AgentInfo {
-			return []ares_runtime.AgentInfo{{ID: "agent-1", Type: "worker"}}
+		listAgentsFn: func() []runtime.AgentInfo {
+			return []runtime.AgentInfo{{ID: "agent-1", Type: "worker"}}
 		},
 	}
 	// Use a second mock to simulate reconnection (just call Execute again).
@@ -284,8 +284,8 @@ func TestRobustness_ContextCancellation(t *testing.T) {
 			<-ctx.Done()
 			return ctx.Err()
 		},
-		listAgentsFn: func() []ares_runtime.AgentInfo {
-			return []ares_runtime.AgentInfo{{ID: "agent-1", Type: "worker"}}
+		listAgentsFn: func() []runtime.AgentInfo {
+			return []runtime.AgentInfo{{ID: "agent-1", Type: "worker"}}
 		},
 	}
 	svc := newTestService(rt, &mockDAG{}, nil)
@@ -305,7 +305,7 @@ func TestRobustness_ConcurrentMetricsConsistency(t *testing.T) {
 
 	// Verify that MetricsCollector remains consistent under concurrent
 	// fault injection and metric snapshotting.
-	rt := &mockRuntime{listAgentsFn: func() []ares_runtime.AgentInfo { return nil }}
+	rt := &mockRuntime{listAgentsFn: func() []runtime.AgentInfo { return nil }}
 	svc := newTestService(rt, &mockDAG{}, nil)
 
 	var wg sync.WaitGroup
@@ -351,8 +351,8 @@ func TestRobustness_LongScenarioPartialFailure(t *testing.T) {
 			}
 			return nil
 		},
-		listAgentsFn: func() []ares_runtime.AgentInfo {
-			return []ares_runtime.AgentInfo{
+		listAgentsFn: func() []runtime.AgentInfo {
+			return []runtime.AgentInfo{
 				{ID: "agent-1", Type: "worker"},
 				{ID: "agent-2", Type: "worker"},
 				{ID: "agent-3", Type: "worker"},

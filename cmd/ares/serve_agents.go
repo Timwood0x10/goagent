@@ -13,11 +13,11 @@ import (
 	"github.com/Timwood0x10/ares/internal/agents/sub"
 	"github.com/Timwood0x10/ares/internal/ares_bootstrap"
 	"github.com/Timwood0x10/ares/internal/ares_config"
-	"github.com/Timwood0x10/ares/internal/ares_runtime"
 	"github.com/Timwood0x10/ares/internal/aresrecovery"
 	"github.com/Timwood0x10/ares/internal/fabric/planprojection"
 	"github.com/Timwood0x10/ares/internal/introspect"
 	"github.com/Timwood0x10/ares/internal/llm/output"
+	"github.com/Timwood0x10/ares/internal/runtime"
 	"github.com/Timwood0x10/ares/internal/runtime/protocol/ahp"
 	core_tools "github.com/Timwood0x10/ares/internal/tools/resources/core"
 )
@@ -37,7 +37,7 @@ func createAndServeAgents(
 	chatClient sub.ChatClient,
 	toolBinder sub.ToolBinder,
 	comp *ares_bootstrap.Components,
-	mgr *ares_runtime.Manager,
+	mgr *runtime.Manager,
 ) ([]sub.Agent, *kernelHandle, error) {
 	// The Bootstrap experience repo (nil when distillation is not wired) feeds
 	// the G1 spawn prior. The StrategySource closes the GA strategy loop: the
@@ -81,7 +81,7 @@ func createAndServeAgents(
 		liveDAG, dagErr := buildLiveAgentDAG(cfg)
 		switch {
 		case dagErr == nil:
-			mgr.RegisterAgentDAG(ares_runtime.AgentDAGLiveKey, liveDAG)
+			mgr.RegisterAgentDAG(runtime.AgentDAGLiveKey, liveDAG)
 			if err := comp.NewEvolution.UpdateLiveDAG(liveDAG); err != nil {
 				log.Printf("serve: live DAG injection failed (evolution keeps placeholder): %v", err)
 			} else {

@@ -9,13 +9,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	ares_runtime "github.com/Timwood0x10/ares/internal/ares_runtime"
+	"github.com/Timwood0x10/ares/internal/runtime"
 )
 
 func TestRunSurvival_BasicRun(t *testing.T) {
 	rt := &mockRuntime{
-		listAgentsFn: func() []ares_runtime.AgentInfo {
-			return []ares_runtime.AgentInfo{
+		listAgentsFn: func() []runtime.AgentInfo {
+			return []runtime.AgentInfo{
 				{ID: "a-1", Type: "worker"},
 				{ID: "a-2", Type: "leader"},
 			}
@@ -38,8 +38,8 @@ func TestRunSurvival_BasicRun(t *testing.T) {
 
 func TestRunSurvival_ContextCancellation(t *testing.T) {
 	rt := &mockRuntime{
-		listAgentsFn: func() []ares_runtime.AgentInfo {
-			return []ares_runtime.AgentInfo{{ID: "a-1", Type: "worker"}}
+		listAgentsFn: func() []runtime.AgentInfo {
+			return []runtime.AgentInfo{{ID: "a-1", Type: "worker"}}
 		},
 	}
 	svc := newTestService(rt, nil, nil)
@@ -61,8 +61,8 @@ func TestRunSurvival_ContextCancellation(t *testing.T) {
 
 func TestRunSurvival_DefaultConfig(t *testing.T) {
 	rt := &mockRuntime{
-		listAgentsFn: func() []ares_runtime.AgentInfo {
-			return []ares_runtime.AgentInfo{{ID: "a-1", Type: "worker"}}
+		listAgentsFn: func() []runtime.AgentInfo {
+			return []runtime.AgentInfo{{ID: "a-1", Type: "worker"}}
 		},
 	}
 	svc := newTestService(rt, nil, nil)
@@ -79,8 +79,8 @@ func TestRunSurvival_DefaultConfig(t *testing.T) {
 
 func TestRunSurvival_RecordsTimeline(t *testing.T) {
 	rt := &mockRuntime{
-		listAgentsFn: func() []ares_runtime.AgentInfo {
-			return []ares_runtime.AgentInfo{
+		listAgentsFn: func() []runtime.AgentInfo {
+			return []runtime.AgentInfo{
 				{ID: "a-1", Type: "worker"},
 				{ID: "a-2", Type: "leader"},
 			}
@@ -104,8 +104,8 @@ func TestRunSurvival_RecordsTimeline(t *testing.T) {
 
 func TestRunSurvival_ConcurrentSafety(t *testing.T) {
 	rt := &mockRuntime{
-		listAgentsFn: func() []ares_runtime.AgentInfo {
-			return []ares_runtime.AgentInfo{{ID: "a-1", Type: "worker"}}
+		listAgentsFn: func() []runtime.AgentInfo {
+			return []runtime.AgentInfo{{ID: "a-1", Type: "worker"}}
 		},
 	}
 	svc := newTestService(rt, nil, nil)
@@ -150,8 +150,8 @@ func TestGetSurvivalStatus_NotRunning(t *testing.T) {
 
 func TestGetSurvivalStatus_Running(t *testing.T) {
 	rt := &mockRuntime{
-		listAgentsFn: func() []ares_runtime.AgentInfo {
-			return []ares_runtime.AgentInfo{{ID: "a-1", Type: "worker"}}
+		listAgentsFn: func() []runtime.AgentInfo {
+			return []runtime.AgentInfo{{ID: "a-1", Type: "worker"}}
 		},
 	}
 	svc := newTestService(rt, nil, nil)
@@ -186,8 +186,8 @@ func TestGetSurvivalStatus_Running(t *testing.T) {
 
 func TestRandomChaosAction_WithAgents(t *testing.T) {
 	rt := &mockRuntime{
-		listAgentsFn: func() []ares_runtime.AgentInfo {
-			return []ares_runtime.AgentInfo{
+		listAgentsFn: func() []runtime.AgentInfo {
+			return []runtime.AgentInfo{
 				{ID: "a-1", Type: "worker"},
 				{ID: "a-2", Type: "leader"},
 			}
@@ -227,7 +227,7 @@ func TestRandomChaosAction_WithAgents(t *testing.T) {
 
 func TestRandomChaosAction_NoAgents(t *testing.T) {
 	rt := &mockRuntime{
-		listAgentsFn: func() []ares_runtime.AgentInfo {
+		listAgentsFn: func() []runtime.AgentInfo {
 			return nil
 		},
 	}
@@ -308,8 +308,8 @@ func TestCalculateAvgRecoveryTime_Empty(t *testing.T) {
 
 func TestRunSurvival_WithFailures(t *testing.T) {
 	rt := &mockRuntime{
-		listAgentsFn: func() []ares_runtime.AgentInfo {
-			return []ares_runtime.AgentInfo{
+		listAgentsFn: func() []runtime.AgentInfo {
+			return []runtime.AgentInfo{
 				{ID: "a-1", Type: "worker"},
 			}
 		},

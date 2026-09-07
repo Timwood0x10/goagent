@@ -17,9 +17,9 @@ import (
 	"time"
 
 	api_tools "github.com/Timwood0x10/ares/api/tools"
-	"github.com/Timwood0x10/ares/internal/ares_runtime"
 	"github.com/Timwood0x10/ares/internal/ares_security"
 	"github.com/Timwood0x10/ares/internal/introspect"
+	"github.com/Timwood0x10/ares/internal/runtime"
 	evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
 	"github.com/Timwood0x10/ares/internal/runtime/observability"
 )
@@ -47,7 +47,7 @@ func writeJSON(w http.ResponseWriter, v any) {
 // un-audited because actionHandler intercepted the gin routes).
 type actionHandler struct {
 	inner  http.Handler
-	mgr    *ares_runtime.Manager
+	mgr    *runtime.Manager
 	tools  *api_tools.Registry
 	apiKey string                        // legacy credential (nil/empty = disabled)
 	auth   *ares_security.AuthMiddleware // JWT credential (nil = disabled)
@@ -478,16 +478,16 @@ func (h *actionHandler) handleAction(w http.ResponseWriter, r *http.Request, age
 		status := http.StatusInternalServerError
 		msg := "internal server error"
 		switch {
-		case errors.Is(err, ares_runtime.ErrAgentNotFound):
+		case errors.Is(err, runtime.ErrAgentNotFound):
 			status = http.StatusNotFound
 			msg = "agent not found"
-		case errors.Is(err, ares_runtime.ErrRuntimeStopped):
+		case errors.Is(err, runtime.ErrRuntimeStopped):
 			status = http.StatusServiceUnavailable
 			msg = "runtime is stopped"
-		case errors.Is(err, ares_runtime.ErrAgentAlreadyRegistered):
+		case errors.Is(err, runtime.ErrAgentAlreadyRegistered):
 			status = http.StatusConflict
 			msg = "agent already registered"
-		case errors.Is(err, ares_runtime.ErrNilAgent), errors.Is(err, ares_runtime.ErrNilFactory):
+		case errors.Is(err, runtime.ErrNilAgent), errors.Is(err, runtime.ErrNilFactory):
 			status = http.StatusBadRequest
 			msg = "invalid agent specification"
 		}

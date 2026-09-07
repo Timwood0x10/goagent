@@ -45,7 +45,7 @@ func TestDeadLetter_RecordsTimeout(t *testing.T) {
 func TestDeadLetter_CapacityEviction(t *testing.T) {
 	s := NewDeadLetterStore(3)
 	for i := 0; i < 5; i++ {
-		s.Record("a", "b", "t", i, "boom")
+		s.Record("a", "b", "t", i, "boom", "trace-9")
 	}
 	if got := s.Count(); got != 3 {
 		t.Fatalf("count = %d, want 3 (ring bound)", got)
@@ -53,5 +53,8 @@ func TestDeadLetter_CapacityEviction(t *testing.T) {
 	snap := s.Snapshot()
 	if snap[0].ID != 3 {
 		t.Fatalf("oldest retained id = %d, want 3 (1 and 2 evicted)", snap[0].ID)
+	}
+	if snap[0].TraceID != "trace-9" {
+		t.Fatalf("trace id = %q, want it preserved on the record", snap[0].TraceID)
 	}
 }

@@ -15,7 +15,7 @@ import (
 	"testing"
 
 	"github.com/Timwood0x10/ares/internal/ares_config"
-	"github.com/Timwood0x10/ares/internal/ares_runtime"
+	"github.com/Timwood0x10/ares/internal/runtime"
 )
 
 // roundFlushSpy is a fake CapCheckpoint plugin implementing Flusher. It
@@ -30,13 +30,13 @@ type roundFlushSpy struct {
 }
 
 func (s *roundFlushSpy) Name() string { return "round-flush-spy" }
-func (s *roundFlushSpy) Capabilities() []ares_runtime.Capability {
-	return []ares_runtime.Capability{ares_runtime.CapCheckpoint}
+func (s *roundFlushSpy) Capabilities() []runtime.Capability {
+	return []runtime.Capability{runtime.CapCheckpoint}
 }
-func (s *roundFlushSpy) Start(context.Context, ares_runtime.EventBus) error { return nil }
-func (s *roundFlushSpy) Stop(context.Context) error                         { return nil }
+func (s *roundFlushSpy) Start(context.Context, runtime.EventBus) error { return nil }
+func (s *roundFlushSpy) Stop(context.Context) error                    { return nil }
 
-// Flush implements ares_runtime.Flusher.
+// Flush implements runtime.Flusher.
 func (s *roundFlushSpy) Flush(_ context.Context, executionID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -44,16 +44,16 @@ func (s *roundFlushSpy) Flush(_ context.Context, executionID string) error {
 	return nil
 }
 
-// AfterStep implements ares_runtime.WorkflowHook (auto-registered by the bus).
-func (s *roundFlushSpy) AfterStep(_ context.Context, _ string, _ *ares_runtime.StepResult) error {
+// AfterStep implements runtime.WorkflowHook (auto-registered by the bus).
+func (s *roundFlushSpy) AfterStep(_ context.Context, _ string, _ *runtime.StepResult) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.afterSteps++
 	return nil
 }
 
-// BeforeStep implements ares_runtime.WorkflowHook.
-func (s *roundFlushSpy) BeforeStep(context.Context, string, *ares_runtime.Step) error {
+// BeforeStep implements runtime.WorkflowHook.
+func (s *roundFlushSpy) BeforeStep(context.Context, string, *runtime.Step) error {
 	return nil
 }
 
@@ -74,12 +74,12 @@ func (s *roundFlushSpy) stepCount() int {
 // guaranteed silent no-op via ErrBusAlreadyStarted, and the plugin would
 // never receive its EventBus reference).
 func startSpyBus(ctx context.Context, loopCfg kernelLoopConfig) (*pluginBusHook, *roundFlushSpy, error) {
-	bus := ares_runtime.NewPluginBus()
+	bus := runtime.NewPluginBus()
 	spy := &roundFlushSpy{}
 	if err := bus.Register(spy); err != nil {
 		return nil, nil, err
 	}
-	loop := ares_runtime.NewLoopPlugin("kernel-loop", ares_runtime.LoopConfig{
+	loop := runtime.NewLoopPlugin("kernel-loop", runtime.LoopConfig{
 		MaxIterations: loopCfg.LoopMaxIterations,
 	})
 	if err := bus.Register(loop); err != nil {

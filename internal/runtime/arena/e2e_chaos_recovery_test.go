@@ -10,15 +10,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Timwood0x10/ares/internal/agents/base"
-	ares_runtime "github.com/Timwood0x10/ares/internal/ares_runtime"
 	"github.com/Timwood0x10/ares/internal/core/models"
+	"github.com/Timwood0x10/ares/internal/runtime"
 )
 
-// e2eRuntimeAdapter wraps a real ares_runtime.Manager so the arena Injector
+// e2eRuntimeAdapter wraps a real runtime.Manager so the arena Injector
 // drives it through the production wiring shape (arena action → Injector →
 // Manager resurrection), with a counting factory to observe resurrection.
 type e2eRuntimeAdapter struct {
-	m     *ares_runtime.Manager
+	m     *runtime.Manager
 	mu    sync.Mutex
 	calls int
 }
@@ -26,7 +26,7 @@ type e2eRuntimeAdapter struct {
 // newE2ERuntimeAdapter starts a Manager and registers n worker agents, each
 // with a factory that rebuilds it (so kill → resurrection is observable).
 func newE2ERuntimeAdapter(ctx context.Context, n int) (*e2eRuntimeAdapter, error) {
-	m := ares_runtime.New(nil, nil, nil)
+	m := runtime.New(nil, nil, nil)
 	if err := m.Start(ctx); err != nil {
 		return nil, err
 	}
@@ -44,7 +44,7 @@ func newE2ERuntimeAdapter(ctx context.Context, n int) (*e2eRuntimeAdapter, error
 
 // factory returns a factory that rebuilds agent id; each call bumps the
 // counter so tests can assert resurrection actually happened.
-func (a *e2eRuntimeAdapter) factory(id string) ares_runtime.AgentFactory {
+func (a *e2eRuntimeAdapter) factory(id string) runtime.AgentFactory {
 	return func() base.Agent {
 		a.mu.Lock()
 		defer a.mu.Unlock()

@@ -2,7 +2,7 @@
 // unifies component assembly, dependency resolution, lifecycle orchestration,
 // and shutdown coordination across all entry points (serve, start, SDK).
 //
-// The System Runtime is distinct from ares_runtime.Manager, which remains
+// The System Runtime is distinct from runtime.Manager, which remains
 // the Agent lifecycle subsystem. System Runtime owns the broader component
 // graph: EventStore, Memory, MCP, Flight, Evolution, Tools, HTTP, etc.
 package kernel

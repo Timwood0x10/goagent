@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Timwood0x10/ares/internal/ares_events"
-	ares_runtime "github.com/Timwood0x10/ares/internal/ares_runtime"
+	"github.com/Timwood0x10/ares/internal/runtime"
 )
 
 // mockEventStore implements EventStore for testing.
@@ -68,8 +68,8 @@ func TestExecute_KillAgent(t *testing.T) {
 
 func TestExecute_KillLeader(t *testing.T) {
 	rt := &mockRuntime{
-		listAgentsFn: func() []ares_runtime.AgentInfo {
-			return []ares_runtime.AgentInfo{
+		listAgentsFn: func() []runtime.AgentInfo {
+			return []runtime.AgentInfo{
 				{ID: "leader-1", Type: "leader"},
 			}
 		},

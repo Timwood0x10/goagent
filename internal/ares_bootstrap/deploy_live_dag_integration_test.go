@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	aresruntime "github.com/Timwood0x10/ares/internal/ares_runtime"
 	"github.com/Timwood0x10/ares/internal/evidence"
 	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
+	aresruntime "github.com/Timwood0x10/ares/internal/runtime"
 	"github.com/Timwood0x10/ares/internal/runtime/evolution/deployment"
 	"github.com/Timwood0x10/ares/internal/runtime/evolution/patch"
 )
@@ -18,7 +18,7 @@ import (
 // "observable change" acceptance test.
 //
 // It wires the production seam end to end: a live DAG registered at
-// ares_runtime.AgentDAGLiveKey, an engine.DAGPatchExecutor bound to that exact
+// runtime.AgentDAGLiveKey, an engine.DAGPatchExecutor bound to that exact
 // *MutableDAG installed as the patch registry's fallback, and a staging+live
 // deployment pipeline sharing that registry. A workflow structure patch (insert
 // a node) is pushed through Deploy, which must:

@@ -21,10 +21,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Timwood0x10/ares/internal/agents/base"
-	"github.com/Timwood0x10/ares/internal/ares_runtime"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	"github.com/Timwood0x10/ares/internal/evidence"
 	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
+	"github.com/Timwood0x10/ares/internal/runtime"
 	arena "github.com/Timwood0x10/ares/internal/runtime/arena"
 )
 
@@ -672,17 +672,17 @@ func stringOr(m map[string]any, key, fallback string) string {
 	return fallback
 }
 
-// arenaRuntimeProvider adapts the arena process's own ares_runtime.Manager to
+// arenaRuntimeProvider adapts the arena process's own runtime.Manager to
 // arena.RuntimeProvider. Manager implements the chaos methods natively
 // (manager_chaos.go); the explicit delegation keeps the adapter decoupled
 // from interface drift on either side.
-type arenaRuntimeProvider struct{ mgr *ares_runtime.Manager }
+type arenaRuntimeProvider struct{ mgr *runtime.Manager }
 
 func (p *arenaRuntimeProvider) StopAgent(ctx context.Context, agentID string) error {
 	return p.mgr.StopAgent(ctx, agentID)
 }
 
-func (p *arenaRuntimeProvider) ListAgents() []ares_runtime.AgentInfo {
+func (p *arenaRuntimeProvider) ListAgents() []runtime.AgentInfo {
 	return p.mgr.ListAgents()
 }
 
@@ -777,9 +777,9 @@ func (p *arenaDAGProvider) RemoveEdge(ctx context.Context, from, to string) erro
 //     backing component failed to construct, in which case the corresponding
 //     injections fail loudly (ErrRuntimeNil / ErrDAGNil) instead of silently
 //     reporting success against a pool that never started.
-//   - *ares_runtime.Manager: the demo agent pool (stopped by the caller).
-func buildArenaInjector() (*arena.Injector, *ares_runtime.Manager) {
-	mgr := ares_runtime.New(nil, nil, nil)
+//   - *runtime.Manager: the demo agent pool (stopped by the caller).
+func buildArenaInjector() (*arena.Injector, *runtime.Manager) {
+	mgr := runtime.New(nil, nil, nil)
 	for _, id := range []string{"arena-worker-1", "arena-worker-2", "arena-worker-3"} {
 		mgr.RegisterAgent(newArenaDemoAgent(id, "coder"), nil)
 	}

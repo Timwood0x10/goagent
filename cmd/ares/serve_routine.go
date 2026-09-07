@@ -20,12 +20,12 @@ import (
 	"github.com/Timwood0x10/ares/internal/ares_bootstrap"
 	"github.com/Timwood0x10/ares/internal/ares_config"
 	"github.com/Timwood0x10/ares/internal/ares_events"
-	"github.com/Timwood0x10/ares/internal/ares_runtime"
 	"github.com/Timwood0x10/ares/internal/ares_security"
 	"github.com/Timwood0x10/ares/internal/ares_shutdown"
 	"github.com/Timwood0x10/ares/internal/fabric/agent"
 	"github.com/Timwood0x10/ares/internal/introspect"
 	"github.com/Timwood0x10/ares/internal/llm/output"
+	"github.com/Timwood0x10/ares/internal/runtime"
 	evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
 	flight "github.com/Timwood0x10/ares/internal/runtime/observability/flight"
 )
@@ -174,7 +174,7 @@ func startServeHTTPAndHooks(
 	cfgStore *ares_config.ConfigStore,
 	controlServer *introspect.ControlServer,
 	intelEngine *introspect.Engine,
-	mgr *ares_runtime.Manager,
+	mgr *runtime.Manager,
 	registry *api_tools.Registry,
 	toolBinder sub.ToolBinder,
 	shutdownMgr *ares_shutdown.Manager,
