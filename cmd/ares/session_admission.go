@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
+	"strings"
 
 	"github.com/Timwood0x10/ares/internal/agentfabric"
 	"github.com/Timwood0x10/ares/internal/planprojection"
@@ -28,8 +29,24 @@ import (
 // task. Anything InitSession registered before the failure is released
 // again, so a retry starts clean.
 func ensureSessionAdmission(ctx context.Context, kernel *kernelHandle, sessionID, prompt string) error {
-	if kernel == nil || kernel.sessionReg == nil || sessionID == "" {
+	if kernel == nil || sessionID == "" {
 		return nil
+	}
+	// M4-D: single execution path. A session that cannot be admitted must
+	// fail fast — a session-scoped task without a live graph is unrunnable.
+	// (The old gate-off silent skip is gone with the gate.)
+	if kernel.sessionReg == nil {
+		return fmt.Errorf("peer mode: cannot admit session %q without a session registry", sessionID)
+	}
+	// P0-1b: a session ID containing "/" breaks the reaper keep-set —
+	// SessionIDFromNode reverse-parses at the first slash, so "a/b" maps
+	// its tasks back to a session "a" that is not live, and the reaper
+	// harvests a LIVE session's readable history once the grace window
+	// passes (the exact decision-C accident, triggered by pure client
+	// input). Reject at the admission boundary, same level as the empty
+	// ID; the registry enforces the same contract as a backstop.
+	if strings.Contains(sessionID, "/") {
+		return fmt.Errorf("peer mode: session id %q must not contain a slash", sessionID)
 	}
 	if _, err := kernel.sessionReg.GetSession(sessionID); err == nil {
 		return nil
@@ -61,16 +78,57 @@ func ensureSessionAdmission(ctx context.Context, kernel *kernelHandle, sessionID
 
 	// Compile the root task the planner's first quantum reads (or falls
 	// back to the payload input when still pending). An already-compiled
-	// root means a retried admission after a partial failure — adopt it.
+	// root means a retried admission after a partial failure — adopt it,
+	// but ONLY while that root is still live (P0-1c below).
 	rootStep := g.DAG().StepIndex()[g.Root()]
 	if _, err := kernel.fabric.CompileNode(liveCtx, planprojection.ProjectStep(rootStep)); err != nil {
 		if !errors.Is(err, taskfabric.ErrTaskExists) {
 			releaseSessionQuietly(kernel, sessionID)
 			return fmt.Errorf("peer mode: compile session %q root: %w", sessionID, err)
 		}
+		// P0-1c: an existing TERMINAL root does not belong to a retry — it
+		// belongs to a previous session that already released under this
+		// same ID (the natural client "continue the chat" behavior after
+		// an answer). Adopting it would hand the new turn the old prompt
+		// (rootCognition wrote its input into the envelope output) and let
+		// same-named node tasks resolve to old tool outputs read as fresh
+		// results — silently, with the keep-set then protecting the stale
+		// tasks forever. The registry just told us this session is NOT
+		// live, so no planner is reading those envelopes: harvest them
+		// (the reaper's job, done early) and recompile clean.
+		if stale, terr := kernel.fabric.Task(g.Root()); terr == nil &&
+			(stale.State == taskfabric.StateCompleted || stale.State == taskfabric.StateFailed) {
+			n := harvestReleasedSession(kernel.fabric, sessionID)
+			slog.InfoContext(liveCtx, "peer mode: session re-admitted after release, harvested stale tasks before recompiling root",
+				"session_id", sessionID, "harvested", n)
+			if _, err := kernel.fabric.CompileNode(liveCtx, planprojection.ProjectStep(rootStep)); err != nil {
+				releaseSessionQuietly(kernel, sessionID)
+				return fmt.Errorf("peer mode: recompile session %q root: %w", sessionID, err)
+			}
+		}
 	}
-	log.Printf("peer mode: admitted L2 session %q (root %q compiled)", sessionID, g.Root())
+	slog.InfoContext(liveCtx, "peer mode: admitted L2 session",
+		"session_id", sessionID, "root", g.Root())
 	return nil
+}
+
+// harvestReleasedSession deletes every harvestable task under a released
+// session's ID prefix (P0-1c): terminal (COMPLETED/FAILED) and READY tasks
+// go; in-flight ones (LEASED/RUNNING/SUSPENDED) are refused by Delete and
+// left for the reaper — they belong to work genuinely still running.
+// Returns the number of tasks removed.
+func harvestReleasedSession(fabric *taskfabric.Fabric, sessionID string) int {
+	prefix := agentfabric.SessionTaskPrefix(sessionID)
+	removed := 0
+	for _, id := range fabric.IDs() {
+		if !strings.HasPrefix(id, prefix) {
+			continue
+		}
+		if fabric.Delete(id) == nil {
+			removed++
+		}
+	}
+	return removed
 }
 
 // releaseSessionQuietly drops a half-admitted session during failure

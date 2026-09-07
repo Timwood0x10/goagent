@@ -58,7 +58,7 @@ func (d *kernelFabricDispatcher) D(ctx context.Context, agentID, taskID string, 
 
 // taskFromPayload builds a models.Task from the agentipc dispatch arguments.
 // The payload is a map carrying the task's AgentType (capability), its DAG
-// dependencies (Task Fabric gate,) and any opaque user
+// dependencies (Task Fabric gate) and any opaque user
 // data; absent metadata falls back to a default type.
 func taskFromPayload(taskID string, payload any) (*models.Task, error) {
 	if taskID == "" {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Timwood0x10/ares/api/core"
+	"github.com/Timwood0x10/ares/internal/agents"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	"github.com/Timwood0x10/ares/internal/planprojection"
 	"github.com/Timwood0x10/ares/internal/taskfabric"
@@ -380,4 +382,107 @@ func waitForTaskExists(t *testing.T, f *taskfabric.Fabric, id string, timeout ti
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatalf("task %q not found within %s", id, timeout)
+}
+
+// stubStrategySource is a fixed StrategySource for planner steering tests.
+type stubStrategySource struct {
+	st  *agents.ActiveStrategy
+	err error
+}
+
+func (s *stubStrategySource) GetActiveStrategy(context.Context) (*agents.ActiveStrategy, error) {
+	return s.st, s.err
+}
+
+// recordingChat captures the messages and params of each LLM call and
+// answers immediately (no tool calls) so the session terminates in one
+// plan quantum.
+type recordingChat struct {
+	mu     sync.Mutex
+	msgs   [][]*core.LLMMessage
+	params []map[string]any
+}
+
+func (c *recordingChat) Chat(_ context.Context, msgs []*core.LLMMessage, _ []core.Tool, params map[string]any) (*core.GenerateResponse, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.msgs = append(c.msgs, msgs)
+	c.params = append(c.params, params)
+	return &core.GenerateResponse{Content: "done"}, nil
+}
+
+// TestPlannerCognition_StrategySteersGrowth locks the M4-D actuator read:
+// a deployed strategy's prompt template rides a system message and its
+// params ride the LLM call. A nil source steers nothing.
+func TestPlannerCognition_StrategySteersGrowth(t *testing.T) {
+	newSteeredSession := func(t *testing.T, src agents.StrategySource, chat *recordingChat) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		const sessionID = "strategy-test"
+		fabric := taskfabric.NewFabric()
+		coord := planprojection.NewCompileCoordinator(fabric, nil)
+		reg := NewSessionRegistry()
+		g, err := reg.InitSession(ctx, sessionID, "find it", nil,
+			func(_ context.Context, dag *engine.MutableDAG) (stop func()) {
+				return coord.SubscribeGraphEvents(ctx, dag)
+			})
+		require.NoError(t, err)
+		rootStep := g.DAG().StepIndex()[g.Root()]
+		_, err = fabric.CompileNode(ctx, planprojection.ProjectStep(rootStep))
+		require.NoError(t, err)
+		driveTaskToCompleted(t, ctx, fabric, g.Root(), "find it")
+
+		planner, err := NewPlannerCognition(PlannerDeps{
+			ChatClient:     chat,
+			ToolBinder:     &plannerTestBinder{},
+			Sessions:       reg,
+			Fabric:         fabric,
+			StrategySource: src,
+			Logger:         slog.Default(),
+		})
+		require.NoError(t, err)
+
+		planTask := models.NewTask(SessionNodeID(sessionID, 0, "plan", 0), models.AgentType("ares/plan"), nil)
+		planTask.SessionID = sessionID
+		planTask.Payload = map[string]any{"input": "find it", planMetadataKey: sessionID}
+		out, err := planner.ExecuteStep(ctx, planTask)
+		require.NoError(t, err)
+		require.True(t, out.Done)
+		require.NoError(t, reg.ReleaseSession(sessionID))
+	}
+
+	t.Run("deployed strategy steers prompt and params", func(t *testing.T) {
+		chat := &recordingChat{}
+		newSteeredSession(t, &stubStrategySource{st: &agents.ActiveStrategy{
+			ID:     "s1",
+			Prompt: "PREFER GREP OVER READ",
+			Params: map[string]any{"temperature": 0.1},
+		}}, chat)
+
+		chat.mu.Lock()
+		defer chat.mu.Unlock()
+		require.Len(t, chat.msgs, 1)
+		var sawStrategy bool
+		for _, m := range chat.msgs[0] {
+			if m.Role == "system" && strings.Contains(m.Content, "PREFER GREP OVER READ") && strings.Contains(m.Content, "s1") {
+				sawStrategy = true
+			}
+		}
+		require.True(t, sawStrategy, "strategy prompt must ride a system message")
+		require.Equal(t, 0.1, chat.params[0]["temperature"], "strategy params must ride the LLM call")
+	})
+
+	t.Run("nil source steers nothing", func(t *testing.T) {
+		chat := &recordingChat{}
+		newSteeredSession(t, nil, chat)
+
+		chat.mu.Lock()
+		defer chat.mu.Unlock()
+		require.Len(t, chat.msgs, 1)
+		for _, m := range chat.msgs[0] {
+			require.NotContains(t, m.Content, "evolution strategy",
+				"no strategy system message without a source")
+		}
+	})
 }

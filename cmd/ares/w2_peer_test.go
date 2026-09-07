@@ -124,7 +124,7 @@ func TestW2Case2AutonomousDecomposition(t *testing.T) {
 
 	// Two agents: A (orchestrator) and B (worker).
 	agentA := &w2StubAgent{id: "agent-A", typ: models.AgentType("orchestrator")}
-	agentB := &w2StubAgent{id: "agent-B", typ: models.AgentType("coder")}
+	agentB := &w2StubAgent{id: "agent-B", typ: models.AgentType("tool/coder")}
 	executors := map[string]CapabilityExecutor{
 		"agent-A": agentA,
 		"agent-B": agentB,
@@ -150,7 +150,7 @@ func TestW2Case2AutonomousDecomposition(t *testing.T) {
 	// Kernel path stamps provenance ("B.origin = A").
 	subTaskPayload := map[string]any{"task_desc": "write unit tests for module X"}
 	taskResult, err := kernelSyscall.CreateTask(kctx.WithCallerID(ctx, "agent-A"), agentsyscall.CreateTaskArgs{
-		Capability: "coder",
+		Capability: "tool/coder",
 		Payload:    subTaskPayload,
 	})
 	if err != nil {
@@ -224,7 +224,7 @@ func TestW2Case3ParentDeathChildContinues(t *testing.T) {
 	// Kernel attributes the sub-task to it.
 	kernelSyscall := agentsyscall.NewKernel(agentsFab, fabric, nil, nil)
 	taskResult, err := kernelSyscall.CreateTask(kctx.WithCallerID(ctx, "parent-A"), agentsyscall.CreateTaskArgs{
-		Capability: "coder",
+		Capability: "tool/coder",
 		Payload:    map[string]any{"task_desc": "review code"},
 	})
 	if err != nil {
@@ -240,7 +240,7 @@ func TestW2Case3ParentDeathChildContinues(t *testing.T) {
 	}
 
 	// Register a worker agent that can execute the "coder" task.
-	worker := &w2StubAgent{id: "worker-B", typ: models.AgentType("coder")}
+	worker := &w2StubAgent{id: "worker-B", typ: models.AgentType("tool/coder")}
 	executors := map[string]CapabilityExecutor{"worker-B": worker}
 	tracker := newLoadTracker()
 	sched := NewKernelScheduler(fabric, executors, tracker)

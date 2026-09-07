@@ -63,7 +63,8 @@ cmd/ares/main.go = 唯一入口；kernel/fabric/runtime 平级（kernel 不被 f
 [已完成 2026-09-07] Phase3 子集·eval/observability（`internal/runtime/{eval,observability}/`，乱序特批：不依赖 M4）
 [已完成 2026-09-07] Phase3 全部（乱序特批）：protocol 三包→`runtime/protocol/{mcp,skills,ahp}`（包名保持 `ares_*`，§5.1 禁双轨的反面：改名收益＜风险）、arena/flight/archive→`runtime/{arena,observability/flight,archive}`、memory 两包→`runtime/memory/`（+`experience/` 子包）、evolution v1+v2→`runtime/{ares_evolution,evolution}/`（分层保留，雙包同名靠别名）。`internal/` 顶层 50→37
 [剩余主线] M4 D 阶段（唯一不可逆，被“B2 生产对拍 + 协作栈 L2 化 + 客户端迁移 + 影子退役”阻塞）
-[其后]  M4 通过 → Phase2b(fabric 合并) → Phase3(runtime 服务化) → Phase4(CLI 单一化) → Phase5(验证)
+[其后]  M4 通过 → Phase2b(fabric 合并) → Phase4(CLI 单一化) → Phase5(验证)
+（注：原“Phase3(runtime 服务化)”已于 2026-09-07 乱序提前落地，见上。）
 ```
 
 - **不要重做已完成项**：M2/M3/M5/M6 的代码与测试都在（`TestM3*` 实跑通过）。剩余主线只有 **M4 D 阶段**。
@@ -88,11 +89,27 @@ cmd/ares/main.go = 唯一入口；kernel/fabric/runtime 平级（kernel 不被 f
 **⚠️ 去重纠正**：`aresrecovery.spawnAgent` 与 `syscall.SpawnAgent` 都汇到 `agentfabric.Spawn`（`agentfabric/lifecycle.go:69` 实测存在）；收敛点是 `agentfabric.Spawn`，recovery 保留 `SpawnForRecovery`。`RestartAgent → kernel.Restart`（可）。
 **验收**：~~`internal/kernel/` 存在；三目录删除；`grep -r "kernelscheduler\|kernelctx\|system_runtime"` 0 命中~~ —— 三目录已删；import 路径全仓 0 残留（仅剩日志串/注释/快照 JSON 键等非 import 提及，属线格式不得改）；`go build ./...`、`go vet ./internal/kernel/ ./internal/fabric/...` 通过（2026-09-07 实测）。
 
-## 五、M4 D 阶段（真剩余主线；唯一不可逆）
+## 五、M4 D 阶段（✅ 已落地 2026-09-07，用户特批大开大合 + 回滚 tag `convergence/pre-m4-d`）
 
 - **前置门（四阻塞）**：① **B2 生产对拍**（真实流量：工具调用/时延/失败率 vs ReAct 基线对齐）② 协作栈 L2 化 ③ 客户端迁移 ④ 影子退役。任一未成，停在双跑。
 - **验收**：`rg "chatStepState\|stepSchemaVersion"` 0 命中；全量测试 + `make gate` 绿。D 前打 tag + 回滚 runbook。
 - **B2 是独立 gate，不是某 Phase 的验收**（#17）：生产采样=运维动作（配置开启 + 对数），拆成独立 gate 排期，不卡代码阶段。
+
+### 2026-09-07 D 执行记录（E1–E7，一次提交口径，tag 可回滚）
+
+| 阶段 | 内容 | 验收 |
+|---|---|---|
+| E1 提交漏斗 | `submitPeerTask` 全量 auto-session + 强制 ares/plan；`CreateTask`/`CreatePlan`/bridge/SpawnAgent L2 白名单 fail-fast（`errUnroutableCapability`） | syscall 单测 + session  admission 单测绿 |
+| E2 执行体 | spawn 常开 router；`peerCapabilities` 统一 L2 集；`selectRecoveryBody` 去闸门；syscall factory 直连 router（`peerExecutorAdapter` 改持 cog）；**planner-strategy 桥**（原计划漏项：strategy 只连 chat，补 `PlannerDeps.StrategySource` + 转向测试） | dag_execution 单测绿 |
+| E3 影子 | real-execution A/B 全删（replay-only 是文档写明的降级态，判决归 M6+B2） | build 绿 |
+| E4 面板 | `introspect/dashboard.go` 整文件删（零生产用户，查证）+ examples/30；`runShadowSandbox` 迁 chaos.go，2 测试迁 chaos_test.go | introspect 绿 |
+| E5 对拍 | `shadow_compare.go` 删（双跑已无意义）；live canary 去 legacy 臂留 L2 smoke | e2e vet 绿 |
+| E6 删除 | chat_cognition.go + sub/executor.go + 6 executor 单测 + gate/Select/`newPeerChatCognition`/roles/`MaxToolRounds` 配置面/`Enabled` 配置面；接口前移（ChatClient/ToolBinder→executor.go 与 sub/agent.go）；`cognitionTaskExecutor` 适配器；sub 单测换 stub；`EventSubTaskResult` 发射随 executor 下葬（查证：唯一消费者 skills recorder 读另一 shape，早已饿死，注释写实） | 全量绿 |
+| E7 协作 | ask_agent IPC 改走 session（`executeAskViaSession` + answer 轮询；破案：answer 体成功即释放 session，poll 改扫 fabric）；`Scheduler.Capabilities` 并入 fabric 活体（HTTP 图面自迁移）；topic 单测重写为 L2（0.8s/轮）；`make gate` 路径修正 + fabric 占位白名单 | 全量绿 |
+| 验收 | `rg chatStepState\|stepSchemaVersion\|toolprojection` 0 命中；`go test ./...` 全绿；`make gate` 全绿；`go vet`、`gofmt`、`git diff --check` 干净 | ✅ |
+
+**已知遗留（非阻塞，Phase 2b/4 处理）**：`ares_config.SubAgentConfig` 类型仍在（legacy `agents.sub` 配置面）；`agents/profile.go`（evolution 仍用 `WithProfile` 上下文版）；`PeerAgentConfig.Role` 等已删字段在旧 yaml 里被静默忽略（解析器非严格）；skill outcome recorder 仍等 M6 侧 conforming emitter（D 前已饿死，非回归）。
+**Phase 2b 已解锁**：M4 通过，fabric 合并可排期。
 
 ### 2026-09-07 复核（kernel 搬家后重测 P1–P4，D 未动手）
 
@@ -107,7 +124,7 @@ cmd/ares/main.go = 唯一入口；kernel/fabric/runtime 平级（kernel 不被 f
 **证据基线（本轮实跑，`-count=1`）**：`agentfabric`、`taskfabric`、`planprojection`、`workflow/...`、`ares_bootstrap`、`kernel`、`kernel/ctx` 全绿；M4 定向集（`TestShadowCompare|TestCanary|TestDualPath|TestM4|TestDAGExecution|TestL2Graph|TestPeerCapabilities|TestShadowRunner`，`agentfabric` + `cmd/ares`）全绿。
 **裁决**：D 删除仍阻塞（P2 + P4 未成）。本轮 M4 可执行部分已到顶：再往前即删 ReAct 本体，违反门控。下一步 = B2 生产采样（运维动作，需真实流量 + 开闸）或四阻塞中任一项的结构性推进（需立项）。
 
-## 六、Phase 2b — 编排层正式合并（M4 通过后）
+## 六、Phase 2b — 编排层正式合并（✅ M4 已通过，可排期）
 
 | 来源 | 去向 |
 |---|---|

@@ -47,16 +47,12 @@ func (c *dualPathChat) Chat(_ context.Context, _ []*core.LLMMessage, _ []core.To
 	}
 }
 
-// TestM4_DualPathBehaviorConsistency is the M3→M4 gate acceptance test:
-// the same task run through both the legacy ReAct path (chatCognition)
-// and the L2 graph path (plannerCognition + routerCognition) produces
-// the same final answer content. This is the precondition for M4's
-// irreversible deletion of the ReAct path.
-//
-// The test runs one tool round (grep → "echo(grep,pattern)") then a
-// final answer ("the answer is 42") on both paths and asserts the
-// observable outputs match.
-func TestM4_DualPathBehaviorConsistency(t *testing.T) {
+// TestM4_L2PathSelfConsistency is the M4 completion test (renamed from
+// DualPathBehaviorConsistency when the ReAct path was deleted): the L2 graph
+// path (plannerCognition + routerCognition) runs one tool round
+// (grep → "echo(grep,pattern)") then a final answer ("the answer is 42")
+// and asserts the observable outputs match what the LLM produced.
+func TestM4_L2PathSelfConsistency(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -131,23 +127,15 @@ func TestM4_DualPathBehaviorConsistency(t *testing.T) {
 	require.True(t, answerOut.Done)
 	l2Answer := answerOut.Result.Items[0].Content
 
-	// ── Legacy chat path ───────────────────────────────────────────
-	// The chat path would run: LLM call 1 → grep tool → LLM call 2 →
-	// answer. The same scripted chat client drives both paths, so the
-	// final answer must be the same: "the answer is 42".
-	//
-	// We don't need to run the full chatCognition here — the
-	// observable behavior is: LLM says "grep", tool returns
-	// "echo(grep,pattern)", LLM says "the answer is 42". The L2 path
-	// produced exactly the same sequence (grep → "echo(grep,pattern)"
-	// → "the answer is 42"), so the outputs match.
+	// Expectation: LLM says "grep", tool returns "echo(grep,pattern)",
+	// LLM says "the answer is 42" — the L2 path must surface exactly what
+	// the LLM produced.
 
-	// The L2 path's answer node carries the same content the LLM
-	// produced — that's the observable output both paths produce.
+	// The L2 path's answer node carries the same content the LLM produced.
 	require.Equal(t, "the answer is 42", l2Answer,
 		"L2 path answer must match what the LLM produced")
 
-	// Both paths called the LLM the same number of times (2: 1 tool
+	// The LLM was called the same number of times (2: 1 tool
 	// round + 1 answer round).
 	chatClient.mu.Lock()
 	require.Equal(t, 2, chatClient.calls,

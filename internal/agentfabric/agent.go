@@ -7,7 +7,7 @@ import (
 )
 
 // AgentState is the lifecycle state of a managed Agent (design §3 of
-// ares-runtime.md: disposable execution).
+// ares-runtime: disposable execution).
 type AgentState string
 
 const (

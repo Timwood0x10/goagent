@@ -187,10 +187,9 @@ func ApplyPriorHint(prompt, hint string) string {
 // (meaning "all tools allowed"). Names are parsed by ToolNamesFromParams, so
 // the set and the guardrail's count can never disagree.
 //
-// This is the Y.3-ACT wiring point: the execution bodies (sub executor,
-// agentfabric chatCognition, agentloop engine) call this on the params they
-// received from renderPromptAndParams to filter which ToolSchemas reach the
-// LLM. Filtering happens BEFORE the LLM sees the tool list, not at CallTool
+// This is the Y.3-ACT wiring point: the execution bodies (planner cognition,
+// agentloop engine) call this on the params they received to filter which
+// ToolSchemas reach the LLM. Filtering happens BEFORE the LLM sees the tool list, not at CallTool
 // time — letting the model see a tool and then rejecting the call wastes a
 // round and pollutes the not_found metric (code_rules_v2 §5.3).
 func ToolWhitelistFromParams(params map[string]any) map[string]bool {

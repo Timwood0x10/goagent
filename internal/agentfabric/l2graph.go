@@ -16,9 +16,8 @@ import (
 // engine.MutableDAG whose nodes are TOOL INSTANCES — one node per actual tool
 // execution — together with the session root that carries the durable,
 // session-invariant prompt/params. It is an independent, testable container
-// over a frozen tool DAG, and it is not yet wired into the production serve
-// path — until it is, peers keep their default ReAct chatCognition and this
-// graph stays test-only.
+// over a frozen tool DAG, and it is the production serve path (M4-D: peers
+// run the L2 router; the ReAct loop is deleted).
 //
 // The L2 graph is a first-class engine.MutableDAG so it reuses every workflow
 // primitive (topological order, patch/differ, node Metadata) and so evolution
@@ -234,28 +233,6 @@ func (g *L2Graph) AddToolNode(ctx context.Context, id, tool string, args map[str
 		return fmt.Errorf("agentfabric: add tool node %q: %w", id, err)
 	}
 	return nil
-}
-
-// DAGExecution gates the L2 session-graph execution path. The zero value is
-// the legacy ReAct behavior: the peer cognition factory returns the chat
-// (tool-loop) cognition and the L2 graph machinery stays test-only. Enabled
-// selects the router cognition that executes the tool/answer/root nodes grown
-// on the session L2 graph. The gate defaults off so shipped behavior is
-// unchanged.
-type DAGExecution struct {
-	// Enabled selects the L2 session-graph execution body over the ReAct loop.
-	Enabled bool
-}
-
-// Select returns the production execution body for one peer agent: the router
-// cognition when the gate is open, the chat (ReAct tool-loop) cognition
-// otherwise. Both bodies implement Cognition, so the switch is a pure
-// function of the gate — no new dispatch mechanism.
-func (g DAGExecution) Select(chat, router Cognition) Cognition {
-	if g.Enabled {
-		return router
-	}
-	return chat
 }
 
 // routerCognition dispatches ONE agent's quantum to the sub-cognition named by

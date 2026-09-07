@@ -222,11 +222,12 @@ func (s *Scheduler) allExecutors() map[string]CapabilityExecutor {
 	return out
 }
 
-// Capabilities lists the distinct executor types across the registry. The
-// graph-submission endpoint uses it to reject requests no peer can serve.
+// Capabilities lists the distinct executor types across the registry AND the
+// live agent fabric. The graph-submission endpoint uses it to reject requests
+// no peer can serve. M4-D: the static pool is empty in production (fabric
+// only), so without the fabric half this would report nothing routable.
 func (s *Scheduler) Capabilities() []string {
 	s.execMu.RLock()
-	defer s.execMu.RUnlock()
 	set := make(map[string]bool, len(s.executors))
 	out := make([]string, 0, len(s.executors))
 	for _, ex := range s.executors {
@@ -237,6 +238,24 @@ func (s *Scheduler) Capabilities() []string {
 		if !set[c] {
 			set[c] = true
 			out = append(out, c)
+		}
+	}
+	agents := s.agents
+	s.execMu.RUnlock()
+	// Fabric half outside the registry lock (established pattern: the drain
+	// paths also call into the fabric without holding execMu).
+	if agents != nil {
+		for _, id := range agents.Agents() {
+			a, err := agents.Get(id)
+			if err != nil || a == nil {
+				continue
+			}
+			for _, c := range a.Capabilities {
+				if !set[c] {
+					set[c] = true
+					out = append(out, c)
+				}
+			}
 		}
 	}
 	return out

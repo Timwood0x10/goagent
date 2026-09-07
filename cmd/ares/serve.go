@@ -298,8 +298,8 @@ func runServe() error {
 	// Step Y.3: arm the tool-call perception channel. The decorator wraps the
 	// binder AFTER the planner bridge is attached, so planner-resolved calls are
 	// measured too, and it is applied at the single site every execution body
-	// (sub executor and agentfabric ChatCognition) receives its binder from —
-	// instrumenting either loop instead would leave the other blind. A nil
+	// receives its binder from — instrumenting the cognition loop instead
+	// would miss calls resolved elsewhere. A nil
 	// recorder (channel not armed — the default) returns the binder untouched.
 	if comp.NewEvolution != nil && comp.NewEvolution.ChannelFeedback.ToolCallsArmed() {
 		toolBinder = sub.ObserveToolCalls(toolBinder, comp.NewEvolution.ChannelFeedback)

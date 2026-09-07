@@ -12,7 +12,6 @@ import (
 
 	"github.com/Timwood0x10/ares/internal/ares_events"
 	"github.com/Timwood0x10/ares/internal/core/models"
-	"github.com/Timwood0x10/ares/internal/llm/output"
 	"github.com/Timwood0x10/ares/internal/runtime/protocol/ahp"
 )
 
@@ -22,95 +21,26 @@ const (
 	TestTaskID  = "task-1"
 )
 
-func TestTaskExecutor_Execute_NilTask_ReturnsError(t *testing.T) {
-	executor := NewTaskExecutor(
-		nil,                        // toolBinder
-		nil,                        // llmAdapter
-		output.NewTemplateEngine(), // template
-		"{{.category}}",            // promptTpl
-		output.NewValidator(),      // validator
-		3,                          // maxRetries
-	)
-
-	result, err := executor.Execute(context.Background(), nil)
-	require.NoError(t, err)
-	assert.False(t, result.Success, "Execute() should fail for nil task")
+// stubExecutor is a scripted TaskExecutor for subAgent lifecycle tests
+// (M4-D: replaces the deleted ReAct tool loop in test setups). It reports
+// one scripted successful result; failure paths use failingExecutor.
+type stubExecutor struct {
+	result *models.TaskResult
 }
 
-func TestTaskExecutor_Execute_NilLLMAdapter_ReturnsFallbackSuccess(t *testing.T) {
-	// When llmAdapter is nil, executeByType is called as fallback.
-	// Without registered handlers, executeByType returns an empty result (graceful degradation).
-	executor := NewTaskExecutor(
-		nil,
-		nil,
-		output.NewTemplateEngine(),
-		"{{.category}}",
-		output.NewValidator(),
-		3,
-	)
-
-	task := models.NewTask("task_1", models.AgentTypeTop, &models.UserProfile{})
-
-	result, err := executor.Execute(context.Background(), task)
-	require.NoError(t, err)
-	assert.True(t, result.Success, "Execute() should succeed with empty fallback result")
+func newStubExecutor() *stubExecutor {
+	res := models.NewTaskResult("stub-task", models.AgentTypeTop)
+	res.Success = true
+	return &stubExecutor{result: res}
 }
 
-func TestTaskExecutor_Execute_NilProfile_ReturnsFallbackSuccess(t *testing.T) {
-	// When task has no UserProfile and no LLM adapter, fallback is used.
-	executor := NewTaskExecutor(
-		nil,
-		nil,
-		output.NewTemplateEngine(),
-		"{{.category}}",
-		output.NewValidator(),
-		3,
-	)
-
-	task := models.NewTask("task_1", models.AgentTypeTop, nil)
-
-	result, err := executor.Execute(context.Background(), task)
-	require.NoError(t, err)
-	assert.True(t, result.Success, "Execute() should return empty fallback, not error")
+// Execute implements TaskExecutor.
+func (e *stubExecutor) Execute(context.Context, *models.Task) (*models.TaskResult, error) {
+	return e.result, nil
 }
 
-func TestExecuteByType_RegisteredHandler_ReturnsHandlerResult(t *testing.T) {
-	executor := NewTaskExecutor(
-		nil,
-		nil,
-		output.NewTemplateEngine(),
-		"{{.category}}",
-		output.NewValidator(),
-		3,
-	)
-
-	// Register a handler for this type
-	executor.RegisterFallback(models.AgentTypeTop, func(ctx context.Context, task *models.Task) ([]*models.RecommendItem, string, error) {
-		return []*models.RecommendItem{{ItemID: "fallback-item"}}, "registered handler", nil
-	})
-
-	task := models.NewTask("task_1", models.AgentTypeTop, nil)
-	result, err := executor.Execute(context.Background(), task)
-	require.NoError(t, err)
-	assert.True(t, result.Success)
-	assert.Equal(t, "registered handler", result.Reason)
-}
-
-func TestExecuteByType_UnknownType_ReturnsEmptySuccess(t *testing.T) {
-	executor := NewTaskExecutor(
-		nil,
-		nil,
-		output.NewTemplateEngine(),
-		"{{.category}}",
-		output.NewValidator(),
-		3,
-	)
-
-	task := models.NewTask("task_test", models.AgentType("unknown_agent_type"), nil)
-
-	result, err := executor.Execute(context.Background(), task)
-	require.NoError(t, err)
-	assert.True(t, result.Success, "Execute() should return empty fallback for unknown types, not error")
+// RegisterFallback implements TaskExecutor. No-op: no fallback loop.
+func (e *stubExecutor) RegisterFallback(models.AgentType, FallbackHandler) {
 }
 
 func TestMessageHandler_Handle(t *testing.T) {
@@ -172,14 +102,7 @@ func TestHeartbeatSender_StartStop(t *testing.T) {
 }
 
 func TestSubAgent_New(t *testing.T) {
-	executor := NewTaskExecutor(
-		nil,
-		nil,
-		output.NewTemplateEngine(),
-		"{{.category}}",
-		output.NewValidator(),
-		3,
-	)
+	executor := newStubExecutor()
 	handler := NewMessageHandler(TestAgentID)
 
 	agent := New(TestAgentID, models.AgentTypeTop, executor, handler, nil, nil, nil)
@@ -201,14 +124,7 @@ func TestSubAgent_DefaultConfig(t *testing.T) {
 }
 
 func TestSubAgent_StartStop(t *testing.T) {
-	executor := NewTaskExecutor(
-		nil,
-		nil,
-		output.NewTemplateEngine(),
-		"{{.category}}",
-		output.NewValidator(),
-		3,
-	)
+	executor := newStubExecutor()
 	handler := NewMessageHandler(TestAgentID)
 
 	agent := New(TestAgentID, models.AgentTypeTop, executor, handler, nil, nil, nil)
@@ -247,14 +163,7 @@ func TestSubAgent_StartStop(t *testing.T) {
 }
 
 func TestSubAgent_Process(t *testing.T) {
-	executor := NewTaskExecutor(
-		nil,
-		nil,
-		output.NewTemplateEngine(),
-		"{{.category}}",
-		output.NewValidator(),
-		3,
-	)
+	executor := newStubExecutor()
 	handler := NewMessageHandler(TestAgentID)
 
 	agent := New(TestAgentID, models.AgentTypeTop, executor, handler, nil, nil, nil)
@@ -269,14 +178,7 @@ func TestSubAgent_Process(t *testing.T) {
 }
 
 func TestSubAgent_SendReceiveMessage(t *testing.T) {
-	executor := NewTaskExecutor(
-		nil,
-		nil,
-		output.NewTemplateEngine(),
-		"{{.category}}",
-		output.NewValidator(),
-		3,
-	)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 	queue := ahp.NewMessageQueue(TestAgentID, &ahp.QueueOptions{MaxSize: 10})
 
@@ -305,14 +207,7 @@ func TestSubAgent_SendReceiveMessage(t *testing.T) {
 }
 
 func TestSubAgent_Heartbeat(t *testing.T) {
-	executor := NewTaskExecutor(
-		nil,
-		nil,
-		output.NewTemplateEngine(),
-		"{{.category}}",
-		output.NewValidator(),
-		3,
-	)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 	hbMon := ahp.NewHeartbeatMonitor(ahp.DefaultHeartbeatConfig())
 
@@ -337,14 +232,7 @@ func TestSubAgent_Heartbeat(t *testing.T) {
 }
 
 func TestSubAgent_Execute(t *testing.T) {
-	executor := NewTaskExecutor(
-		nil,
-		nil,
-		output.NewTemplateEngine(),
-		"{{.category}}",
-		output.NewValidator(),
-		3,
-	)
+	executor := newStubExecutor()
 	handler := NewMessageHandler(TestAgentID)
 
 	agent := New(TestAgentID, models.AgentTypeTop, executor, handler, nil, nil, nil)
@@ -413,8 +301,7 @@ func TestMessageHandler_HandleAckMessage(t *testing.T) {
 func TestSubAgent_ImplementsStatefulAgent(t *testing.T) {
 	// Compile-time check is enforced by the package-level var declaration.
 	// This test verifies the interface at runtime as well.
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil, nil)
@@ -428,8 +315,7 @@ func TestSubAgent_ImplementsStatefulAgent(t *testing.T) {
 }
 
 func TestSubAgent_RestoreState_NilState(t *testing.T) {
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil, nil)
@@ -441,8 +327,7 @@ func TestSubAgent_RestoreState_NilState(t *testing.T) {
 }
 
 func TestSubAgent_RestoreState_ValidStatus(t *testing.T) {
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil, nil)
@@ -456,8 +341,7 @@ func TestSubAgent_RestoreState_ValidStatus(t *testing.T) {
 }
 
 func TestSubAgent_RestoreState_EmptyStatusIgnored(t *testing.T) {
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil, nil)
@@ -472,8 +356,7 @@ func TestSubAgent_RestoreState_EmptyStatusIgnored(t *testing.T) {
 }
 
 func TestSubAgent_RestoreState_IgnoresNonStringStatus(t *testing.T) {
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil, nil)
@@ -488,8 +371,7 @@ func TestSubAgent_RestoreState_IgnoresNonStringStatus(t *testing.T) {
 }
 
 func TestSubAgent_RestoreState_IgnoresExtraKeys(t *testing.T) {
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil, nil)
@@ -504,8 +386,7 @@ func TestSubAgent_RestoreState_IgnoresExtraKeys(t *testing.T) {
 }
 
 func TestSubAgent_RestoreState_EmptyMap(t *testing.T) {
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil, nil)
@@ -517,8 +398,7 @@ func TestSubAgent_RestoreState_EmptyMap(t *testing.T) {
 }
 
 func TestSubAgent_ReplayEvents_Empty(t *testing.T) {
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil, nil)
@@ -532,8 +412,7 @@ func TestSubAgent_ReplayEvents_Empty(t *testing.T) {
 }
 
 func TestSubAgent_ReplayEvents_NilEventSkipped(t *testing.T) {
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil, nil)
@@ -544,8 +423,7 @@ func TestSubAgent_ReplayEvents_NilEventSkipped(t *testing.T) {
 }
 
 func TestSubAgent_ReplayEvents_TaskCompleted(t *testing.T) {
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil, nil)
@@ -571,8 +449,7 @@ func TestSubAgent_ReplayEvents_TaskCompleted(t *testing.T) {
 }
 
 func TestSubAgent_ReplayEvents_UnknownEventTypeIgnored(t *testing.T) {
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil, nil)
@@ -596,8 +473,7 @@ func TestSubAgent_ReplayEvents_UnknownEventTypeIgnored(t *testing.T) {
 }
 
 func TestSubAgent_Snapshot_OfflineStatus(t *testing.T) {
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil, nil)
@@ -610,8 +486,7 @@ func TestSubAgent_Snapshot_OfflineStatus(t *testing.T) {
 }
 
 func TestSubAgent_Snapshot_ReadyStatus(t *testing.T) {
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil, nil)
@@ -626,8 +501,7 @@ func TestSubAgent_Snapshot_ReadyStatus(t *testing.T) {
 }
 
 func TestSubAgent_Snapshot_ReturnsCopy(t *testing.T) {
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil, nil)
@@ -644,8 +518,7 @@ func TestSubAgent_Snapshot_ReturnsCopy(t *testing.T) {
 
 func TestSubAgent_WithEventStore(t *testing.T) {
 	store := ares_events.NewMemoryEventStore()
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	agent := New(TestAgentID, models.AgentTypeTop, executor, handler, nil, nil, nil,
@@ -657,8 +530,7 @@ func TestSubAgent_WithEventStore(t *testing.T) {
 
 func TestSubAgent_EmitEvent_WithStore(t *testing.T) {
 	store := ares_events.NewMemoryEventStore()
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	agent := New(TestAgentID, models.AgentTypeTop, executor, handler, nil, nil, nil,
@@ -679,8 +551,7 @@ func TestSubAgent_EmitEvent_WithStore(t *testing.T) {
 }
 
 func TestSubAgent_EmitEvent_NilStore(t *testing.T) {
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	agent := New(TestAgentID, models.AgentTypeTop, executor, handler, nil, nil, nil)
@@ -694,8 +565,7 @@ func TestSubAgent_EmitEvent_NilStore(t *testing.T) {
 
 func TestSubAgent_EmitEvent_NilPayload(t *testing.T) {
 	store := ares_events.NewMemoryEventStore()
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil, nil,
@@ -713,8 +583,7 @@ func TestSubAgent_EmitEvent_NilPayload(t *testing.T) {
 }
 
 func TestSubAgent_RestoreAndSnapshot_Roundtrip(t *testing.T) {
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil, nil)
@@ -735,8 +604,7 @@ func TestSubAgent_RestoreAndSnapshot_Roundtrip(t *testing.T) {
 
 func TestSubAgent_StatefulAgent_ConcurrentAccess(t *testing.T) {
 	store := ares_events.NewMemoryEventStore()
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil, nil,
@@ -779,8 +647,7 @@ func (e *failingExecutor) RegisterFallback(_ models.AgentType, _ FallbackHandler
 
 func TestSubAgent_Start_EmitsAgentStartedEvent(t *testing.T) {
 	store := ares_events.NewMemoryEventStore()
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil, nil,
@@ -799,8 +666,7 @@ func TestSubAgent_Start_EmitsAgentStartedEvent(t *testing.T) {
 
 func TestSubAgent_Stop_EmitsAgentStoppedEvent(t *testing.T) {
 	store := ares_events.NewMemoryEventStore()
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil, nil,
@@ -822,8 +688,7 @@ func TestSubAgent_Stop_EmitsAgentStoppedEvent(t *testing.T) {
 
 func TestSubAgent_Execute_Success_EmitsTaskEvents(t *testing.T) {
 	store := ares_events.NewMemoryEventStore()
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil, nil,
@@ -873,8 +738,7 @@ func TestSubAgent_Execute_Failure_EmitsTaskFailedEvent(t *testing.T) {
 
 func TestSubAgent_ProcessStream_EmitsTaskEvents(t *testing.T) {
 	store := ares_events.NewMemoryEventStore()
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil, nil,
@@ -892,23 +756,20 @@ func TestSubAgent_ProcessStream_EmitsTaskEvents(t *testing.T) {
 	}
 
 	// Events: EventAgentStarted (from Start), EventTaskCreated, EventTaskCompleted.
+	// (M4-D: the executor-defer EventSubTaskResult died with the tool loop.
+	// No production consumer matched its shape — the skills recorder reads
+	// Payload["task"]/["success"], which that event never carried.)
 	evts, err := store.Read(context.Background(), "sub1", ares_events.ReadOptions{})
 	require.NoError(t, err)
-	require.Len(t, evts, 4)
+	require.Len(t, evts, 3)
 
 	assert.Equal(t, ares_events.EventAgentStarted, evts[0].Type)
 	assert.Equal(t, ares_events.EventTaskCreated, evts[1].Type)
 	assert.Equal(t, "task-stream-1", evts[1].Payload["task_id"])
 	assert.Equal(t, "sub1", evts[1].Payload["agent_id"])
 
-	// W2: the executor's defer emits EventSubTaskResult before the agent layer
-	// publishes the terminal EventTaskCompleted.
-	assert.Equal(t, ares_events.EventSubTaskResult, evts[2].Type)
+	assert.Equal(t, ares_events.EventTaskCompleted, evts[2].Type)
 	assert.Equal(t, "task-stream-1", evts[2].Payload["task_id"])
-	assert.Equal(t, "success", evts[2].Payload["status"])
-
-	assert.Equal(t, ares_events.EventTaskCompleted, evts[3].Type)
-	assert.Equal(t, "task-stream-1", evts[3].Payload["task_id"])
 }
 
 func TestSubAgent_ProcessStream_Failure_EmitsTaskFailedEvent(t *testing.T) {
@@ -945,8 +806,7 @@ func TestSubAgent_ProcessStream_Failure_EmitsTaskFailedEvent(t *testing.T) {
 }
 
 func TestSubAgent_Execute_NilEventStore_NoPanic(t *testing.T) {
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	// No WithEventStore — eventStore is nil.
@@ -959,8 +819,7 @@ func TestSubAgent_Execute_NilEventStore_NoPanic(t *testing.T) {
 
 func TestSubAgent_FullLifecycle_EmitsAllEvents(t *testing.T) {
 	store := ares_events.NewMemoryEventStore()
-	executor := NewTaskExecutor(nil, nil, output.NewTemplateEngine(),
-		"{{.category}}", output.NewValidator(), 3)
+	executor := newStubExecutor()
 	handler := NewMessageHandler("sub1")
 
 	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil, nil,
@@ -979,17 +838,12 @@ func TestSubAgent_FullLifecycle_EmitsAllEvents(t *testing.T) {
 
 	evts, err := store.Read(context.Background(), "sub1", ares_events.ReadOptions{})
 	require.NoError(t, err)
-	require.Len(t, evts, 5)
+	require.Len(t, evts, 4)
 
 	assert.Equal(t, ares_events.EventAgentStarted, evts[0].Type)
 	assert.Equal(t, ares_events.EventTaskCreated, evts[1].Type)
-	// W2: the executor's defer emits EventSubTaskResult before the agent layer
-	// publishes the terminal EventTaskCompleted.
-	assert.Equal(t, ares_events.EventSubTaskResult, evts[2].Type)
-	assert.Equal(t, "task-lifecycle", evts[2].Payload["task_id"])
-	assert.Equal(t, "success", evts[2].Payload["status"])
-	assert.Equal(t, ares_events.EventTaskCompleted, evts[3].Type)
-	assert.Equal(t, ares_events.EventAgentStopped, evts[4].Type)
+	assert.Equal(t, ares_events.EventTaskCompleted, evts[2].Type)
+	assert.Equal(t, ares_events.EventAgentStopped, evts[3].Type)
 }
 
 // nolint: errcheck // Test code may ignore return values

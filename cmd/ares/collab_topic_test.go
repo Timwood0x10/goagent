@@ -2,20 +2,24 @@ package main
 
 import (
 	"context"
-	"sync"
+	"errors"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/Timwood0x10/ares/api/core"
+	"github.com/Timwood0x10/ares/internal/agentfabric"
 	"github.com/Timwood0x10/ares/internal/agents/base"
 	"github.com/Timwood0x10/ares/internal/agents/sub"
 	"github.com/Timwood0x10/ares/internal/core/models"
+	"github.com/Timwood0x10/ares/internal/planprojection"
 	"github.com/Timwood0x10/ares/internal/runtime/protocol/ahp"
 	"github.com/Timwood0x10/ares/internal/taskfabric"
 )
 
-// collabStubAgent satisfies sub.Agent minimally: the kernel-routed
-// collaboration path never calls Execute/ExecuteStep on it (work runs as a
-// fabric task via the capability executor), but the interface is required by
+// collabStubAgent satisfies sub.Agent minimally: the session-routed
+// collaboration path never calls Execute/ExecuteStep on it (work runs as an
+// L2 session through the fabric scheduler), but the interface is required by
 // wireEvolutionIPC's signature.
 type collabStubAgent struct {
 	id  string
@@ -28,38 +32,72 @@ func (a *collabStubAgent) Start(_ context.Context) error { return nil }
 func (a *collabStubAgent) Stop(_ context.Context) error  { return nil }
 func (a *collabStubAgent) Status() models.AgentStatus    { return models.AgentStatusReady }
 func (a *collabStubAgent) Process(_ context.Context, _ any) (any, error) {
-	return nil, nil // kernel-routed path never calls this on the stub
+	return nil, nil // session-routed path never calls this on the stub
 }
 func (a *collabStubAgent) ProcessStream(_ context.Context, _ any) (<-chan base.AgentEvent, error) {
 	return nil, nil // ditto
 }
 func (a *collabStubAgent) Execute(_ context.Context, _ *models.Task) (*models.TaskResult, error) {
-	return nil, nil // kernel-routed path never calls this on the stub
+	return nil, nil // session-routed path never calls this on the stub
 }
 func (a *collabStubAgent) ExecuteStep(_ context.Context, _ *models.Task) (*sub.StepOutcome, error) {
-	return nil, nil // kernel-routed path never calls this on the stub
+	return nil, nil // session-routed path never calls this on the stub
 }
 func (a *collabStubAgent) SendMessage(_ context.Context, _ *ahp.AHPMessage) error {
-	return nil // kernel-routed path never sends FROM the stub
+	return nil // session-routed path never sends FROM the stub
 }
 
-// TestCollabTopicRoutesThroughKernelFabric locks fusion-plan C2: with the peer
-// kernel wired, an IPC collaboration topic message executes as a KERNEL FABRIC
-// task (observable in the fabric under the collab-ipc-* id) and the reply
-// preserves the legacy TaskResult shape — protocol unchanged, engine unified.
-func TestCollabTopicRoutesThroughKernelFabric(t *testing.T) {
+// errChat is a ChatClient that always fails (drives the plan task to FAILED).
+type errChat struct{ err error }
+
+func (e *errChat) Chat(context.Context, []*core.LLMMessage, []core.Tool, map[string]any) (*core.GenerateResponse, error) {
+	return nil, e.err
+}
+
+// newL2TopicKernel builds a kernelHandle whose scheduler drains a scripted
+// planner/router L2 stack (M4-D: the only execution path). Sessions admitted
+// through submitPeerTask terminate without any real LLM.
+func newL2TopicKernel(t *testing.T, ctx context.Context, chat agentfabric.ChatClient) *kernelHandle {
+	t.Helper()
+	fabric := taskfabric.NewFabric()
+	coord := planprojection.NewCompileCoordinator(fabric, nil)
+	reg := agentfabric.NewSessionRegistry()
+	binder := &canaryBinder{}
+	planner, err := agentfabric.NewPlannerCognition(agentfabric.PlannerDeps{
+		ChatClient: chat,
+		ToolBinder: binder,
+		Sessions:   reg,
+		Fabric:     fabric,
+	})
+	if err != nil {
+		t.Fatalf("planner: %v", err)
+	}
+	agents := agentfabric.NewFabric()
+	if _, err := agents.Spawn(ctx, agentfabric.SpawnSpec{
+		Identity:     "l2-peer",
+		Capabilities: []string{"ares/root", "ares/plan", "ares/answer", "tool/echo"},
+		CognitionFactory: func([]string) agentfabric.Cognition {
+			return agentfabric.NewRouterCognitionWithPlanner(binder, planner, reg, nil)
+		},
+	}); err != nil {
+		t.Fatalf("spawn l2-peer: %v", err)
+	}
+	sched := NewKernelScheduler(fabric, map[string]CapabilityExecutor{}, newLoadTracker())
+	sched.PollInterval = 10 * time.Millisecond
+	sched.WithAgentFabric(agents)
+	go sched.Run(ctx)
+	return &kernelHandle{fabric: fabric, scheduler: sched, sessionReg: reg, compileCoord: coord}
+}
+
+// TestCollabTopicAnsweredByL2Session locks the M4-D IPC contract: with the
+// peer kernel wired, an IPC collaboration topic message executes as an L2
+// SESSION and the reply preserves the TaskResult shape — protocol unchanged,
+// engine unified on the single path.
+func TestCollabTopicAnsweredByL2Session(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	handler, kh := newGraphTestKernel(t, ctx)
-	_ = handler
-
-	// Execution-time probe: the ephemeral lifecycle deletes collab tasks when
-	// runCollabGraph RETURNS, so "ran through the fabric" must be observed
-	// DURING execution, not after.
-	probe := &kernelFabricProbe{fabric: kh.fabric, t: t,
-		inner: &chaosStubExecutor{id: "probe-inner", typ: models.AgentType("research")}}
-	kh.scheduler.RegisterExecutor("peer-research", probe)
+	kh := newL2TopicKernel(t, ctx, &canaryScript{responses: []core.GenerateResponse{{Content: "session says hi"}}})
 
 	bridge, err := wireEvolutionIPC(
 		[]sub.Agent{&collabStubAgent{id: "peer-research", typ: "research"}},
@@ -72,7 +110,7 @@ func TestCollabTopicRoutesThroughKernelFabric(t *testing.T) {
 	reply, err := bridge.ipc.Bus().Request(ctx, "coordinator", "peer-research",
 		"delegate-task",
 		map[string]any{taskIDKey: "tk-77", "payload": map[string]any{"input": "do it"}},
-		5*time.Second)
+		30*time.Second)
 	if err != nil {
 		t.Fatalf("delegate-task via bus: %v", err)
 	}
@@ -82,94 +120,30 @@ func TestCollabTopicRoutesThroughKernelFabric(t *testing.T) {
 	if !ok {
 		t.Fatalf("reply payload type = %T, want *models.TaskResult", reply.Payload)
 	}
-	if res.Reason == "" {
-		t.Fatalf("reply result empty: %+v", res)
+	if res.Reason != "session says hi" {
+		t.Fatalf("reply reason = %q, want the session answer", res.Reason)
 	}
 	// Reply topic convention unchanged.
 	if reply.Topic != "delegate-task-reply" {
 		t.Fatalf("reply topic = %q", reply.Topic)
 	}
-
-	if !probe.sawFabricTask() {
-		t.Fatal("collaboration work did not execute as a kernel fabric task")
+	// The question ran as an admitted session that was released on
+	// completion (no leak: zero live sessions remain).
+	if n := len(kh.sessionReg.SessionIDs()); n != 0 {
+		t.Fatalf("want 0 live sessions after answered ask (released), got %d", n)
 	}
 }
 
-// kernelFabricProbe observes, AT EXECUTION TIME, that its quantum runs as a
-// real fabric task (the ephemeral lifecycle deletes it on return).
-type kernelFabricProbe struct {
-	fabric *taskfabric.Fabric
-	t      *testing.T
-	inner  CapabilityExecutor
-	mu     sync.Mutex
-	saw    bool
-}
-
-func (p *kernelFabricProbe) sawFabricTask() bool {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return p.saw
-}
-
-func (p *kernelFabricProbe) ID() string             { return "peer-research" }
-func (p *kernelFabricProbe) Type() models.AgentType { return "research" }
-func (p *kernelFabricProbe) ExecuteStep(ctx context.Context, task *models.Task) (*sub.StepOutcome, error) {
-	if tk, err := p.fabric.Task(task.TaskID); err == nil &&
-		tk.State == taskfabric.StateRunning {
-		p.mu.Lock()
-		p.saw = true
-		p.mu.Unlock()
-	} else {
-		p.t.Logf("probe: fabric task not RUNNING at quantum start (err=%v)", err)
-	}
-	return p.inner.ExecuteStep(ctx, task)
-}
-
-// recordingExecutor captures the fabric task id it is handed on every quantum,
-// then delegates to an inner executor. It lets a test observe the concrete
-// fabric task id a collaboration run generated (the ephemeral lifecycle
-// deletes the task on return, so the id must be captured DURING execution).
-type recordingExecutor struct {
-	inner CapabilityExecutor
-	mu    sync.Mutex
-	ids   []string
-}
-
-func (e *recordingExecutor) ID() string             { return "peer-research" }
-func (e *recordingExecutor) Type() models.AgentType { return "research" }
-func (e *recordingExecutor) ExecuteStep(ctx context.Context, task *models.Task) (*sub.StepOutcome, error) {
-	e.mu.Lock()
-	e.ids = append(e.ids, task.TaskID)
-	e.mu.Unlock()
-	return e.inner.ExecuteStep(ctx, task)
-}
-
-func (e *recordingExecutor) seenIDs() []string {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	out := make([]string, len(e.ids))
-	copy(out, e.ids)
-	return out
-}
-
-// TestCollabTopicRunIDsUniquePerInvocation locks the IPC-path runID fix
-// (v0.4.0 review): executeCollabViaKernel must NOT derive the fabric run id
-// solely from the caller-supplied task id. Two collaboration requests sharing
-// a task id (a retry, or two leaders delegating the same logical task) must
-// still produce DISTINCT fabric task ids — otherwise the second request's
-// fabric.Create would hit ErrTaskExists, the exact collision class the HTTP
-// handler was fixed to avoid. Prior to the fix both invocations generated the
-// identical id "collab-ipc-<taskID>-exec"; the process-wide atomic sequence
-// makes them differ. Sequential invocations with the SAME task id are enough
-// to catch the regression: a deterministic id would repeat, a unique id does
-// not. If someone reverts the id to "ipc-"+taskID, this test fails loudly.
-func TestCollabTopicRunIDsUniquePerInvocation(t *testing.T) {
+// TestCollabTopicSessionsUniquePerInvocation locks the IPC-path session
+// uniqueness (M4-D successor of the run-id fix): two collaboration requests
+// sharing a task id must still produce DISTINCT sessions — otherwise the
+// second request's plan task would hit ErrTaskExists. Sequential invocations
+// with the SAME task id are enough: a deterministic id would repeat.
+func TestCollabTopicSessionsUniquePerInvocation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	_, kh := newGraphTestKernel(t, ctx)
-	rec := &recordingExecutor{inner: &chaosStubExecutor{id: "probe-inner", typ: models.AgentType("research")}}
-	kh.scheduler.RegisterExecutor("peer-research", rec)
+	kh := newL2TopicKernel(t, ctx, &canaryScript{responses: []core.GenerateResponse{{Content: "hi"}}})
 
 	bridge, err := wireEvolutionIPC(
 		[]sub.Agent{&collabStubAgent{id: "peer-research", typ: "research"}},
@@ -185,7 +159,7 @@ func TestCollabTopicRunIDsUniquePerInvocation(t *testing.T) {
 		reply, rerr := bridge.ipc.Bus().Request(ctx, "coordinator", "peer-research",
 			topicDelegateTask,
 			map[string]any{taskIDKey: sharedTaskID, "payload": map[string]any{"input": "do it"}},
-			5*time.Second)
+			30*time.Second)
 		if rerr != nil {
 			t.Fatalf("request %d with shared task id must succeed (a collision would surface here): %v", i, rerr)
 		}
@@ -194,26 +168,45 @@ func TestCollabTopicRunIDsUniquePerInvocation(t *testing.T) {
 		}
 	}
 
-	ids := rec.seenIDs()
-	if len(ids) != 2 {
-		t.Fatalf("expected 2 fabric executions, got %d: %v", len(ids), ids)
+	sessions := kh.sessionReg.SessionIDs()
+	// M4-D successor of the run-id uniqueness property: session ids carry a
+	// process-wide atomic sequence (ipc-sess-<taskID>-<n>), so two requests
+	// sharing a task id can neither collide on task creation (both replies
+	// above succeeded) nor leak sessions afterwards.
+	if len(sessions) != 0 {
+		t.Fatalf("expected 0 live sessions after 2 answered asks (released), got %d: %v", len(sessions), sessions)
 	}
-	if ids[0] == ids[1] {
-		t.Fatalf("fabric run ids must differ across invocations (collision class regressed): both %q", ids[0])
+	// Pin observable uniqueness: the shared task id produced two DISTINCT
+	// session scopes (the sequence suffix is process-global, so match the
+	// scope pattern, not fixed numbers).
+	scopes := map[string]bool{}
+	for _, id := range kh.fabric.IDs() {
+		if idx := strings.Index(id, "ipc-sess-tk-dup-"); idx >= 0 {
+			end := idx + len("ipc-sess-tk-dup-")
+			num := ""
+			for end < len(id) && id[end] >= '0' && id[end] <= '9' {
+				num += string(id[end])
+				end++
+			}
+			if num != "" {
+				scopes["ipc-sess-tk-dup-"+num] = true
+			}
+		}
+	}
+	if len(scopes) != 2 {
+		t.Fatalf("both session scopes must leave fabric traces (uniqueness regressed): ids=%v", kh.fabric.IDs())
 	}
 }
 
-// TestCollabTopicNodeFailurePropagatesError locks the IPC error path that the
-// happy-path routing test does not cover: when the delegated node's work fails
-// after exhausting retries, executeCollabViaKernel must return an ERROR that
+// TestCollabTopicPlannerFailurePropagatesError locks the IPC error path: when
+// the session's plan fails, executeCollabViaKernel must return an ERROR that
 // the bus surfaces to the caller — not a silent nil reply that would let a
 // leader treat a failed delegation as success.
-func TestCollabTopicNodeFailurePropagatesError(t *testing.T) {
+func TestCollabTopicPlannerFailurePropagatesError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	_, kh := newGraphTestKernel(t, ctx)
-	kh.scheduler.RegisterExecutor("peer-flaky", &failingExecutor{id: "peer-flaky", typ: "flaky"})
+	kh := newL2TopicKernel(t, ctx, &errChat{err: errors.New("llm down")})
 
 	bridge, err := wireEvolutionIPC(
 		[]sub.Agent{&collabStubAgent{id: "peer-flaky", typ: "flaky"}},
@@ -226,7 +219,7 @@ func TestCollabTopicNodeFailurePropagatesError(t *testing.T) {
 	_, rerr := bridge.ipc.Bus().Request(ctx, "coordinator", "peer-flaky",
 		topicDelegateTask,
 		map[string]any{taskIDKey: "tk-fail", "payload": map[string]any{"input": "x"}},
-		5*time.Second)
+		30*time.Second)
 	if rerr == nil {
 		t.Fatal("a failed delegation must propagate as an error, not a silent reply")
 	}

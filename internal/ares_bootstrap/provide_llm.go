@@ -8,7 +8,6 @@ import (
 	compatllm "github.com/Timwood0x10/ares/compat/llm"
 	"github.com/Timwood0x10/ares/compat/llm/ollama"
 	"github.com/Timwood0x10/ares/compat/llm/openai"
-	"github.com/Timwood0x10/ares/internal/agents/sub"
 	"github.com/Timwood0x10/ares/internal/ares_callbacks"
 	"github.com/Timwood0x10/ares/internal/ares_config"
 	"github.com/Timwood0x10/ares/internal/ares_security"
@@ -85,13 +84,4 @@ func NewCallbackRegistry() *ares_callbacks.Registry {
 // registry attached. Convenience wrapper over llm.NewClient.
 func NewLLMClientWithCallbacks(cfg *llm.Config, reg *ares_callbacks.Registry) (*llm.Client, error) {
 	return llm.NewClient(cfg, llm.WithCallbacks(reg))
-}
-
-// WireTaskExecutorCallbacks wraps the given registry as a sub executor option.
-// A nil registry yields a nil option (no callbacks wired).
-func WireTaskExecutorCallbacks(reg *ares_callbacks.Registry) sub.TaskExecutorOption {
-	if reg == nil {
-		return nil
-	}
-	return sub.WithTaskExecutorCallbacks(reg)
 }

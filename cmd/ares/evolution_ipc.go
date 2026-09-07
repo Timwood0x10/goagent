@@ -17,7 +17,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/Timwood0x10/ares/internal/agentipc"
 	"github.com/Timwood0x10/ares/internal/agents/peer"
@@ -28,6 +30,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/logger"
 	evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
 	"github.com/Timwood0x10/ares/internal/runtime/protocol/ahp"
+	"github.com/Timwood0x10/ares/internal/taskfabric"
 )
 
 // peerTopic is the bus topic used for peer-channel messages routed through the
@@ -221,12 +224,13 @@ func executeCollaboration(ctx context.Context, targetID string, msg *agentipc.Me
 	}, nil
 }
 
-// executeCollabViaKernel routes one M1 collaboration request through the
-// kernel fabric DAG: the addressed agent's capability becomes a durable task,
-// the kernelscheduler drives it via Schedule→Acquire→RunQuantum, and the
-// reply carries a TaskResult reconstructed from the completion checkpoint —
-// byte-compatible with the legacy direct-execution reply shape.
+// executeCollabViaKernel routes one M1 collaboration request through an L2
+// session (M4-D): the target capability is nominal — no peer advertises
+// primary caps anymore — so the question runs as a plan session and the
+// terminal answer comes back as the reply, byte-compatible with the legacy
+// direct-execution reply shape.
 func executeCollabViaKernel(ctx context.Context, k *kernelHandle, targetID, capability string, msg *agentipc.Message) (*agentipc.Message, error) {
+	_ = capability // nominal post-D; kept for signature stability.
 	body, ok := msg.Payload.(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("agentipc: collaboration payload must be a map, got %T", msg.Payload)
@@ -239,21 +243,20 @@ func executeCollabViaKernel(ctx context.Context, k *kernelHandle, targetID, capa
 	if p, ok := body["payload"].(map[string]any); ok {
 		taskPayload = p
 	}
-	// The fabric run id must be unique per invocation, NOT derived solely from
-	// the caller-supplied taskID: two concurrent collaboration requests sharing
-	// a taskID (a retry, or two leaders delegating the same logical task) would
-	// otherwise generate identical fabric task ids and the loser's Create would
-	// hit ErrTaskExists — the very collision class the HTTP handler was fixed to
-	// avoid. A process-wide atomic sequence closes that window. taskID is kept
-	// in the id purely for traceability.
-	runID := fmt.Sprintf("ipc-%s-%d", taskID, atomic.AddUint64(&collabRunSeq, 1))
-	outputs, _, err := runCollabGraph(ctx, k, runID,
-		[]graphNodeSpec{{ID: "exec", Capability: capability, Input: taskPayload}}, nil)
+	// Prompt precedence: explicit input, task description, then the topic.
+	prompt, _ := taskPayload["input"].(string)
+	if prompt == "" {
+		prompt, _ = taskPayload["task_desc"].(string)
+	}
+	if prompt == "" {
+		prompt = msg.Topic
+	}
+	answer, err := executeAskViaSession(ctx, k, taskID, prompt, taskPayload)
 	if err != nil {
 		return nil, fmt.Errorf("agentipc: kernel execution of %s on %s: %w", taskID, targetID, err)
 	}
 	result := models.NewTaskResult(taskID, models.AgentType(targetID))
-	result.SetSuccess(nil, outputs["exec"])
+	result.SetSuccess(nil, answer)
 	return &agentipc.Message{
 		ID:            "collab-" + taskID,
 		From:          targetID,
@@ -263,6 +266,109 @@ func executeCollabViaKernel(ctx context.Context, k *kernelHandle, targetID, capa
 		Payload:       result,
 		At:            msg.At,
 	}, nil
+}
+
+// askSessionSeq makes ask_agent session ids unique per invocation (same
+// collision class as the HTTP run ids: two requests sharing a task id —
+// a retry, or two leaders delegating the same logical task — must not share
+// a session; taskID is kept in the id purely for traceability).
+var askSessionSeq atomic.Uint64
+
+// executeAskViaSession submits one collaboration question as an L2 plan
+// session and waits for its terminal answer (M4-D: the L2 form of ask_agent
+// execution). The session is released before returning so the reaper can
+// harvest its tasks.
+func executeAskViaSession(ctx context.Context, k *kernelHandle, taskID, prompt string, payload map[string]any) (string, error) {
+	if k == nil || k.fabric == nil || k.sessionReg == nil {
+		return "", fmt.Errorf("agentipc: ask_agent session execution needs a wired kernel (fabric + session registry)")
+	}
+	sessionID := fmt.Sprintf("ipc-sess-%s-%d", taskID, askSessionSeq.Add(1))
+	sessPayload := make(map[string]any, len(payload)+2)
+	for key, val := range payload {
+		sessPayload[key] = val
+	}
+	sessPayload["session_id"] = sessionID
+	sessPayload["input"] = prompt
+	planTaskID, err := submitPeerTask(ctx, k, planCapability, sessPayload)
+	if err != nil {
+		return "", err
+	}
+
+	waitCtx := ctx
+	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
+		var cancel context.CancelFunc
+		waitCtx, cancel = context.WithTimeout(ctx, collabTimeout)
+		defer cancel()
+	}
+	ticker := time.NewTicker(20 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		// Fast failure: a failed plan means the session can never answer.
+		if tk, err := k.fabric.Task(planTaskID); err == nil && tk.State == taskfabric.StateFailed {
+			releaseSessionQuietly(k, sessionID)
+			return "", fmt.Errorf("agentipc: ask session %s plan task failed", sessionID)
+		}
+		if answer, ok := completedSessionAnswer(k, sessionID); ok {
+			releaseSessionQuietly(k, sessionID)
+			if answer == "" {
+				return "", fmt.Errorf("agentipc: ask session %s answered empty", sessionID)
+			}
+			return answer, nil
+		}
+		select {
+		case <-waitCtx.Done():
+			releaseSessionQuietly(k, sessionID)
+			if err := waitCtx.Err(); err != nil {
+				return "", fmt.Errorf("agentipc: ask session %s: %w", sessionID, err)
+			}
+			return "", fmt.Errorf("agentipc: ask session %s timed out", sessionID)
+		case <-ticker.C:
+		}
+	}
+}
+
+// completedSessionAnswer returns the first COMPLETED answer task's content
+// for a session. It scans fabric task ids (sess/<sid>/…/answer#…) rather
+// than the session graph: the answer body releases its session on success
+// (B2-2), so the registry entry is already gone by the time we poll.
+func completedSessionAnswer(k *kernelHandle, sessionID string) (string, bool) {
+	for _, id := range k.fabric.IDs() {
+		if !strings.Contains(id, sessionID) || !strings.Contains(id, "/answer#") {
+			continue
+		}
+		tk, err := k.fabric.Task(id)
+		if err != nil || tk.State != taskfabric.StateCompleted {
+			continue
+		}
+		content, err := sessionAnswerContent(tk)
+		if err != nil || content == "" {
+			continue
+		}
+		return content, true
+	}
+	return "", false
+}
+
+// sessionAnswerContent reads the terminal answer body from its envelope
+// (same read path as the canary harness: items[0].Content).
+func sessionAnswerContent(tk *taskfabric.Task) (string, error) {
+	dc, err := taskfabric.DecodeCheckpoint(tk.Checkpoint)
+	if err != nil {
+		return "", err
+	}
+	sc, ok := dc.StepCheckpoint.(map[string]any)
+	if !ok {
+		return "", fmt.Errorf("agentipc: answer checkpoint carries no result map")
+	}
+	raw, ok := sc["items"]
+	if !ok {
+		return "", fmt.Errorf("agentipc: answer envelope carries no items")
+	}
+	items, ok := raw.([]*models.RecommendItem)
+	if !ok || len(items) == 0 {
+		return "", fmt.Errorf("agentipc: answer items unreadable, got %T", raw)
+	}
+	return items[0].Content, nil
 }
 
 // toAHPMessage restores an *ahp.AHPMessage from a decoded payload. Plain

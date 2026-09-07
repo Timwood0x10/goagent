@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/Timwood0x10/ares/internal/agentfabric"
 	"github.com/Timwood0x10/ares/internal/planprojection"
@@ -111,10 +112,11 @@ func TestSubmitPeerTask_ResubmitReusesSession(t *testing.T) {
 	}
 }
 
-// TestSubmitPeerTask_SessionlessUnchanged pins the legacy path: without a
-// session_id the submission behaves exactly like today — no session, no
-// root, just the task.
-func TestSubmitPeerTask_SessionlessUnchanged(t *testing.T) {
+// TestSubmitPeerTask_SessionlessAutoAdmits pins the M4-D single path: without
+// a session_id the submission is auto-admitted into a fresh session — the
+// task is always ares/plan with a live graph behind it. There is no
+// session-less legacy submission anymore.
+func TestSubmitPeerTask_SessionlessAutoAdmits(t *testing.T) {
 	ctx := context.Background()
 	kernel, fabric := admissionKernel()
 
@@ -122,30 +124,38 @@ func TestSubmitPeerTask_SessionlessUnchanged(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sessionless submission error = %v", err)
 	}
-	if _, err := fabric.Task(taskID); err != nil {
+	task, err := fabric.Task(taskID)
+	if err != nil {
 		t.Fatalf("submitted task must exist: %v", err)
 	}
-	if n := len(kernel.sessionReg.SessionIDs()); n != 0 {
-		t.Errorf("sessionless submission created %d sessions, want 0", n)
+	if task.Capability != "ares/plan" {
+		t.Errorf("capability = %q, want ares/plan (normalized)", task.Capability)
+	}
+	sessions := kernel.sessionReg.SessionIDs()
+	if len(sessions) != 1 {
+		t.Fatalf("auto-admission created %d sessions, want 1", len(sessions))
+	}
+	env, ok := task.Checkpoint.(*taskfabric.CheckpointEnvelope)
+	if !ok || env == nil || env.SessionID != sessions[0] {
+		t.Errorf("task envelope must carry the auto-admitted session")
 	}
 }
 
-// TestSubmitPeerTask_GateOffIgnoresSession pins the default: with no registry
-// wired (gate off) a session_id payload is envelope-only — no admission, no
-// error, legacy behavior byte-for-byte.
-func TestSubmitPeerTask_GateOffIgnoresSession(t *testing.T) {
+// TestSubmitPeerTask_NoRegistryFailsFast pins fail-fast: without a session
+// registry no session can be admitted, so the submission errors AND creates
+// nothing — never an unrunnable task.
+func TestSubmitPeerTask_NoRegistryFailsFast(t *testing.T) {
 	ctx := context.Background()
 	kernel := &kernelHandle{fabric: taskfabric.NewFabric()}
 
-	taskID, err := submitPeerTask(ctx, kernel, "worker", map[string]any{
+	if _, err := submitPeerTask(ctx, kernel, "worker", map[string]any{
 		"session_id": "adm-off",
 		"input":      "prompt",
-	})
-	if err != nil {
-		t.Fatalf("gate-off submission error = %v", err)
+	}); err == nil {
+		t.Fatal("submission without session registry must fail, not degrade silently")
 	}
-	if _, err := kernel.fabric.Task(taskID); err != nil {
-		t.Fatalf("submitted task must exist: %v", err)
+	if len(kernel.fabric.IDs()) != 0 {
+		t.Errorf("failed submission left %d tasks behind, want 0", len(kernel.fabric.IDs()))
 	}
 }
 
@@ -172,5 +182,133 @@ func TestSubmitPeerTask_AdmissionFailureCreatesNothing(t *testing.T) {
 	}
 	if _, err := kernel.sessionReg.GetSession("adm-fail"); err == nil {
 		t.Error("failed admission must not leave a half-admitted session")
+	}
+}
+
+// TestSubmitPeerTask_RejectsSlashSessionID pins P0-1b: a client-supplied
+// session_id containing "/" would break the reaper keep-set's reverse parse
+// (a live session's history becomes harvestable mid-flight), so admission
+// fails fast at the boundary and creates nothing.
+func TestSubmitPeerTask_RejectsSlashSessionID(t *testing.T) {
+	ctx := context.Background()
+	kernel, fabric := admissionKernel()
+
+	if _, err := submitPeerTask(ctx, kernel, "ares/plan", map[string]any{
+		"session_id": "a/b",
+		"input":      "prompt",
+	}); err == nil {
+		t.Fatal("session_id containing a slash must be rejected")
+	}
+	if len(fabric.IDs()) != 0 {
+		t.Errorf("rejected submission left %d tasks behind, want 0", len(fabric.IDs()))
+	}
+	if len(kernel.sessionReg.SessionIDs()) != 0 {
+		t.Errorf("rejected submission left %d sessions behind, want 0", len(kernel.sessionReg.SessionIDs()))
+	}
+}
+
+// completeFabricTask drives a READY task to COMPLETED through the normal
+// lease transitions (Acquire → Start → Complete).
+func completeFabricTask(t *testing.T, fabric *taskfabric.Fabric, id string) {
+	t.Helper()
+	epoch, err := fabric.Acquire(id, "turn-agent", time.Minute)
+	if err != nil {
+		t.Fatalf("acquire %s: %v", id, err)
+	}
+	if err := fabric.Start(id, "turn-agent", epoch); err != nil {
+		t.Fatalf("start %s: %v", id, err)
+	}
+	if err := fabric.Complete(id, "turn-agent", epoch); err != nil {
+		t.Fatalf("complete %s: %v", id, err)
+	}
+}
+
+// TestSubmitPeerTask_ResubmitAfterReleaseStartsClean pins P0-1c: after a
+// session is released, a resubmission under the SAME id (the natural client
+// "continue the chat") must not adopt the previous turn's terminal root or
+// inherit same-named node tasks — the stale tasks are harvested and the
+// fresh root carries the NEW prompt, READY for a real first quantum.
+func TestSubmitPeerTask_ResubmitAfterReleaseStartsClean(t *testing.T) {
+	ctx := context.Background()
+	kernel, fabric := admissionKernel()
+
+	if _, err := submitPeerTask(ctx, kernel, "ares/plan", map[string]any{
+		"session_id": "adm-3", "input": "turn one",
+	}); err != nil {
+		t.Fatalf("first submission error = %v", err)
+	}
+	root := agentfabric.SessionRootID("adm-3")
+
+	// Turn 1 finishes: root and one grown tool node reach COMPLETED, then
+	// the answer body releases the session. The tasks linger in the fabric
+	// until the reaper's grace window — that's the contamination window.
+	completeFabricTask(t, fabric, root)
+	node := agentfabric.SessionNodeID("adm-3", 1, "grep", 0)
+	if err := fabric.Create(&taskfabric.Task{
+		ID: node, Capability: "tool/grep",
+		RetryPolicy: taskfabric.RetryPolicy{MaxRetries: 2},
+	}); err != nil {
+		t.Fatalf("create turn-1 node task: %v", err)
+	}
+	completeFabricTask(t, fabric, node)
+	if err := kernel.sessionReg.ReleaseSession("adm-3"); err != nil {
+		t.Fatalf("release turn-1 session: %v", err)
+	}
+
+	// Turn 2 reuses the id with a different prompt.
+	if _, err := submitPeerTask(ctx, kernel, "ares/plan", map[string]any{
+		"session_id": "adm-3", "input": "turn two",
+	}); err != nil {
+		t.Fatalf("resubmission after release error = %v", err)
+	}
+
+	tk, err := fabric.Task(root)
+	if err != nil {
+		t.Fatalf("fresh root must exist: %v", err)
+	}
+	if tk.State != taskfabric.StateReady {
+		t.Errorf("root state = %v, want READY (terminal root must not be adopted)", tk.State)
+	}
+	if _, err := fabric.Task(node); err == nil {
+		t.Error("turn-1 node task must be harvested, not inherited as turn-2's result")
+	}
+	env, ok := tk.Checkpoint.(*taskfabric.CheckpointEnvelope)
+	if !ok || env == nil {
+		t.Fatalf("root checkpoint = %T, want envelope", tk.Checkpoint)
+	}
+	if got, _ := env.Payload["input"].(string); got != "turn two" {
+		t.Errorf("root envelope prompt = %q, want %q (no cross-turn bleed)", got, "turn two")
+	}
+}
+
+// TestSubmitPeerTask_LiveRootRetryStillAdopts pins the other side of
+// P0-1c: a NON-terminal root left by a failed admission retry is still
+// adopted — harvesting only applies to a released session's terminal tasks.
+func TestSubmitPeerTask_LiveRootRetryStillAdopts(t *testing.T) {
+	ctx := context.Background()
+	kernel, fabric := admissionKernel()
+
+	if _, err := submitPeerTask(ctx, kernel, "ares/plan", map[string]any{
+		"session_id": "adm-4", "input": "prompt",
+	}); err != nil {
+		t.Fatalf("first submission error = %v", err)
+	}
+	// Simulate the retry: release the session but leave the root READY
+	// (in-flight, never completed) — the recompile must adopt, not harvest.
+	if err := kernel.sessionReg.ReleaseSession("adm-4"); err != nil {
+		t.Fatalf("release session: %v", err)
+	}
+	root := agentfabric.SessionRootID("adm-4")
+	if _, err := submitPeerTask(ctx, kernel, "ares/plan", map[string]any{
+		"session_id": "adm-4", "input": "prompt",
+	}); err != nil {
+		t.Fatalf("retry submission error = %v", err)
+	}
+	tk, err := fabric.Task(root)
+	if err != nil {
+		t.Fatalf("root must still exist after adopting retry: %v", err)
+	}
+	if tk.State != taskfabric.StateReady {
+		t.Errorf("root state = %v, want READY", tk.State)
 	}
 }

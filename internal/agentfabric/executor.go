@@ -3,7 +3,9 @@ package agentfabric
 import (
 	"context"
 
+	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/core/models"
+	resources "github.com/Timwood0x10/ares/internal/tools/resources/core"
 )
 
 // Cognition is the execution contract for one quantum of cognitive work
@@ -62,6 +64,27 @@ type CognitionFunc func(ctx context.Context, task *models.Task) (*StepOutcome, e
 // ExecuteStep implements Cognition.
 func (f CognitionFunc) ExecuteStep(ctx context.Context, task *models.Task) (*StepOutcome, error) {
 	return f(ctx, task)
+}
+
+// ChatClient is the minimal LLM chat surface the cognition bodies need
+// (interface at the consumer, code_rules). It sends chat messages with
+// tool support; the optional params map carries per-call overrides
+// (temperature, max_tokens, top_k) from the active evolution strategy so
+// live plan growth can be steered at runtime. (Relocated from the retired
+// chat loop in M4-D; the contract is unchanged.)
+type ChatClient interface {
+	Chat(ctx context.Context, messages []*core.LLMMessage, tools []core.Tool, params map[string]any) (*core.GenerateResponse, error)
+}
+
+// ToolBinder is the minimal tool surface the cognition bodies need
+// (interface at the consumer, code_rules). The planner shows the LLM what
+// tools exist (schemas); the tool body executes one call per quantum.
+// (Relocated from the retired chat loop in M4-D; the contract is unchanged.)
+type ToolBinder interface {
+	CallTool(ctx context.Context, name string, args map[string]any) (any, error)
+	ListTools() []string
+	IsToolIdempotent(name string) bool
+	GetToolSchemas() []resources.ToolSchema
 }
 
 // ExecuteStep runs one quantum of cognitive work through the agent's injected

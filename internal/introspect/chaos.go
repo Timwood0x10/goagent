@@ -10,8 +10,13 @@
 package introspect
 
 import (
+	"context"
 	"sync/atomic"
 	"time"
+
+	"github.com/Timwood0x10/ares/internal/agentfabric"
+	"github.com/Timwood0x10/ares/internal/aresrecovery"
+	"github.com/Timwood0x10/ares/internal/taskfabric"
 )
 
 // ChaosStatus is one frame of chaos observability: how the chaos subsystem is
@@ -137,4 +142,47 @@ func (c *ChaosReporter) Snapshot() ChaosStatus {
 		status.Live.LastInjection = t
 	}
 	return status
+}
+
+// Shadow-sandbox script identities (goconst: reused across the replay events).
+const (
+	shadowAgentID = "shadow-agent-1"
+	shadowTaskID  = "shadow-task-1"
+)
+
+// runShadowSandbox builds a scratch Task+Agent fabric, replays the canonical
+// agent-kill → lease-expire → recovery scenario and returns the outcome.
+// RecoverFromAgentDeath re-acquires the requeued task for a replacement agent,
+// so the reliable recovered signal is the recover.all outcome's count, not the
+// task state. (Moved from dashboard.go in M4-D: the Dashboard self-contained
+// runtime was example-only; the sandbox verifier is shared chaos machinery.)
+func runShadowSandbox(ctx context.Context) ShadowResult {
+	scratchTasks := taskfabric.NewFabric()
+	scratchAgents := agentfabric.NewFabric()
+	recovery := aresrecovery.New(scratchTasks, scratchAgents, aresrecovery.DefaultRestartPolicy())
+	sandbox := aresrecovery.NewSandbox(scratchTasks, scratchAgents, recovery)
+
+	events := []aresrecovery.SandboxEvent{
+		{Type: aresrecovery.SandboxEventAgentSpawn, AgentID: shadowAgentID},
+		{Type: aresrecovery.SandboxEventTaskCreate, TaskID: shadowTaskID},
+		{Type: aresrecovery.SandboxEventTaskAcquire, TaskID: shadowTaskID, AgentID: shadowAgentID},
+		{Type: aresrecovery.SandboxEventAgentKill, AgentID: shadowAgentID},
+		{Type: aresrecovery.SandboxEventLeaseExpire, TaskID: shadowTaskID},
+		{Type: aresrecovery.SandboxEventRecoverAll},
+	}
+
+	outcomes, err := sandbox.Replay(ctx, events)
+	if err != nil {
+		return ShadowResult{LastRun: time.Now(), Events: len(events), Errored: true}
+	}
+	if len(outcomes) == 0 {
+		return ShadowResult{LastRun: time.Now(), Events: len(events), Errored: true}
+	}
+	last := outcomes[len(outcomes)-1]
+	recovered, _ := last.Detail["recovered"].(int)
+	return ShadowResult{
+		LastRun:   time.Now(),
+		Events:    len(outcomes),
+		Recovered: recovered > 0,
+	}
 }

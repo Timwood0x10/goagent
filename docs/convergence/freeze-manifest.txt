@@ -31,7 +31,6 @@
 27-peer-spawn-demo
 28-collab-graphs
 29-akf-graph-node
-30-introspect-panel-demo
 arena
 aresos-demo
 custom-store

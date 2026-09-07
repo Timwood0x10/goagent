@@ -2,6 +2,7 @@ package agentsyscall
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -57,7 +58,7 @@ func TestSpawnAgentCreatesAgentInFabric(t *testing.T) {
 	kernel := NewKernel(agents, nil, nil, nil)
 
 	result, err := kernel.SpawnAgent(context.Background(), SpawnAgentArgs{
-		Capability: "coder",
+		Capability: "ares/plan",
 		ParentID:   "agent-A",
 	})
 	if err != nil {
@@ -66,7 +67,7 @@ func TestSpawnAgentCreatesAgentInFabric(t *testing.T) {
 	if result.AgentID == "" {
 		t.Fatal("agent ID must not be empty")
 	}
-	if result.Capability != "coder" {
+	if result.Capability != "ares/plan" {
 		t.Fatalf("capability = %q, want coder", result.Capability)
 	}
 	if result.Registered {
@@ -106,7 +107,7 @@ func TestSpawnAgentInjectsExecutableCognition(t *testing.T) {
 	}
 	kernel := NewKernel(agents, nil, factory, register)
 
-	result, err := kernel.SpawnAgent(context.Background(), SpawnAgentArgs{Capability: "coder"})
+	result, err := kernel.SpawnAgent(context.Background(), SpawnAgentArgs{Capability: "ares/plan"})
 	if err != nil {
 		t.Fatalf("SpawnAgent: %v", err)
 	}
@@ -124,7 +125,7 @@ func TestSpawnAgentInjectsExecutableCognition(t *testing.T) {
 	if !agent.Executable() {
 		t.Fatal("C1: spawned agent must be executable (Cognition injected), not a phantom")
 	}
-	out, err := agent.ExecuteStep(context.Background(), models.NewTask("t-c1", models.AgentType("coder"), nil))
+	out, err := agent.ExecuteStep(context.Background(), models.NewTask("t-c1", models.AgentType("ares/plan"), nil))
 	if err != nil {
 		t.Fatalf("ExecuteStep: %v", err)
 	}
@@ -152,7 +153,7 @@ func TestSpawnAgentRegistersExecutor(t *testing.T) {
 	kernel := NewKernel(agents, nil, factory, register)
 
 	result, err := kernel.SpawnAgent(context.Background(), SpawnAgentArgs{
-		Capability: "reviewer",
+		Capability: "ares/plan",
 	})
 	if err != nil {
 		t.Fatalf("SpawnAgent: %v", err)
@@ -181,6 +182,27 @@ func TestSpawnAgentRejectsEmptyCapability(t *testing.T) {
 	}
 }
 
+// TestSpawnAgentRejectsNonRoutableCapability locks the M4-D single-path
+// gate: a spawned peer only receives L2-router quanta, so a legacy
+// capability must fail fast instead of yielding a permanently idle peer.
+func TestSpawnAgentRejectsNonRoutableCapability(t *testing.T) {
+	kernel := NewKernel(agentfabric.NewFabric(), nil, nil, nil)
+	_, err := kernel.SpawnAgent(context.Background(), SpawnAgentArgs{Capability: "coder"})
+	if !errors.Is(err, errUnroutableCapability) {
+		t.Fatalf("must fail with errUnroutableCapability, got: %v", err)
+	}
+}
+
+// TestCreateTaskRejectsNonRoutableCapability locks the M4-D single-path
+// gate on the create_task syscall: same fail-fast contract as SpawnAgent.
+func TestCreateTaskRejectsNonRoutableCapability(t *testing.T) {
+	kernel := NewKernel(nil, taskfabric.NewFabric(), nil, nil)
+	_, err := kernel.CreateTask(context.Background(), CreateTaskArgs{Capability: "coder"})
+	if !errors.Is(err, errUnroutableCapability) {
+		t.Fatalf("must fail with errUnroutableCapability, got: %v", err)
+	}
+}
+
 // TestCreateTaskCreatesTaskInFabric verifies the create_task syscall creates
 // a real Task Fabric task in READY state.
 func TestCreateTaskCreatesTaskInFabric(t *testing.T) {
@@ -188,7 +210,7 @@ func TestCreateTaskCreatesTaskInFabric(t *testing.T) {
 	kernel := NewKernel(nil, fabric, nil, nil)
 
 	result, err := kernel.CreateTask(context.Background(), CreateTaskArgs{
-		Capability: "coder",
+		Capability: "ares/plan",
 		Payload:    map[string]any{"task_desc": "write tests"},
 	})
 	if err != nil {
@@ -205,7 +227,7 @@ func TestCreateTaskCreatesTaskInFabric(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get task: %v", err)
 	}
-	if task.Capability != "coder" {
+	if task.Capability != "ares/plan" {
 		t.Fatalf("capability = %q, want coder", task.Capability)
 	}
 	if task.State != taskfabric.StateReady {
@@ -227,7 +249,7 @@ func TestCreateTaskStampsCallerOrigin(t *testing.T) {
 
 	ctx := kctx.WithCallerID(context.Background(), "agent-A")
 	result, err := kernel.CreateTask(ctx, CreateTaskArgs{
-		Capability: "coder",
+		Capability: "ares/plan",
 		Payload:    map[string]any{"task_desc": "write tests"},
 	})
 	if err != nil {
@@ -265,7 +287,7 @@ func TestSpawnAgentEnforcesContextCaller(t *testing.T) {
 	// is agent-A. The Kernel must trust the context.
 	ctx := kctx.WithCallerID(context.Background(), "agent-A")
 	result, err := kernel.SpawnAgent(ctx, SpawnAgentArgs{
-		Capability: "coder",
+		Capability: "ares/plan",
 		ParentID:   "spoofed-parent",
 	})
 	if err != nil {
@@ -298,7 +320,7 @@ func TestBindToolsRegistersBothTools(t *testing.T) {
 
 	// spawn_agent
 	spawnResult, err := binder.call(ctx, SpawnAgentTool, map[string]any{
-		"capability": "coder",
+		"capability": "ares/plan",
 		"parent_id":  "root",
 	})
 	if err != nil {
@@ -308,7 +330,7 @@ func TestBindToolsRegistersBothTools(t *testing.T) {
 	if !ok {
 		t.Fatalf("spawn result type = %T, want *SpawnAgentResult", spawnResult)
 	}
-	if sr.Capability != "coder" {
+	if sr.Capability != "ares/plan" {
 		t.Fatalf("capability = %q, want coder", sr.Capability)
 	}
 
@@ -316,7 +338,7 @@ func TestBindToolsRegistersBothTools(t *testing.T) {
 	// execution bodies do (sub executor / chat cognition / agentloop
 	// engine), and verify the Kernel stamps it as Task.Origin.
 	taskResult, err := binder.call(kctx.WithCallerID(ctx, "agent-A"), CreateTaskTool, map[string]any{
-		"capability": "coder",
+		"capability": "ares/plan",
 		"payload":    map[string]any{"task_desc": "review code"},
 	})
 	if err != nil {
@@ -344,7 +366,7 @@ func TestSpawnedAgentIDsAreUnique(t *testing.T) {
 	seen := make(map[string]bool)
 	for i := 0; i < 20; i++ {
 		result, err := kernel.SpawnAgent(context.Background(), SpawnAgentArgs{
-			Capability: "coder",
+			Capability: "ares/plan",
 		})
 		if err != nil {
 			t.Fatalf("spawn %d: %v", i, err)
@@ -474,8 +496,8 @@ func TestCreatePlanCompilesBatchIntoFabric(t *testing.T) {
 
 	result, err := kernel.CreatePlan(context.Background(), CreatePlanArgs{
 		Steps: []PlanStepArgs{
-			{ID: "plan-a", Capability: "coder"},
-			{ID: "plan-b", Capability: "reviewer", DependsOn: []string{"plan-a"}},
+			{ID: "plan-a", Capability: "ares/plan"},
+			{ID: "plan-b", Capability: "ares/plan", DependsOn: []string{"plan-a"}},
 		},
 	})
 	if err != nil {
@@ -504,6 +526,23 @@ func TestCreatePlanRejectsEmptySteps(t *testing.T) {
 	}
 }
 
+// TestCreatePlanRejectsNonRoutableCapability locks the M4-D single-path
+// gate on batch submission: a step no executor can serve fails the whole
+// batch atomically (nothing is created on error).
+func TestCreatePlanRejectsNonRoutableCapability(t *testing.T) {
+	fabric := taskfabric.NewFabric()
+	kernel := NewKernel(nil, fabric, nil, nil)
+	_, err := kernel.CreatePlan(context.Background(), CreatePlanArgs{
+		Steps: []PlanStepArgs{{ID: "gen", Capability: "coder"}},
+	})
+	if !errors.Is(err, errUnroutableCapability) {
+		t.Fatalf("must fail with errUnroutableCapability, got: %v", err)
+	}
+	if len(fabric.IDs()) != 0 {
+		t.Fatalf("rejected batch left %d tasks behind, want 0", len(fabric.IDs()))
+	}
+}
+
 // TestCreatePlanRejectsMissingCapability verifies per-step validation.
 func TestCreatePlanRejectsMissingCapability(t *testing.T) {
 	kernel := NewKernel(nil, taskfabric.NewFabric(), nil, nil)
@@ -521,8 +560,8 @@ func TestCreatePlanAtomicRejectsCycle(t *testing.T) {
 	kernel := NewKernel(nil, fabric, nil, nil)
 	_, err := kernel.CreatePlan(context.Background(), CreatePlanArgs{
 		Steps: []PlanStepArgs{
-			{ID: "x", Capability: "coder", DependsOn: []string{"y"}},
-			{ID: "y", Capability: "coder", DependsOn: []string{"x"}},
+			{ID: "x", Capability: "ares/plan", DependsOn: []string{"y"}},
+			{ID: "y", Capability: "ares/plan", DependsOn: []string{"x"}},
 		},
 	})
 	if err == nil {

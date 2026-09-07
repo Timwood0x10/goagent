@@ -42,9 +42,9 @@ func createAndServeAgents(
 	// The Bootstrap experience repo (nil when distillation is not wired) feeds
 	// the G1 spawn prior. The StrategySource closes the GA strategy loop: the
 	// evolution system deploys the best-evolved strategy into
-	// NewEvolution.StrategyStore, and every agent executor reads it via
-	// sub.WithStrategySource — without this bridge the deployed strategies
-	// were consumed by nothing.
+	// NewEvolution.StrategyStore, and the planner cognition reads it on every
+	// growth quantum (M4-D actuator) — without this bridge the deployed
+	// strategies were consumed by nothing.
 	var strategySrc agents.StrategySource
 	if comp.NewEvolution != nil {
 		strategySrc = ares_bootstrap.NewStrategySource(comp.NewEvolution.StrategyStore)

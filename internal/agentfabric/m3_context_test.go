@@ -126,8 +126,8 @@ func TestM3_AssembleContextFromGraphPath(t *testing.T) {
 // scheduler can route every L2 node type to it. This test validates the
 // capability list construction logic without requiring a full peer spawn.
 func TestM3_FullCapabilityAdvertisement(t *testing.T) {
-	// Build the full capability set the same way peer_mode.go does when
-	// DAGExecution.Enabled is true.
+	// Build the full capability set the same way peer_mode.go does (M4-D:
+	// every peer advertises the single L2 set).
 	binder := &plannerTestBinder{}
 	caps := []string{
 		"ares/root",
@@ -149,24 +149,6 @@ func TestM3_FullCapabilityAdvertisement(t *testing.T) {
 	legacyCaps := []string{"code"}
 	require.NotContains(t, legacyCaps, "ares/plan",
 		"legacy path must NOT advertise L2 capabilities")
-}
-
-// TestM3_GateOffKeepsLegacyBehavior verifies that when the DAGExecution gate
-// is off, the router is never constructed and the legacy chat cognition is
-// selected — production behavior is identical to before M3.
-func TestM3_GateOffKeepsLegacyBehavior(t *testing.T) {
-	var gate DAGExecution
-	chat := CognitionFunc(func(context.Context, *models.Task) (*StepOutcome, error) { return nil, nil })
-	router := CognitionFunc(func(context.Context, *models.Task) (*StepOutcome, error) { return nil, nil })
-
-	// Gate off → chat (legacy).
-	selected := gate.Select(chat, router)
-	require.NotNil(t, selected, "gate off must select chat cognition")
-
-	// Gate on → router (L2 path).
-	gate.Enabled = true
-	selected = gate.Select(chat, router)
-	require.NotNil(t, selected, "gate on must select router cognition")
 }
 
 // TestM3_ContextIsChronological pins observation ORDER on the context path:

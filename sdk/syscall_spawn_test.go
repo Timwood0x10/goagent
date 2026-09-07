@@ -81,13 +81,14 @@ func TestSDKSpawnedPeerExecutesSubTask(t *testing.T) {
 	defer rt.Close()
 	rt.llmSvc = &mockLLMSvc{responses: []*core.GenerateResponse{
 		// Coordinator iteration 0: decide to spawn a specialist peer.
+		// M4-D: only L2-routable capabilities spawn executable peers.
 		{Content: "", ToolCalls: []core.ToolCall{
-			mockToolCall("tc1", "spawn_agent", `{"capability":"researcher"}`),
+			mockToolCall("tc1", "spawn_agent", `{"capability":"tool/researcher"}`),
 		}},
 		// Coordinator iteration 1: hand work to the peer via a sub-task.
 		{Content: "", ToolCalls: []core.ToolCall{
 			mockToolCall("tc2", "create_task",
-				`{"capability":"researcher","payload":{"input":"analyse subsystem X"}}`),
+				`{"capability":"tool/researcher","payload":{"input":"analyse subsystem X"}}`),
 		}},
 		// Coordinator iteration 2: final synthesis answer.
 		{Content: "synthesis done"},
@@ -108,18 +109,18 @@ func TestSDKSpawnedPeerExecutesSubTask(t *testing.T) {
 	// The first syscall consumed sequence 1: the spawned peer's deterministic
 	// id. It must be registered on the shared scheduler WITH ITS DECLARED
 	// CAPABILITY as its scheduler-facing type (the fix under test).
-	exec, ok := rt.sched.LookupExecutor("spawned-researcher-1")
+	exec, ok := rt.sched.LookupExecutor("spawned-tool/researcher-1")
 	if !ok {
 		t.Fatal("spawn_agent must register the spawned peer as a scheduler executor")
 	}
-	if got := exec.Type(); got != models.AgentType("researcher") {
-		t.Fatalf("spawned executor Type() = %q, want %q (declared capability, not generated id)", got, "researcher")
+	if got := exec.Type(); got != models.AgentType("tool/researcher") {
+		t.Fatalf("spawned executor Type() = %q, want %q (declared capability, not generated id)", got, "tool/researcher")
 	}
 
 	// The second syscall consumed sequence 2: the sub-task id. It must be
 	// picked up by the spawned peer (capability match) and driven to
 	// COMPLETED — the end-to-end proof that autonomous decomposition closes.
-	const subTaskID = "task-researcher-2"
+	const subTaskID = "task-tool/researcher-2"
 	deadline := time.Now().Add(5 * time.Second)
 	var tk *taskfabric.Task
 	for time.Now().Before(deadline) {

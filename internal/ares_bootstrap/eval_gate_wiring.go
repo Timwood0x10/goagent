@@ -5,9 +5,12 @@
 // constructed with a nil runner and an empty suite, making it a permanent
 // pass-through while the docs claimed a four-gate pipeline.
 //
-// Configuration contract (evolution.gates.eval_suite, a file path):
+// Configuration contract (evolution.gates.eval_suite, a file path;
+// evolution.gates.eval_strict, E3):
 //   - unset → NO G3 gate is built (honest absence, not a fake pass-through);
 //     the pipeline degrades to G2 shadow (+ G1 guardrails at the scheduler).
+//     With eval_strict the absence itself FAILS bootstrap — an unwired
+//     gate must not silently pass every candidate.
 //   - set but unloadable → Bootstrap FAILS. An operator who configured a
 //     verification gate must not get a silently weaker pipeline from a typo.
 package ares_bootstrap
@@ -23,6 +26,12 @@ import (
 	"github.com/Timwood0x10/ares/internal/runtime/ares_evolution/mutation"
 	"github.com/Timwood0x10/ares/internal/runtime/eval"
 )
+
+// errEvalGateNotConfigured signals the INTENTIONAL absence of the G3 gate
+// (no registry/client/suite configured and strict mode off). Bootstrap
+// tolerates it and runs the pipeline without G3; any other error from
+// buildEvalGate means a CONFIGURED gate is broken and fails bootstrap.
+var errEvalGateNotConfigured = errors.New("bootstrap: G3 eval gate not configured")
 
 // llmEvalExecutor adapts an eval.LLMClient into an eval.AgentExecutor
 // for the G3 gate. The candidate strategy's PromptTemplate is prepended to
@@ -72,18 +81,16 @@ func (e *llmEvalExecutor) Execute(ctx context.Context, input string) (string, []
 	return out, nil, 0, nil
 }
 
-// errEvalGateNotConfigured marks the INTENTIONAL absence of the G3 gate
-// (no registry / no eval LLM client / no suite path configured). Callers
-// must treat it as "pipeline runs without G3" — the documented degradation
-// contract — and never as a wiring failure. A CONFIGURED suite that fails
-// to load returns a real error instead (fail closed).
-var errEvalGateNotConfigured = errors.New("eval gate not configured")
-
 // buildEvalGate constructs the G3 verify gate from the evaluator registry,
-// the eval LLM client, and the YAML-configured suite path. Returns
-// (nil, errEvalGateNotConfigured) when the gate is intentionally absent and
-// an error when a CONFIGURED suite cannot be loaded (fail closed — see the
-// package comment).
+// the eval LLM client, and the YAML-configured suite path.
+//
+// Absent inputs (no registry/client/suite) mean the gate is intentionally
+// not configured: with strict=false it returns errEvalGateNotConfigured and
+// bootstrap runs without G3 (the documented degradation, not a fake
+// pass-through); with strict=true (evolution.gates.eval_strict, E3) the
+// absence itself fails bootstrap — an unwired gate must not silently pass
+// every candidate. A CONFIGURED suite that cannot be loaded always fails
+// (fail closed — see the package comment).
 func buildEvalGate(
 	registry *eval.EvaluatorRegistry,
 	client eval.LLMClient,
@@ -92,8 +99,12 @@ func buildEvalGate(
 	strict bool,
 ) (*evolution.EvalGate, error) {
 	if registry == nil || client == nil || strings.TrimSpace(suitePath) == "" {
-		// Gate intentionally absent — the pipeline runs without G3. This is
-		// the documented degradation contract, not a fake pass-through.
+		if strict {
+			// Deliberately NOT wrapping the sentinel: the caller only
+			// tolerates errEvalGateNotConfigured, so strict absence must
+			// surface as a hard error and fail bootstrap.
+			return nil, fmt.Errorf("bootstrap: G3 eval gate is strict (evolution.gates.eval_strict) but not configured (registry/client/suite missing)")
+		}
 		return nil, errEvalGateNotConfigured
 	}
 	suite, err := eval.NewLoader().Load(suitePath)
@@ -115,7 +126,8 @@ func buildEvalGate(
 	if minScore > 0 {
 		gateCfg.MinScore = minScore
 	}
-	// E3: production opts into fail-closed via evolution.gates.eval_strict.
+	// StrictMode also governs the gate's own Check: once built, a runtime
+	// loss of infrastructure rejects instead of passing (E3).
 	gateCfg.StrictMode = strict
 	gate := evolution.NewEvalGate(registry, runner, *suite, gateCfg,
 		evolution.WithEvalGateBeforeRun(exec.setCandidate),

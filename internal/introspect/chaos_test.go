@@ -1,6 +1,7 @@
 package introspect
 
 import (
+	"context"
 	"sync"
 	"testing"
 	"time"
@@ -90,5 +91,36 @@ func TestCollectorChaosSource(t *testing.T) {
 	})
 	if noChaos.Collect().Chaos != nil {
 		t.Fatal("nil chaos source must omit the field")
+	}
+}
+
+// TestRunShadowSandboxRecovers verifies the shadow sandbox replay records a
+// recovery outcome. The scratch-fabric chain kill→lease-expire→recover must
+// leave the task recovered, not errored. (Moved from dashboard_test.go in
+// M4-D with runShadowSandbox; the Dashboard runtime is gone.)
+func TestRunShadowSandboxRecovers(t *testing.T) {
+	res := runShadowSandbox(context.Background())
+	if res.Errored {
+		t.Fatalf("shadow sandbox errored: %+v", res)
+	}
+	if !res.Recovered {
+		t.Fatalf("shadow sandbox did not recover: %+v", res)
+	}
+	if res.LastRun.IsZero() {
+		t.Fatalf("shadow sandbox did not stamp LastRun: %+v", res)
+	}
+}
+
+// TestDashboardChaosReporterWired verifies the chaos reporter feeds the
+// collector Sources, so shadow-loop RecordShadow output stays observable
+// (P0-2 regression guard, kept from dashboard_test.go in M4-D).
+func TestDashboardChaosReporterWired(t *testing.T) {
+	r := NewChaosReporter()
+	r.SetConfig(true, "shadow")
+	c := NewCollector(Sources{Chaos: r.Snapshot})
+	r.RecordShadow(ShadowResult{LastRun: time.Now(), Recovered: true})
+	snap := c.Collect()
+	if snap.Chaos == nil || !snap.Chaos.Enabled || !snap.Chaos.Shadow.Recovered {
+		t.Fatalf("chaos source not wired into collector: %+v", snap.Chaos)
 	}
 }

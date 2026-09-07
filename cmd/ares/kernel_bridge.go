@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Timwood0x10/ares/internal/agentfabric"
 	"github.com/Timwood0x10/ares/internal/agentipc"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	"github.com/Timwood0x10/ares/internal/taskfabric"
@@ -96,6 +97,12 @@ func submitFabricTask(
 ) error {
 	if fabric == nil {
 		return taskfabric.ErrTaskNotFound
+	}
+	// M4-D: single execution path. The dispatcher only materializes
+	// L2-routable tasks — anything else would starve with no candidate
+	// executor. Fail fast instead of creating an unrunnable task.
+	if !agentfabric.IsL2Capability(string(task.AgentType)) {
+		return fmt.Errorf("kernel bridge: agent type %q is not L2-routable (want ares/plan, ares/answer, ares/root, or tool/<name>)", task.AgentType)
 	}
 	var deps []string
 	if task.Context != nil {

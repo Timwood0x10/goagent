@@ -49,6 +49,7 @@ var knownDead = map[string]string{
 	"Output":                    "C4 backlog (subtree): CLI formatting never wired to a renderer",
 	"Prompts.ProfileExtraction": "C4 backlog",
 	"Prompts.StyleAnalysis":     "C4 backlog",
+	"Prompts.Recommendation":    "consumer retired with the ReAct executor (M4-D); L2 cognition prompts come from the plan graph",
 	"Storage.PGVector":          "C4 backlog (subtree)",
 	"Embedding.RedisAddr":       "C4 backlog",
 }

@@ -324,5 +324,9 @@ func (c *Config) validateKernel() error {
 		return fmt.Errorf("kernel: dag_execution.reaper_grace must be non-negative (0 = default 30s), got %s",
 			c.Kernel.DAGExecution.ReaperGrace)
 	}
+	if c.Kernel.DAGExecution.SessionIdleTTL < 0 {
+		return fmt.Errorf("kernel: dag_execution.session_idle_ttl must be non-negative (0 = default 30m), got %s",
+			c.Kernel.DAGExecution.SessionIdleTTL)
+	}
 	return nil
 }

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/Timwood0x10/ares/internal/workflow/engine"
 )
@@ -38,6 +40,10 @@ type SessionRegistry struct {
 type sessionEntry struct {
 	graph   *L2Graph
 	stopSub func() // stops the CompileCoordinator's graph-event subscription
+	// lastAccessNano is the unix-nano time of the last InitSession/GetSession
+	// touch (P0-1a idle TTL). Atomic so the read path keeps its shared lock;
+	// the idle sweeper releases entries nobody has touched within the window.
+	lastAccessNano atomic.Int64
 }
 
 // ErrSessionNotFound is returned by GetSession/ReleaseSession when no L2
@@ -88,6 +94,16 @@ func (r *SessionRegistry) InitSession(
 	if sessionID == "" {
 		return nil, fmt.Errorf("agentfabric: session registry: session id is required")
 	}
+	// P0-1b: the deterministic ID builders (SessionRootID/SessionNodeID)
+	// embed the session ID between "sess/" and the next slash, and
+	// SessionIDFromNode reverse-parses at that first slash. A session ID
+	// containing "/" would make the reaper's keep-set resolve a task back
+	// to a different (non-live) session — harvesting a LIVE session's
+	// readable history mid-flight. The no-slash property is a hard
+	// contract, enforced here at the single registration point.
+	if strings.Contains(sessionID, "/") {
+		return nil, fmt.Errorf("agentfabric: session registry: session id %q must not contain a slash", sessionID)
+	}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -102,6 +118,7 @@ func (r *SessionRegistry) InitSession(
 	}
 
 	entry := &sessionEntry{graph: g}
+	entry.lastAccessNano.Store(time.Now().UnixNano())
 	if compileCoord != nil {
 		// ctx is the caller's, not Background: ReleaseSession is the normal
 		// stop, but a session that is never released (abandoned, crash on the
@@ -124,6 +141,10 @@ func (r *SessionRegistry) GetSession(sessionID string) (*L2Graph, error) {
 	if !ok {
 		return nil, fmt.Errorf("%w: %q", ErrSessionNotFound, sessionID)
 	}
+	// Every lookup is proof of life (P0-1a): the planner touches its
+	// session on each quantum, so an actively running session can never
+	// age into the idle sweep no matter how long it runs.
+	entry.lastAccessNano.Store(time.Now().UnixNano())
 	return entry.graph, nil
 }
 
@@ -161,6 +182,45 @@ func (r *SessionRegistry) SessionIDs() []string {
 	return out
 }
 
+// DefaultSessionIdleTTL is the idle window after which SweepExpired releases
+// a session nobody has touched (P0-1a). It must comfortably exceed the
+// longest legitimate session (plan depth × quantum time), because every
+// quantum touches its session through GetSession — 30 minutes is two orders
+// of magnitude above any realistic single session.
+const DefaultSessionIdleTTL = 30 * time.Minute
+
+// SweepExpired releases every session whose last touch is older than idle
+// (P0-1a). Without it the only release points are "answer completed" and
+// "admission rolled back", so an abandoned session (client gone, planner
+// loop stuck, answer quantum dying before its release) lives forever — and
+// the reaper keep-set, which unconditionally protects live sessions, pins
+// its terminal tasks with it. Releasing on idle turns "leak forever" into
+// "leak ≤ TTL + reaper grace": the released session's tasks become
+// harvestable on the next sweep. Returns the released session IDs so the
+// caller can log them — dropping sessions without a trace is forbidden.
+// A non-positive idle selects DefaultSessionIdleTTL, so a bad config value
+// can never disable the sweep.
+func (r *SessionRegistry) SweepExpired(idle time.Duration) []string {
+	if idle <= 0 {
+		idle = DefaultSessionIdleTTL
+	}
+	now := time.Now()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var expired []string
+	for id, entry := range r.sessions {
+		if now.Sub(time.Unix(0, entry.lastAccessNano.Load())) < idle {
+			continue
+		}
+		if entry.stopSub != nil {
+			entry.stopSub()
+		}
+		delete(r.sessions, id)
+		expired = append(expired, id)
+	}
+	return expired
+}
+
 // SessionRootID builds the deterministic root node ID for a session's L2
 // graph. The root ID is stable across rebuilds (the same sessionID always
 // yields the same root ID) so a recompiled graph's root task is a 1:1 match
@@ -180,6 +240,14 @@ func SessionNodeID(sessionID string, depth int, tool string, seq int) string {
 // sessionIDPrefix is the shared stem of every L2 session node/task ID
 // (SessionRootID / SessionNodeID). The terminal-task reaper filters on it.
 const sessionIDPrefix = "sess/"
+
+// SessionTaskPrefix returns the task-ID stem shared by every node of a
+// session (root and tool nodes alike). Whole-session housekeeping — e.g.
+// the targeted harvest on re-admission of a released ID (P0-1c) — filters
+// on it instead of re-deriving the "sess/" format at the call site.
+func SessionTaskPrefix(sessionID string) string {
+	return sessionIDPrefix + sessionID + "/"
+}
 
 // SessionIDFromNode extracts the owning session ID from an L2 node/task ID
 // ("sess/<sessionID>/…" → sessionID). It is the inverse of the ID builders

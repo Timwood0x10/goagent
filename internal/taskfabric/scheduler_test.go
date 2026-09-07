@@ -101,6 +101,35 @@ func TestCapabilityOverlapProportional(t *testing.T) {
 	}
 }
 
+// TestCapabilityOverlapExactMatchWins pins the namespaced-capability fix: a
+// candidate declaring the required chain verbatim covers it fully (1.0), so
+// among sibling "tool/*" agents the exact executor always beats the partial
+// prefix match — deterministically, not by map-iteration order. Without the
+// exact-match short-circuit both "tool/write" and "tool/research" scored 0.5
+// for a "tool/write" task (each matching only the shared "tool" segment), and
+// Pick's strict-greater tie-break let the wrong agent win at random.
+func TestCapabilityOverlapExactMatchWins(t *testing.T) {
+	// Exact declaration covers its own chain fully.
+	if o := CapabilityOverlap("tool/write", []string{"tool/write"}); o != 1.0 {
+		t.Fatalf("exact match must be 1.0, got %v", o)
+	}
+	// A sibling sharing only the namespace prefix stays a partial (0.5) cover.
+	if o := CapabilityOverlap("tool/write", []string{"tool/research"}); o != 0.5 {
+		t.Fatalf("sibling tool/* must score 0.5, got %v", o)
+	}
+	// Pick routes the task to the exact executor regardless of candidate order.
+	for _, order := range [][]Candidate{
+		{{AgentID: "research", Capabilities: []string{"tool/research"}, Confidence: 1},
+			{AgentID: "writer", Capabilities: []string{"tool/write"}, Confidence: 1}},
+		{{AgentID: "writer", Capabilities: []string{"tool/write"}, Confidence: 1},
+			{AgentID: "research", Capabilities: []string{"tool/research"}, Confidence: 1}},
+	} {
+		if best := Pick("tool/write", order); best == nil || best.AgentID != "writer" {
+			t.Fatalf("writer must win tool/write regardless of order, got %+v", best)
+		}
+	}
+}
+
 // TestPick_LastResortKeepsAllFailureCandidateReachable pins the retry
 // reachability contract: a candidate whose history is all failures has
 // Confidence 0 ⇒ Score 0, but when it is among the capability-overlapping

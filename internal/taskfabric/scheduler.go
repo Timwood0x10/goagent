@@ -136,15 +136,30 @@ func Pick(taskCapability string, candidates []Candidate) *Candidate {
 
 // CapabilityOverlap is the fraction of the required capability segments (a
 // slash-separated chain like "rust/unsafe-analysis") that the candidate's
-// declared capabilities cover. A prefix match counts (agent declaring "rust"
-// covers required "rust/unsafe-analysis"). An empty required capability means
-// the task is unconstrained and open to any candidate (overlap = 1).
+// declared capabilities cover. A candidate declaring the required chain
+// verbatim covers it fully (overlap = 1). Otherwise a prefix match counts
+// (agent declaring "rust" covers required "rust/unsafe-analysis"). An empty
+// required capability means the task is unconstrained and open to any
+// candidate (overlap = 1).
 // Exported so observability consumers (e.g. the scheduler's decision recorder)
 // can render the same breakdown the Score formula uses, without duplicating
 // the matching logic.
 func CapabilityOverlap(required string, have []string) float64 {
-	if strings.TrimSpace(required) == "" {
+	trimmed := strings.TrimSpace(required)
+	if trimmed == "" {
 		return 1.0
+	}
+	// Exact whole-chain match short-circuit. A namespaced capability like
+	// "tool/write" is a single declared string whose only "/"-segment the
+	// proportional loop below would credit is "tool" (via the prefix rule),
+	// scoring 0.5 — tying it with every sibling "tool/*" agent and letting
+	// map-iteration order decide the winner. That misroutes a "tool/write"
+	// task to a "tool/research" executor whenever both are registered. An
+	// exact declaration must instead cover the requirement fully.
+	for _, h := range have {
+		if strings.TrimSpace(h) == trimmed {
+			return 1.0
+		}
 	}
 	var req []string
 	for _, part := range strings.Split(required, "/") {

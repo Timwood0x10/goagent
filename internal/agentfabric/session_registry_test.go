@@ -2,7 +2,9 @@ package agentfabric
 
 import (
 	"context"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -131,10 +133,66 @@ func TestSessionRegistry_SessionIDs(t *testing.T) {
 	require.ElementsMatch(t, []string{"a", "b"}, ids)
 }
 
+// TestSessionRegistry_InitRejectsSlashID pins the P0-1b contract: a session
+// ID containing "/" breaks SessionIDFromNode's reverse parse (the reaper
+// keep-set would resolve a live session's tasks to a different, non-live
+// ID and harvest its readable history), so the registry refuses it at the
+// single registration point.
+func TestSessionRegistry_InitRejectsSlashID(t *testing.T) {
+	_, err := NewSessionRegistry().InitSession(context.Background(), "a/b", "p", nil, nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "must not contain a slash")
+}
+
+// TestSessionRegistry_SweepExpired pins the P0-1a idle release: a touched
+// session survives the sweep, an idle one is released (with its compile
+// subscription stopped), and a non-positive window falls back to the
+// default instead of mass-releasing.
+func TestSessionRegistry_SweepExpired(t *testing.T) {
+	ctx := context.Background()
+	r := NewSessionRegistry()
+	stopped := 0
+	coord := func(_ context.Context, _ *engine.MutableDAG) (stop func()) {
+		return func() { stopped++ }
+	}
+
+	_, err := r.InitSession(ctx, "s1", "p", nil, coord)
+	require.NoError(t, err)
+
+	// A GetSession touch refreshes the idle clock: half a window after
+	// init, the touch resets it and the sweep must keep the session.
+	time.Sleep(60 * time.Millisecond)
+	_, err = r.GetSession("s1")
+	require.NoError(t, err)
+	require.Empty(t, r.SweepExpired(100*time.Millisecond),
+		"touched session must survive the sweep")
+
+	// Idle past the window releases it and stops the compile subscription.
+	time.Sleep(110 * time.Millisecond)
+	require.Equal(t, []string{"s1"}, r.SweepExpired(100*time.Millisecond))
+	require.Equal(t, 1, stopped, "expired release must stop the compile subscription")
+	_, err = r.GetSession("s1")
+	require.ErrorIs(t, err, ErrSessionNotFound)
+
+	// Non-positive idle selects the default (30m), never releases everything.
+	_, err = r.InitSession(ctx, "s2", "p", nil, nil)
+	require.NoError(t, err)
+	require.Empty(t, r.SweepExpired(0),
+		"zero idle must fall back to the default window, not release live sessions")
+}
+
 // TestSessionRootID verifies the deterministic root ID format so a
 // recompiled graph's root task is a 1:1 match to the original.
 func TestSessionRootID(t *testing.T) {
 	require.Equal(t, "sess/s1/root", SessionRootID("s1"))
+}
+
+// TestSessionTaskPrefix pins the whole-session stem used by targeted
+// harvests (P0-1c): both builders' outputs carry it.
+func TestSessionTaskPrefix(t *testing.T) {
+	require.Equal(t, "sess/s1/", SessionTaskPrefix("s1"))
+	require.True(t, strings.HasPrefix(SessionRootID("s1"), SessionTaskPrefix("s1")))
+	require.True(t, strings.HasPrefix(SessionNodeID("s1", 1, "grep", 0), SessionTaskPrefix("s1")))
 }
 
 // TestSessionNodeID verifies the deterministic instance node ID format.

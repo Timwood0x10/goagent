@@ -14,6 +14,10 @@ import (
 	"github.com/Timwood0x10/ares/internal/taskfabric"
 )
 
+// errUnroutableCapability is returned when a syscall asks for a capability
+// outside the single L2 execution path (M4-D). Callers must use errors.Is.
+var errUnroutableCapability = errors.New("capability is not L2-routable")
+
 // SpawnAgentTool is the tool name exposed to the LLM for spawning peer agents.
 const SpawnAgentTool = "spawn_agent"
 
@@ -254,6 +258,11 @@ func (k *Kernel) SpawnAgent(ctx context.Context, args SpawnAgentArgs) (*SpawnAge
 	if args.Capability == "" {
 		return nil, errors.New("agentsyscall: capability is required")
 	}
+	// M4-D: a spawned peer only receives scheduler quanta through the L2
+	// router — a non-routable capability would leave it permanently idle.
+	if !agentfabric.IsL2Capability(args.Capability) {
+		return nil, fmt.Errorf("agentsyscall: capability %q is not L2-routable (want ares/plan, ares/answer, ares/root, or tool/<name>): %w", args.Capability, errUnroutableCapability)
+	}
 
 	// Generate a unique agent ID when the LLM does not provide one.
 	agentID := fmt.Sprintf("spawned-%s-%d", args.Capability, k.idSeq.Add(1))
@@ -348,6 +357,12 @@ func (k *Kernel) CreateTask(ctx context.Context, args CreateTaskArgs) (*CreateTa
 	}
 	if args.Capability == "" {
 		return nil, errors.New("agentsyscall: capability is required")
+	}
+	// M4-D: single execution path. Only L2-routable capabilities
+	// (ares/*, tool/*) are accepted — anything else would starve with no
+	// candidate executor. Fail fast with a routable hint instead.
+	if !agentfabric.IsL2Capability(args.Capability) {
+		return nil, fmt.Errorf("agentsyscall: capability %q is not L2-routable (want ares/plan, ares/answer, ares/root, or tool/<name>): %w", args.Capability, errUnroutableCapability)
 	}
 
 	taskID := fmt.Sprintf("task-%s-%d", args.Capability, k.idSeq.Add(1))

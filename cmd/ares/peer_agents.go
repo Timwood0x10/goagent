@@ -1,63 +1,80 @@
 package main
 
 import (
-	"log"
+	"context"
+	"fmt"
 	"time"
 
-	"github.com/Timwood0x10/ares/internal/agents"
+	"github.com/Timwood0x10/ares/internal/agentfabric"
 	"github.com/Timwood0x10/ares/internal/agents/base"
 	"github.com/Timwood0x10/ares/internal/agents/sub"
 	"github.com/Timwood0x10/ares/internal/ares_config"
 	"github.com/Timwood0x10/ares/internal/ares_events"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	llm "github.com/Timwood0x10/ares/internal/llm"
-	"github.com/Timwood0x10/ares/internal/llm/output"
 )
 
-// resolveRoleProfile returns the built-in AgentProfile for a role id, or nil
-// when the role is empty or unknown. The default profile set (agents.
-// DefaultProfiles) is a pure map keyed by profile ID, so a direct lookup
-// replaces the per-executor ProfileRegistry rebuild the W4 write side used to
-// do — no goroutine-unsafe shared registry, no O(n) re-registration in a hot
-// constructor loop. An unknown role is logged and resolves to nil so the peer
-// runs roleless rather than failing startup over a config typo (the same
-// degrade contract as the old registry.Get path). Shared by the static
-// createExecutor and the fabric ChatCognition body (newPeerChatCognition), so
-// both execution paths resolve a config role identically .
-func resolveRoleProfile(role string) *agents.AgentProfile {
-	if role == "" {
-		return nil
-	}
-	profiles := agents.DefaultProfiles()
-	profile, ok := profiles[role]
-	if !ok {
-		log.Printf("peer mode: unknown role %q, running roleless", role)
-		return nil
-	}
-	return profile
+// cognitionTaskExecutor adapts an agentfabric Cognition to sub.TaskExecutor
+// (M4-D: the only TaskExecutor implementation left; the ReAct tool loop is
+// deleted). ExecuteStep delegates one quantum field-for-field — subAgent
+// picks it up structurally via its stepExecutor check. Execute runs a single
+// quantum and translates the outcome; completion is driven by the scheduler
+// draining quanta, never by looping here. RegisterFallback is a no-op (no
+// fallback loop exists anymore). A nil body fails loud: identity-only agents
+// (peer registry shells) must never be driven.
+type cognitionTaskExecutor struct {
+	id  string
+	cog agentfabric.Cognition
 }
 
-// createPeerSubAgents builds the sub.Agent executors for the C1 flat peer
-// population (cfg.Agents.Peers). Each peer's first capability is its primary
-// Type; the full set is offered to the scheduler's candidate scorer via
-// subAgentCapability.Caps.
+// Execute runs a single quantum through the wrapped cognition.
+func (e *cognitionTaskExecutor) Execute(ctx context.Context, task *models.Task) (*models.TaskResult, error) {
+	if e.cog == nil {
+		return nil, fmt.Errorf("peer mode: executor %q has no execution body (identity-only agent must not be driven)", e.id)
+	}
+	out, err := e.cog.ExecuteStep(ctx, task)
+	if err != nil {
+		return nil, err
+	}
+	if out != nil && out.Done && out.Result != nil {
+		return out.Result, nil
+	}
+	// Single-quantum pass-through: not done means the scheduler resumes it.
+	res := models.NewTaskResult(task.TaskID, task.AgentType)
+	res.Success = false
+	res.Reason = "quantum yielded; resume via scheduler"
+	return res, nil
+}
+
+// RegisterFallback implements sub.TaskExecutor. No-op: no fallback loop.
+func (e *cognitionTaskExecutor) RegisterFallback(models.AgentType, sub.FallbackHandler) {
+}
+
+// ExecuteStep implements the quantum path for subAgent's structural
+// stepExecutor check.
+func (e *cognitionTaskExecutor) ExecuteStep(ctx context.Context, task *models.Task) (*sub.StepOutcome, error) {
+	if e.cog == nil {
+		return nil, fmt.Errorf("peer mode: executor %q has no execution body (identity-only agent must not be driven)", e.id)
+	}
+	out, err := e.cog.ExecuteStep(ctx, task)
+	if err != nil {
+		return nil, err
+	}
+	return &sub.StepOutcome{Done: out.Done, Checkpoint: out.Checkpoint, Result: out.Result}, nil
+}
+
+// createPeerSubAgents builds the sub.Agent identities for the C1 flat peer
+// population (cfg.Agents.Peers). M4-D: these are identity shells for the
+// peer registry/IPC — execution flows through fabric-spawned router
+// cognitions, so each shell carries a body-less adapter that fails loud if
+// ever driven (it never is: the static scheduler pool is gone and one-shot
+// Execute has no production callers).
 //
-// C1 convergence (review P1): in peer mode the sub.Agent is ONLY a static
-// CapabilityExecutor for the scheduler's executor pool — the real execution
-// body is the self-contained ChatCognition the fabric spawns (peer_mode.go:
-// SpawnSpec.CognitionFactory), so the legacy Process/Launch machinery
-// (heartbeat monitor + message queue) is NOT wired here. This mirrors
-// newPeerExecutor (which already passes nil heartbeat/queue for dynamically
-// spawned peers) and matches the review's demand to converge peer mode onto
-// the fabric executor: no partially-used sub.Agent lifecycle.
+// C1 convergence (review P1): no heartbeat monitor, no message queue —
+// the fabric owns scheduling and lifecycle.
 func createPeerSubAgents(
-	cfg *ares_config.Config,
 	peers []ares_config.PeerAgentConfig,
-	llmAdapter output.LLMAdapter,
-	chatClient sub.ChatClient,
-	toolBinder sub.ToolBinder,
 	store ares_events.EventStore,
-	strategySrc agents.StrategySource,
 ) []sub.Agent {
 	agents := make([]sub.Agent, 0, len(peers))
 	for _, p := range peers {
@@ -65,18 +82,11 @@ func createPeerSubAgents(
 		if len(p.Capabilities) > 0 {
 			typ = p.Capabilities[0]
 		}
-		subCfg := ares_config.SubAgentConfig{
-			ID:            p.ID,
-			Type:          typ,
-			Priority:      p.Priority,
-			MaxToolRounds: p.MaxToolRounds,
-		}
-		executor := createExecutor(llmAdapter, chatClient, toolBinder, cfg, subCfg, strategySrc, p.Role)
 		handler := sub.NewMessageHandler(p.ID)
 		agent := sub.New(
 			p.ID,
 			models.AgentType(typ),
-			executor,
+			&cognitionTaskExecutor{id: p.ID},
 			handler,
 			nil, // message queue: the fabric owns scheduling; no AHP queue loop
 			nil, // heartbeat monitor: no Process/Launch lifecycle in peer mode
@@ -92,45 +102,6 @@ func createPeerSubAgents(
 		agents = append(agents, agent)
 	}
 	return agents
-}
-
-func createExecutor(
-	llmAdapter output.LLMAdapter,
-	chatClient sub.ChatClient,
-	toolBinder sub.ToolBinder,
-	cfg *ares_config.Config,
-	subCfg ares_config.SubAgentConfig,
-	strategySrc agents.StrategySource,
-	role string,
-) sub.TaskExecutor {
-	opts := []sub.TaskExecutorOption{
-		sub.WithChatClient(chatClient),
-		sub.WithStrategySource(strategySrc),
-	}
-	// Configurable tool-loop depth: max_tool_rounds per sub-agent overrides the
-	// executor default (5). 0/unset keeps the library default (config over
-	// magic constants).
-	if subCfg.MaxToolRounds > 0 {
-		opts = append(opts, sub.WithMaxToolRounds(subCfg.MaxToolRounds))
-	}
-	// W4 write side: pin the configured role so every task context carries the
-	// profile instructions (consumed by activeRoleInstructions in the executor).
-	// Unknown role ids are logged and skipped — the agent runs roleless rather
-	// than failing startup over a config typo.
-	if profile := resolveRoleProfile(role); profile != nil {
-		opts = append(opts, sub.WithProfile(profile))
-	}
-	return sub.NewTaskExecutorWithValidation(
-		toolBinder,
-		llmAdapter,
-		output.NewTemplateEngine(),
-		cfg.Prompts.Recommendation,
-		output.NewValidator(output.WithSchemaType(cfg.Validation.SchemaType)),
-		subCfg.MaxRetries,
-		cfg.Validation.RetryOnFail,
-		cfg.Validation.StrictMode,
-		opts...,
-	)
 }
 
 // createChatClient creates a FailoverClient from the LLM config for Chat API support.

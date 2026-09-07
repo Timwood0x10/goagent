@@ -2,7 +2,7 @@
 // docs/zh/architecture/ares-runtime.md): Agent as a disposable, peer-equivalent cognitive
 // process managed by the Runtime.
 //
-// Design invariants (ares-runtime.md §13 架构不变量):
+// Design invariants :
 //   - Agent is a same-level cognitive process — A ≡ B ≡ C; parent/child only
 //     carries spawn provenance, NOT a permission hierarchy.
 //   - Task is durable, Agent is disposable — Agent death ≠ Task death.

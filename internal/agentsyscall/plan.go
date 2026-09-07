@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/Timwood0x10/ares/internal/agentfabric"
 	kctx "github.com/Timwood0x10/ares/internal/kernel/ctx"
 	"github.com/Timwood0x10/ares/internal/taskfabric"
 )
@@ -116,6 +117,13 @@ func (k *Kernel) CreatePlan(ctx context.Context, args CreatePlanArgs) (*CreatePl
 	for _, s := range args.Steps {
 		if s.Capability == "" {
 			return nil, fmt.Errorf("agentsyscall: plan step %q: capability is required", s.ID)
+		}
+		// M4-D: single execution path — a batch step with a non-routable
+		// capability would starve with no candidate executor. Fail fast
+		// per step (validation precedes compilation, so nothing is
+		// created on error).
+		if !agentfabric.IsL2Capability(s.Capability) {
+			return nil, fmt.Errorf("agentsyscall: plan step %q: capability %q is not L2-routable (want ares/plan, ares/answer, ares/root, or tool/<name>): %w", s.ID, s.Capability, errUnroutableCapability)
 		}
 		steps = append(steps, taskfabric.PlanStep{
 			ID:         s.ID,

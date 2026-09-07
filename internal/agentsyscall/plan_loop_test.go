@@ -42,7 +42,7 @@ func loopPlanArgs() CreatePlanArgs {
 	// No Until condition: the loop runs exactly MaxRounds rounds, so the
 	// test can observe round 2 being compiled after a clean round 1.
 	return CreatePlanArgs{
-		Steps: []PlanStepArgs{{ID: "gen", Capability: "coder"}},
+		Steps: []PlanStepArgs{{ID: "gen", Capability: "ares/plan"}},
 		Loop:  &PlanLoopArgs{MaxRounds: 2},
 	}
 }
@@ -111,7 +111,7 @@ func TestCreatePlanLoopRejectsInvalidSpecs(t *testing.T) {
 		{"unknown_until", PlanLoopArgs{MaxRounds: 2, Until: "score > 9000"}},
 	}
 	for _, tc := range cases {
-		args := CreatePlanArgs{Steps: []PlanStepArgs{{ID: "gen", Capability: "coder"}}, Loop: &tc.loop}
+		args := CreatePlanArgs{Steps: []PlanStepArgs{{ID: "gen", Capability: "ares/plan"}}, Loop: &tc.loop}
 		if _, err := kernel.CreatePlan(context.Background(), args); err == nil {
 			t.Fatalf("%s: expected rejection", tc.name)
 		}
@@ -143,7 +143,7 @@ func TestCreatePlanLoopCapIsEnforced(t *testing.T) {
 
 	// MaxRounds is high enough that the loops stay live for the whole test.
 	args := CreatePlanArgs{
-		Steps: []PlanStepArgs{{ID: "gen", Capability: "coder"}},
+		Steps: []PlanStepArgs{{ID: "gen", Capability: "ares/plan"}},
 		Loop:  &PlanLoopArgs{MaxRounds: 1000},
 	}
 	for i := 0; i < 2; i++ {
@@ -189,7 +189,7 @@ func TestCreatePlanLoopDeregistersWhenFinished(t *testing.T) {
 	kernel := NewKernel(nil, fabric, nil, nil, WithLoopLifetime(context.Background()))
 
 	result, err := kernel.CreatePlan(context.Background(), CreatePlanArgs{
-		Steps: []PlanStepArgs{{ID: "gen", Capability: "coder"}},
+		Steps: []PlanStepArgs{{ID: "gen", Capability: "ares/plan"}},
 		Loop:  &PlanLoopArgs{MaxRounds: 1},
 	})
 	if err != nil {

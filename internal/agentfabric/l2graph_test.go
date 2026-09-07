@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"reflect"
 	"testing"
 	"time"
 
@@ -15,19 +14,6 @@ import (
 	resources "github.com/Timwood0x10/ares/internal/tools/resources/core"
 	"github.com/Timwood0x10/ares/internal/workflow/engine"
 )
-
-// TestDAGExecution_SelectKeepsLegacyBehaviorOff pins the gate default: the
-// zero-value gate returns the chat cognition — production behavior identical
-// to today.
-func TestDAGExecution_SelectKeepsLegacyBehaviorOff(t *testing.T) {
-	var gate DAGExecution
-	chat := CognitionFunc(func(context.Context, *models.Task) (*StepOutcome, error) { return nil, nil })
-	router := CognitionFunc(func(context.Context, *models.Task) (*StepOutcome, error) { return nil, nil })
-
-	require.Equal(t, reflect.ValueOf(chat).Pointer(), reflect.ValueOf(gate.Select(chat, router)).Pointer())
-	require.Equal(t, reflect.ValueOf(router).Pointer(),
-		reflect.ValueOf(DAGExecution{Enabled: true}.Select(chat, router)).Pointer())
-}
 
 // indexOf returns the position of id in order, or -1 when absent.
 func indexOf(order []string, id string) int {

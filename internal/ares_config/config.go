@@ -138,22 +138,20 @@ type KernelConfig struct {
 	// allow_live=true) enables real agent kill/suspend; it is dangerous
 	// and intended only for dedicated chaos testing environments.
 	Chaos ChaosConfig `yaml:"chaos"`
-	// DAGExecution configures the L2 session-graph execution path (M4-A1).
-	// Zero value = legacy ReAct behavior: peers run the chat tool-loop
-	// cognition and the L2 graph machinery stays test-only. Enabled selects
-	// the router cognition that executes tool/answer/root nodes grown on the
-	// session L2 graph. The gate defaults off so shipped behavior is
-	// unchanged until operators flip it deliberately.
+	// DAGExecution configures the L2 session-graph execution path (M4-D:
+	// the only execution path; see DAGExecutionConfig). Every field is
+	// zero-value-safe — an absent dag_execution section runs the L2 router
+	// with defaults. The former `enabled` gate and the ReAct chat tool-loop
+	// it selected are gone; old files carrying `enabled:` still parse and the
+	// key is ignored.
 	DAGExecution DAGExecutionConfig `yaml:"dag_execution"`
 }
 
 // DAGExecutionConfig configures the L2 session-graph execution path.
-// Every field is zero-value-safe: an absent dag_execution section behaves
-// exactly like today (ReAct everywhere).
+// Every field is zero-value-safe. (M4-D: the `enabled` gate is gone — the
+// L2 path is the only path. Old files carrying `enabled:` still parse;
+// the key is ignored.)
 type DAGExecutionConfig struct {
-	// Enabled selects the L2 session-graph execution body over the ReAct
-	// loop (default false).
-	Enabled bool `yaml:"enabled"`
 	// MaxPlanDepth caps the L2 plan-tool growth depth per session
 	// (0 = default 10). A negative is a config error, rejected by Validate.
 	MaxPlanDepth int `yaml:"max_plan_depth"`
@@ -163,6 +161,13 @@ type DAGExecutionConfig struct {
 	// regardless of age — the registry keep-set gates that. A negative is a
 	// config error, rejected by Validate.
 	ReaperGrace time.Duration `yaml:"reaper_grace"`
+	// SessionIdleTTL is the session registry's idle window (P0-1a): a
+	// session untouched for this long is released by the sweeper, which
+	// lets the task reaper harvest its terminal tasks on the next sweep
+	// (0 = default 30m). Active sessions are immune — every quantum
+	// touches its session. A negative is a config error, rejected by
+	// Validate.
+	SessionIdleTTL time.Duration `yaml:"session_idle_ttl"`
 }
 
 // ChaosConfig configures the chaos fault injection subsystem.
@@ -305,13 +310,6 @@ type PeerAgentConfig struct {
 	// OS-thread priority: the kernel scheduler boosts higher-priority agents
 	// when choosing among capable candidates (B2).
 	Priority float64 `yaml:"priority"`
-	// MaxToolRounds caps the tool-calling iterations per task execution
-	// (default 5 when 0/unset).
-	MaxToolRounds int `yaml:"max_tool_rounds"`
-	// Role is the agent profile id (W4) applied into every task context so the
-	// LLM prompt carries the role instructions (agents.DefaultProfiles:
-	// planner/researcher/critic/...). Empty = no role pinning.
-	Role string `yaml:"role"`
 }
 
 // SubAgentConfig holds Sub Agent configuration.
@@ -327,20 +325,11 @@ type SubAgentConfig struct {
 	// Dependencies lists other sub-agent IDs whose tasks must COMPLETE before
 	// this sub-agent's task runs (Task Fabric DAG gate, ares-runtime).
 	Dependencies []string `yaml:"dependencies"`
-	// Role is the agent profile id (W4) applied into every task context so the
-	// LLM prompt carries the role instructions (agents.DefaultProfiles:
-	// planner/researcher/critic/...). Empty = no role pinning.
-	Role string `yaml:"role"`
 	// Priority is the scheduling priority of this sub-agent (>= 0; 0 =
 	// normal). It mirrors OS-thread priority: the kernel scheduler boosts
 	// higher-priority agents when choosing among capable candidates. Read by
 	// the kernel wiring (B2: thread priority) into the shared load tracker.
 	Priority float64 `yaml:"priority"`
-	// MaxToolRounds caps the tool-calling iterations per task execution for
-	// this agent (default 5 when 0/unset — see sub.defaultMaxToolRounds).
-	// Exposed so operators can tune tool-loop depth without code changes
-	// (code_rules: config over magic constants).
-	MaxToolRounds int `yaml:"max_tool_rounds"`
 }
 
 // PromptsConfig holds prompt templates.

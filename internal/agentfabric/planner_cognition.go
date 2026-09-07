@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 
 	"github.com/Timwood0x10/ares/api/core"
+	"github.com/Timwood0x10/ares/internal/agents"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	"github.com/Timwood0x10/ares/internal/taskfabric"
 	resources "github.com/Timwood0x10/ares/internal/tools/resources/core"
@@ -46,6 +47,11 @@ type PlannerDeps struct {
 	L1DAG *engine.MutableDAG
 	// MaxDepth caps the plan-tool growth depth (0 = DefaultMaxPlanDepth).
 	MaxDepth int
+	// StrategySource is the optional live evolution strategy (M4-D: the
+	// planner is the strategy actuator after ReAct — prompt template + LLM
+	// param overrides steer plan growth the way they steered the chat loop).
+	// Nil = no steering (same degrade contract as the retired chat body).
+	StrategySource agents.StrategySource
 	// Logger is the shared logger.
 	Logger *slog.Logger
 }
@@ -86,6 +92,7 @@ type plannerCognition struct {
 	fabric   FabricReader
 	l1       *engine.MutableDAG // L1 ToolClass graph (M5), nil = permissive
 	maxDepth int
+	strategy agents.StrategySource // live evolution strategy (M4-D actuator), nil = unsteered
 	logger   *slog.Logger
 	// forcedAnswers counts quanta that hit the growth-depth guard and were
 	// forced into an answer node (M4-B2 canary metric: the depth-exhaustion
@@ -137,6 +144,7 @@ func NewPlannerCognition(deps PlannerDeps) (Cognition, error) {
 		fabric:   deps.Fabric,
 		l1:       deps.L1DAG,
 		maxDepth: maxD,
+		strategy: deps.StrategySource,
 		logger:   logger,
 	}, nil
 }
@@ -239,6 +247,24 @@ func (c *plannerCognition) ExecuteStep(ctx context.Context, task *models.Task) (
 		})
 	}
 
+	// M4-D: steer plan growth with the live evolution strategy (the planner
+	// is the strategy actuator after ReAct). Mirrors the retired chat loop's
+	// renderPromptAndParams: template override rides a system message
+	// (prompt-only, never a growth block), param overrides ride the LLM
+	// call params. Absent/unreadable strategy = unsteered growth.
+	llmParams := map[string]any{}
+	if st := c.activeStrategy(ctx); st != nil {
+		if strings.TrimSpace(st.Prompt) != "" {
+			prompt = append(prompt, &core.LLMMessage{
+				Role:    "system",
+				Content: "evolution strategy (deployed " + st.ID + "):\n" + st.Prompt,
+			})
+		}
+		for k, v := range st.Params {
+			llmParams[k] = v
+		}
+	}
+
 	// Build the tool schemas for the LLM.
 	var llmTools []core.Tool
 	if c.binder != nil {
@@ -250,7 +276,7 @@ func (c *plannerCognition) ExecuteStep(ctx context.Context, task *models.Task) (
 	}
 
 	// Call the LLM once with the context and tool schemas.
-	resp, err := c.chat.Chat(ctx, prompt, llmTools, nil)
+	resp, err := c.chat.Chat(ctx, prompt, llmTools, llmParams)
 	if err != nil {
 		return nil, fmt.Errorf("agentfabric: planner cognition: chat: %w", err)
 	}
@@ -275,6 +301,21 @@ func (c *plannerCognition) ExecuteStep(ctx context.Context, task *models.Task) (
 	result := models.NewTaskResult(task.TaskID, task.AgentType)
 	result.SetSuccess(nil, "planner grew "+strconv.Itoa(grown)+" tool nodes")
 	return &StepOutcome{Done: true, Result: result}, nil
+}
+
+// activeStrategy fetches the currently-deployed evolution strategy, if any
+// (M4-D actuator read). Errors are logged and ignored so a missing store
+// never breaks plan growth — same degrade contract as the retired chat loop.
+func (c *plannerCognition) activeStrategy(ctx context.Context) *agents.ActiveStrategy {
+	if c.strategy == nil {
+		return nil
+	}
+	st, err := c.strategy.GetActiveStrategy(ctx)
+	if err != nil {
+		c.logger.Warn("planner: failed to read active strategy", "error", err)
+		return nil
+	}
+	return st
 }
 
 // assembleContext builds the LLM message list from the predecessor path:
@@ -636,7 +677,6 @@ func extractOutputContent(sc any) string {
 }
 
 // toCoreTool converts a resources.ToolSchema to a core.Tool for the LLM.
-// This is the same conversion the chatCognition uses.
 func toCoreTool(s resources.ToolSchema) core.Tool {
 	return resources.ToolSchemaToLLMTool(s)
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/agents/actionlog"
 	"github.com/Timwood0x10/ares/internal/agents/base"
 	"github.com/Timwood0x10/ares/internal/agents/outputguard"
@@ -50,10 +51,11 @@ type StepOutcome struct {
 	Checkpoint any
 }
 
-// stepExecutor is the optional quantum-capable contract implemented by the
-// production taskExecutor. The interface lives at the consumer (sub.Agent)
-// per code_rules; executors that predate quantum execution simply do
-// not implement it and subAgent falls back to one-shot Execute.
+// stepExecutor is the optional quantum-capable contract. The interface lives
+// at the consumer (sub.Agent) per code_rules; executors that predate quantum
+// execution simply do not implement it and subAgent falls back to one-shot
+// Execute. (M4-D: the only implementation left is the cognition-backed
+// adapter — the ReAct tool loop is deleted.)
 type stepExecutor interface {
 	ExecuteStep(ctx context.Context, task *models.Task) (*StepOutcome, error)
 }
@@ -66,9 +68,23 @@ type TaskExecutor interface {
 	RegisterFallback(agentType models.AgentType, handler FallbackHandler)
 }
 
+// FallbackHandler computes a degraded result when normal execution is
+// unavailable. (Kept from the retired tool-loop executor in M4-D: part of
+// the TaskExecutor contract.)
+type FallbackHandler func(ctx context.Context, task *models.Task) ([]*models.RecommendItem, string, error)
+
 // MessageHandler handles incoming messages.
 type MessageHandler interface {
 	Handle(ctx context.Context, msg *ahp.AHPMessage) error
+}
+
+// ChatClient is the minimal LLM chat surface an executor needs (interface
+// at the consumer, code_rules). The optional params map carries per-call
+// overrides (temperature, max_tokens, top_k) from the active evolution
+// strategy. (Relocated from the retired tool-loop executor in M4-D; the
+// contract is unchanged.)
+type ChatClient interface {
+	Chat(ctx context.Context, messages []*core.LLMMessage, tools []core.Tool, params map[string]any) (*core.GenerateResponse, error)
 }
 
 // ToolBinder binds tools to the agent.

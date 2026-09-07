@@ -1,9 +1,11 @@
 //go:build e2e
 
-// Live LLM canary for the L2 execution path (M4-B2): the SAME prompt runs
-// through the legacy ReAct body and the FULL L2 stack (planner → subscription
-// → real scheduler → router → echo tools) against a REAL model, and the test
-// asserts both arms chose the same tool sequence.
+// Live LLM canary for the L2 execution path (M4-B2): the pinned prompt runs
+// the FULL L2 stack (planner → subscription → real scheduler → router → echo
+// tools) against a REAL model, asserting the grown tool sequence is
+// non-vacuous and the session terminates with model-produced content.
+// (M4-D: the legacy ReAct arm is gone with the chat loop; this file is now
+// a live L2 smoke test, not a parity comparison.)
 //
 // Build tag: e2e — needs a REAL LLM key and runs locally only
 // (go test -tags=e2e -run TestCanaryLiveLLM ./cmd/ares/). Deliberately NOT
@@ -15,9 +17,8 @@
 // touch the repo). Tools are echo-only (zero side effects): the LLM genuinely
 // decides, the scheduler genuinely executes, nothing real happens.
 //
-// NOTE: this is intentionally NOT CompareDualPath. That harness runs the DAG
-// arm without executing tool tasks (scripted clients answer on schedule, so
-// holes never matter). A live model plans from history — unreadable
+// NOTE (M4-D): the retired CompareDualPath harness ran its DAG arm without
+// executing tool tasks. A live model plans from history — unreadable
 // predecessors would degenerate every later round — so the live canary runs
 // the full stack with the scheduler executing each grown node.
 package main
@@ -95,11 +96,11 @@ func liveLLMClient(t *testing.T) *llm.Client {
 	return client
 }
 
-// TestCanaryLiveLLM runs one pinned prompt through both execution bodies
-// against the real model and asserts tool-sequence parity. The prompt pins a
+// TestCanaryLiveLLM runs one pinned prompt through the L2 stack against the
+// real model and asserts tool-sequence non-vacuity. The prompt pins a
 // single grep call so the verdict is non-vacuous: a model that answers
-// without tools on both arms would "match" on empty sequences, and the len
-// guard below turns that into a failure (prompt needs work), not a pass.
+// without tools would "pass" on an empty sequence, and the len guard below
+// turns that into a failure (prompt needs work), not a pass.
 func TestCanaryLiveLLM(t *testing.T) {
 	client := liveLLMClient(t)
 	const prompt = "Use the grep tool once with query 'hello' to search, then answer with the tool result in one sentence."
@@ -108,38 +109,6 @@ func TestCanaryLiveLLM(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	start := time.Now()
-
-	// ── Legacy arm: chat loop to Done, echo tools really execute. ──
-	legacyBinder := &canaryBinder{}
-	legacyCog, err := agentfabric.NewChatCognition(agentfabric.ChatCognitionDeps{
-		ChatClient:     client,
-		ToolBinder:     legacyBinder,
-		PromptTemplate: "{{.input}}",
-		MaxToolRounds:  5,
-		AgentID:        "live-legacy",
-	})
-	require.NoError(t, err)
-	legacyTask := models.NewTask("live-legacy-task", "worker", nil)
-	legacyTask.Payload = map[string]any{"task_desc": prompt}
-	legacyDone := false
-	for round := 0; round < 5; round++ {
-		out, err := legacyCog.ExecuteStep(ctx, legacyTask)
-		require.NoError(t, err, "legacy arm must not error")
-		if out.Done {
-			legacyDone = true
-			break
-		}
-		if out.Checkpoint != nil {
-			legacyTask.Payload["checkpoint"] = out.Checkpoint
-		}
-	}
-	require.True(t, legacyDone, "legacy arm must terminate")
-	legacyBinder.mu.Lock()
-	var legacySeq []string
-	for _, c := range legacyBinder.calls {
-		legacySeq = append(legacySeq, c.tool)
-	}
-	legacyBinder.mu.Unlock()
 
 	// ── L2 arm: full stack, scheduler executes each grown node. ──
 	fabric := taskfabric.NewFabric()
@@ -202,12 +171,10 @@ func TestCanaryLiveLLM(t *testing.T) {
 			}
 		}
 	}
-	t.Logf("live canary: legacy_seq=%q dag_seq=%q elapsed=%v", legacySeq, dagSeq, elapsed.Round(time.Second))
+	t.Logf("live canary: dag_seq=%q elapsed=%v", dagSeq, elapsed.Round(time.Second))
 
-	require.NotEmpty(t, legacySeq,
-		"vacuous run: model used no tools on the legacy arm, prompt needs work")
-	require.Equal(t, legacySeq, dagSeq,
-		"live model chose different tools per body (run again to rule out sampling noise)")
+	require.NotEmpty(t, dagSeq,
+		"vacuous run: model used no tools on the L2 path, prompt needs work")
 	if planner, ok := planner.(interface{ ForcedAnswers() uint64 }); ok {
 		require.Equal(t, uint64(0), planner.ForcedAnswers(), "live session must not hit the depth guard")
 	}

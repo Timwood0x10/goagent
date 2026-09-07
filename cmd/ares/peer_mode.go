@@ -44,10 +44,9 @@ func normalizedPeers(cfg *ares_config.Config) []ares_config.PeerAgentConfig {
 	peers := make([]ares_config.PeerAgentConfig, 0, len(cfg.Agents.Sub))
 	for _, s := range cfg.Agents.Sub {
 		peers = append(peers, ares_config.PeerAgentConfig{
-			ID:            s.ID,
-			Capabilities:  []string{s.Type},
-			Priority:      s.Priority,
-			MaxToolRounds: s.MaxToolRounds,
+			ID:           s.ID,
+			Capabilities: []string{s.Type},
+			Priority:     s.Priority,
 		})
 	}
 	return peers
@@ -65,8 +64,9 @@ func normalizedPeers(cfg *ares_config.Config) []ares_config.PeerAgentConfig {
 // createPeerAgents builds a set of peer agents WITHOUT a Leader (C1 flat
 // capability agents registered into the agentfabric dynamic population).
 // Each configured sub-agent is
-// spawned into the Agent Fabric WITH its execution body (ChatCognition) and
-// its distilled experience prior (G1), so the scheduler's candidate pool —
+// spawned into the Agent Fabric WITH its execution body (the shared L2
+// router cognition) and its distilled experience prior (G1), so the
+// scheduler's candidate pool —
 // queried live from the fabric (B1) — is exactly the set of real, executable
 // agents. There is no second registration table to keep in sync: spawn/kill
 // take effect on the next scheduler drain.
@@ -89,19 +89,11 @@ func createPeerAgents(
 	// Sub structure remains as the fallback so pre-C1 configs keep working.
 	peers := normalizedPeers(cfg)
 
-	// Build sub-agents from the flat peer population (each agent gets the
-	// full LLM + tool stack).
-	subAgents := createPeerSubAgents(cfg, peers, llmAdapter, chatClient, toolBinder, store, strategySrc)
+	// Build sub-agent identities from the flat peer population.
+	subAgents := createPeerSubAgents(peers, store)
 
-	// W4: index the configured role by agent id so both the static executor
-	// (createExecutor, inside createPeerSubAgents) and the fabric execution
-	// body (newPeerChatCognition, in the spawn loop below) resolve the SAME
-	// role for an agent — the fabric body is the production path, so a
-	// config-pinned role must reach it too .
-	roleByID := make(map[string]string, len(peers))
-	for _, p := range peers {
-		roleByID[p.ID] = p.Role
-	}
+	// M4-D: roles have no consumer anymore (the executor role-pinning and
+	// the chat body that read them are both deleted) — peers run roleless.
 	if len(subAgents) == 0 {
 		return nil, nil, errors.New("peer mode: no peer agents configured (agents.peers or agents.sub)")
 	}
@@ -195,12 +187,10 @@ func createPeerAgents(
 	kernel.scheduler = sched
 	kernel.flipped = true
 
-	// Step 4 (closure plan N-1): real-execution shadow A/B for candidate
-	// strategies. Default off; when enabled the scheduler buffers finalized
-	// tasks and the G2 gate judges candidates on isolated executions (with a
-	// side-effect deny-list) of those buffered tasks instead of replay-only
-	// evidence. See shadow_execution.go.
-	wireShadowExecution(cfg, comp, sched, llmAdapter, chatClient, toolBinder)
+	// M4-D: strategy-shadow runs replay-only. The real-execution A/B runner
+	// (chat tool-loop quanta) died with ReAct; strategy judgment is M6
+	// fitness回灌 + B2 canary metrics. The sampler's replay fallback needs
+	// no feeder and no scheduler hook, so there is nothing to wire here.
 
 	// W4 evolution feedback loop: record execution outcomes per agent +
 	// capability, and periodically push the derived confidence back into the
@@ -299,47 +289,40 @@ func createPeerAgents(
 	// Zero/absent config = legacy ReAct behavior (chat cognition for every
 	// peer, L2 machinery test-only).
 	//
-	// M3: when Enabled, peers advertise the FULL capability set the L2
-	// router needs (ares/root, ares/plan, ares/answer, tool/<name> for
-	// every bound tool) instead of a single primary type. The session
-	// registry is wired per-peer so the plannerCognition can look up its
-	// L2 graph. Both prerequisites (M2 session wiring + M3 capability
-	// advertisement) now land here.
-	peerDAGExecution := resolveDAGExecution(cfg.Kernel.DAGExecution)
-	// The router body carries the planner when the gate is open; the
-	// planner needs session-scoped dependencies (registry, fabric reader)
+	// M4-D: single execution path — the router body is always built.
+	// The planner needs session-scoped dependencies (registry, fabric reader)
 	// that are constructed here.
 	var peerRouter agentfabric.Cognition
-	var sessionReg *agentfabric.SessionRegistry
-	if peerDAGExecution.Enabled {
-		sessionReg = agentfabric.NewSessionRegistry()
+	sessionReg := agentfabric.NewSessionRegistry()
 
-		// M5: read the L1 ToolClass DAG from the evolution components so
-		// the planner can check enabled/budget/prior before growing L2
-		// tool nodes. Nil when no tools are registered (permissive).
-		var l1DAG *engine.MutableDAG
-		if comp.NewEvolution != nil {
-			l1DAG = comp.NewEvolution.ToolClassDAG()
-		}
-
-		planner, err := agentfabric.NewPlannerCognition(agentfabric.PlannerDeps{
-			ChatClient: chatClient, // sub.ChatClient satisfies agentfabric.ChatClient
-			ToolBinder: toolBinder, // sub.ToolBinder satisfies agentfabric.ToolBinder
-			Sessions:   sessionReg,
-			Fabric:     kernel.fabric,
-			L1DAG:      l1DAG,
-			// M4-A2: operator-tunable growth-depth guard (0/absent = default).
-			MaxDepth: resolveMaxPlanDepth(cfg.Kernel.DAGExecution),
-			Logger:   slog.Default(),
-		})
-		if err != nil {
-			return nil, nil, fmt.Errorf("peer mode: create planner cognition: %w", err)
-		}
-		peerRouter = agentfabric.NewRouterCognitionWithPlanner(toolBinder, planner, sessionReg, slog.Default())
+	// M5: read the L1 ToolClass DAG from the evolution components so
+	// the planner can check enabled/budget/prior before growing L2
+	// tool nodes. Nil when no tools are registered (permissive).
+	var l1DAG *engine.MutableDAG
+	if comp.NewEvolution != nil {
+		l1DAG = comp.NewEvolution.ToolClassDAG()
 	}
 
-	// M4-B2: retain the registry on the kernel so the submission path can
-	// admit sessions. Nil when the gate is off — legacy behavior unchanged.
+	planner, err := agentfabric.NewPlannerCognition(agentfabric.PlannerDeps{
+		ChatClient: chatClient, // sub.ChatClient satisfies agentfabric.ChatClient
+		ToolBinder: toolBinder, // sub.ToolBinder satisfies agentfabric.ToolBinder
+		Sessions:   sessionReg,
+		Fabric:     kernel.fabric,
+		L1DAG:      l1DAG,
+		// M4-D: the planner is the evolution strategy actuator after
+		// ReAct — deployed prompt/params steer plan growth.
+		StrategySource: strategySrc,
+		// M4-A2: operator-tunable growth-depth guard (0/absent = default).
+		MaxDepth: resolveMaxPlanDepth(cfg.Kernel.DAGExecution),
+		Logger:   slog.Default(),
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("peer mode: create planner cognition: %w", err)
+	}
+	peerRouter = agentfabric.NewRouterCognitionWithPlanner(toolBinder, planner, sessionReg, slog.Default())
+
+	// M4-D: the registry is always wired, so the submission path always
+	// admits sessions. There is no gate-off legacy mode anymore.
 	kernel.sessionReg = sessionReg
 
 	// P0-1: terminal-task reaper for L2 session tasks. Every grown node is
@@ -348,25 +331,53 @@ func createPeerAgents(
 	// serve (§9's named cost). The registry is the keep-set authority: a
 	// live session's tasks are its readable history (decision C) and are
 	// never harvested; only tasks of released sessions die, after the
-	// configured grace window. Gate off = no registry = nothing to reap.
-	if sessionReg != nil {
-		sessionReaper := taskfabric.NewReaperWithKeep(kernel.fabric, "sess/",
-			resolveReaperGrace(cfg.Kernel.DAGExecution), sessionKeepSet(sessionReg))
-		runBackground(ctx, comp, "l2-reaper", func(loopCtx context.Context) error {
-			sessionReaper.Run(loopCtx.Done(), time.Minute)
-			return nil
-		})
-		log.Printf("peer mode: L2 session task reaper wired (grace %s)",
-			sessionReaper.GracePeriod())
-	}
+	// configured grace window.
+	sessionReaper := taskfabric.NewReaperWithKeep(kernel.fabric, "sess/",
+		resolveReaperGrace(cfg.Kernel.DAGExecution), sessionKeepSet(sessionReg))
+	runBackground(ctx, comp, "l2-reaper", func(loopCtx context.Context) error {
+		sessionReaper.Run(loopCtx.Done(), time.Minute)
+		return nil
+	})
+	slog.InfoContext(ctx, "peer mode: L2 session task reaper wired",
+		"grace", sessionReaper.GracePeriod())
 
-	// M3: the L2 capability set is built per-peer below via
-	// peerCapabilities (canary partition: legacy primary-type tasks match
-	// only gate-off peers, ares/* tasks only gate-on peers).
+	// P0-1a: session idle-TTL sweeper. The keep-set only lets a session's
+	// tasks die when the session itself dies, and the only death signals
+	// were "answer completed" / "admission rolled back" — an abandoned
+	// session (client gone, planner loop stuck, answer quantum dying
+	// before its release) pinned its terminal tasks forever. Releasing on
+	// idle turns the leak bound into TTL + reaper grace; active sessions
+	// are untouchable because every quantum refreshes their last-access
+	// through GetSession.
+	idleTTL := resolveSessionIdleTTL(cfg.Kernel.DAGExecution)
+	effectiveTTL := idleTTL
+	if effectiveTTL <= 0 {
+		effectiveTTL = agentfabric.DefaultSessionIdleTTL
+	}
+	runBackground(ctx, comp, "session-idle-ttl", func(loopCtx context.Context) error {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-loopCtx.Done():
+				return nil
+			case <-ticker.C:
+				if ids := sessionReg.SweepExpired(idleTTL); len(ids) > 0 {
+					slog.InfoContext(loopCtx, "peer mode: released idle sessions past TTL",
+						"count", len(ids), "ttl", effectiveTTL, "sessions", ids)
+				}
+			}
+		}
+	})
+	slog.InfoContext(ctx, "peer mode: session idle-TTL sweeper wired", "ttl", effectiveTTL)
+
+	// M4-D: every peer advertises the single L2 capability set via
+	// peerCapabilities below. There is no legacy partition anymore.
 
 	// C1: configured sub-agents ARE the fabric's dynamic population — each is
-	// spawned WITH its execution body (ChatCognition) and its distilled
-	// experience prior (G1), instead of living only in the static executor
+	// spawned WITH its execution body (the shared L2 router cognition) and
+	// its distilled experience prior (G1), instead of living only in the
+	// static executor
 	// registry. The scheduler queries the fabric on every drain (B1), so this
 	// is the single registration point: a future kill/retire immediately
 	// removes the candidate, and the recovery/chaos loops manage the SAME
@@ -377,24 +388,14 @@ func createPeerAgents(
 		}
 		sa := sa // capture for the closure (spawn is synchronous, but keep the
 		// loop-scoped binding local for the CognitionFactory below)
-		// N10: build the cognition upfront so a nil-CognitionFactory error
-		// surfaces at spawn time, not silently swallowed in a closure.
-		cog, err := newPeerChatCognition(sa.ID(), llmAdapter, chatClient, toolBinder, cfg, strategySrc, roleByID[sa.ID()])
-		if err != nil {
-			return nil, nil, fmt.Errorf("peer mode: create chat cognition for %q: %w", sa.ID(), err)
-		}
-		caps := []string{string(sa.Type())}
-		if peerDAGExecution.Enabled {
-			caps = peerCapabilities(string(sa.Type()), true, toolBinder.ListTools())
-		}
 		if _, err := agents.Spawn(ctx, agentfabric.SpawnSpec{
 			Identity:     sa.ID(),
-			Capabilities: caps,
-			// A1.4: the default execution body is the tool-loop Cognition
-			// moved down into agentfabric — a fabric agent is fully
-			// self-contained (LLM + tools), no sub.Agent wrapper.
+			Capabilities: peerCapabilities(toolBinder.ListTools()),
+			// M4-D: the execution body is always the L2 router — a fabric
+			// agent is fully self-contained (LLM + tools), no sub.Agent
+			// wrapper, no ReAct loop.
 			CognitionFactory: func([]string) agentfabric.Cognition {
-				return peerDAGExecution.Select(cog, peerRouter)
+				return peerRouter
 			},
 			ExperiencePrior: loadExperiencePrior(ctx, expRepo, sa.ID()),
 		}); err != nil {
@@ -421,8 +422,9 @@ func createPeerAgents(
 		agents,
 		kernel.fabric,
 		func(agentID, capability string) agentsyscall.Executor {
-			agent := newPeerExecutor(agentID, models.AgentType(capability), llmAdapter, chatClient, toolBinder, cfg, strategySrc)
-			return &peerExecutorAdapter{agent: agent}
+			// M4-D: syscall-spawned peers execute through the L2 router —
+			// the same body as configured peers. No ReAct executor.
+			return &peerExecutorAdapter{id: agentID, typ: models.AgentType(capability), cog: peerRouter}
 		},
 		// M4-C3: no scheduler registration here. The static pool is
 		// skipped whenever the agent fabric is wired, so registering
@@ -496,18 +498,20 @@ func createPeerAgents(
 				sched.RegisterExecutorForTask(taskID, agentID, executor)
 			},
 			func(agentID, capability string) CapabilityExecutor {
-				// M4-C3 remainder: recovery-bound tasks bypass the candidate
-				// pool, so the canary partition cannot isolate them — dispatch
-				// per task. L2 session tasks resume on the gate-selected
-				// router; everything else keeps the legacy ReAct executor.
-				if body := selectRecoveryBody(peerDAGExecution, peerRouter, capability); body != nil {
+				// M4-D: recovery-bound tasks bypass the candidate pool,
+				// so dispatch per task. Every task is L2 now — the router
+				// serves all of them; the newPeerExecutor fallback below
+				// is wiring-error insurance only (also cognition-backed,
+				// never ReAct).
+				if body := selectRecoveryBody(peerRouter, capability); body != nil {
 					exec, err := newCognitionExecutor(agentID, models.AgentType(capability), body)
 					if err == nil {
 						return exec
 					}
-					log.Printf("peer mode: recovery executor L2 dispatch failed, falling back to legacy: %v", err)
+					slog.WarnContext(ctx, "peer mode: recovery executor L2 dispatch failed, falling back",
+						"agent_id", agentID, "capability", capability, "error", err)
 				}
-				return newPeerExecutor(agentID, models.AgentType(capability), llmAdapter, chatClient, toolBinder, cfg, strategySrc)
+				return newPeerExecutor(agentID, models.AgentType(capability), peerRouter)
 			},
 			sched.HasCapableExecutor,
 		)
@@ -520,61 +524,19 @@ func createPeerAgents(
 	return subAgents, kernel, nil
 }
 
-// newPeerChatCognition constructs the A1.4 default tool-loop Cognition for a
-// peer agent. It carries the same LLM + tool stack as the configured agents
-// (the createExecutor wiring), but as a self-contained agentfabric execution
-// body — no sub.Agent wrapper. This is the production default execution body
-// of the peer runtime (aresos-agentos-plan A1.4: tool-loop sunk into agentfabric).
-func newPeerChatCognition(
-	agentID string,
-	llmAdapter output.LLMAdapter,
-	chatClient sub.ChatClient,
-	toolBinder sub.ToolBinder,
-	cfg *ares_config.Config,
-	strategySrc agents.StrategySource,
-	role string,
-) (agentfabric.Cognition, error) {
-	return agentfabric.NewChatCognition(agentfabric.ChatCognitionDeps{
-		ChatClient:     chatClient, // sub.ChatClient satisfies agentfabric.ChatClient
-		LLMAdapter:     llmAdapter,
-		ToolBinder:     toolBinder, // sub.ToolBinder satisfies agentfabric.ToolBinder
-		StrategySource: strategySrc,
-		Template:       output.NewTemplateEngine(),
-		PromptTemplate: cfg.Prompts.Recommendation,
-		EventStore:     nil, // the fabric publishes via its own event store wiring
-		AgentID:        agentID,
-		// W4 write side: pin the configured role so the fabric execution body
-		// (the actual production path) carries the role instructions, matched to
-		// the static createExecutor. Unknown role → nil → roleless peer.
-		Profile: resolveRoleProfile(role),
-	})
-}
-
-// newPeerExecutor creates a full sub.Agent executor for a dynamically spawned
-// peer agent. The executor carries the same LLM + tool stack as the configured
-// agents, so a spawned agent is a real cognitive process — not a stub.
+// newPeerExecutor creates the sub.Agent identity for a dynamically spawned
+// peer agent. M4-D: the execution body is the shared L2 router (passed in) —
+// a spawned agent is a real cognitive process, not a stub, and never ReAct.
 func newPeerExecutor(
 	agentID string,
 	capability models.AgentType,
-	llmAdapter output.LLMAdapter,
-	chatClient sub.ChatClient,
-	toolBinder sub.ToolBinder,
-	cfg *ares_config.Config,
-	strategySrc agents.StrategySource,
+	cog agentfabric.Cognition,
 ) sub.Agent {
-	// Build a sub-agent config from the capability.
-	subCfg := ares_config.SubAgentConfig{
-		ID:         agentID,
-		Type:       string(capability),
-		MaxRetries: 3,
-		Timeout:    60,
-	}
-	executor := createExecutor(llmAdapter, chatClient, toolBinder, cfg, subCfg, strategySrc, "")
 	handler := sub.NewMessageHandler(agentID)
-	agent := sub.New(
+	return sub.New(
 		agentID,
 		capability,
-		executor,
+		&cognitionTaskExecutor{id: agentID, cog: cog},
 		handler,
 		nil,
 		nil,
@@ -586,7 +548,6 @@ func newPeerExecutor(
 			EnableTools: true,
 		},
 	)
-	return agent
 }
 
 // loadExperiencePrior loads the most recent distilled experience for the
@@ -617,40 +578,55 @@ func loadExperiencePrior(ctx context.Context, expRepo repositories.ExperienceRep
 
 // submitPeerTask creates a task directly in the Task Fabric for the peer-agent
 // runtime (no leader dispatch). This is the entry point for user-submitted
-// work in Leader OFF mode: the task enters READY and the Kernel scheduler
-// picks it up via the normal Schedule → Acquire → RunQuantum path.
+// work: the task enters READY and the Kernel scheduler picks it up via the
+// normal Schedule → Acquire → RunQuantum path.
 //
 // It is exposed as POST /api/tasks on the serve HTTP layer (actionHandler),
 // closing the user-submission loop: a request reaches the fabric and the
 // scheduler executes it — no leader and no autopilot involved.
+//
+// M4-D: single execution path. EVERY submission becomes an L2 session task:
+//   - session-less payloads are auto-admitted into a fresh session (the
+//     capability argument is normalized to ares/plan with a warn log);
+//   - the envelope always carries SessionID, so the planner's first quantum
+//     finds a live graph and no session-less legacy task can exist.
+//
+// There is no legacy path anymore — a submission that cannot be admitted
+// fails fast instead of degrading into an unrunnable task.
+// planCapability is the submission capability in the single-L2-path world
+// (M4-D): every submitted task is the first plan quantum of its session.
+const planCapability = "ares/plan"
+
 func submitPeerTask(ctx context.Context, kernel *kernelHandle, capability string, payload map[string]any) (string, error) {
 	if kernel == nil || kernel.fabric == nil {
 		return "", errors.New("peer mode: kernel fabric not wired")
 	}
-	// M4-B2: a session-scoped submission admits its L2 session first, so the
-	// planner's first quantum finds a live graph. Fail-fast comes before any
-	// task is created: an unadmittable session must not leave an unrunnable
-	// task behind. Session-less submissions skip this entirely (legacy path).
-	var sessionID, prompt string
-	if payload != nil {
-		sessionID, _ = payload["session_id"].(string)
-		prompt, _ = payload["input"].(string)
+	if payload == nil {
+		payload = map[string]any{}
+	}
+	// M4-D: normalize every submission onto the L2 session path.
+	sessionID, _ := payload["session_id"].(string)
+	prompt, _ := payload["input"].(string)
+	if sessionID == "" {
+		sessionID = fmt.Sprintf("sess-auto-%d", peerTaskSeq.Add(1))
+		payload["session_id"] = sessionID
+	}
+	if capability != planCapability {
+		slog.InfoContext(ctx, "peer mode: capability normalized to single L2 execution path",
+			"from", capability, "to", planCapability, "session_id", sessionID)
+		capability = planCapability
 	}
 	if err := ensureSessionAdmission(ctx, kernel, sessionID, prompt); err != nil {
 		return "", err
 	}
-	taskID := fmt.Sprintf("peer-task-%s-%d", capability, peerTaskSeq.Add(1))
+	taskID := fmt.Sprintf("peer-plan-%d", peerTaskSeq.Add(1))
 
 	env := &taskfabric.CheckpointEnvelope{
 		Payload: payload,
 	}
-	// M2: stamp SessionID onto the envelope so the plannerCognition can
-	// look up the per-session L2 graph registry. A session-less task
-	// (no "session_id" in payload) leaves SessionID empty — the legacy
-	// behavior is unchanged.
-	if sid, ok := payload["session_id"].(string); ok && sid != "" {
-		env.SessionID = sid
-	}
+	// M4-D: SessionID is always stamped (auto-admitted above), so the
+	// plannerCognition always finds a live per-session L2 graph.
+	env.SessionID = sessionID
 	task := &taskfabric.Task{
 		ID:         taskID,
 		Capability: capability,
@@ -751,21 +727,25 @@ func liveFabricAgents(agents *agentfabric.Fabric) []string {
 	return live
 }
 
-// peerExecutorAdapter wraps a sub.Agent to satisfy the agentsyscall.Executor
-// interface. The adapter translates sub.StepOutcome to agentsyscall.StepOutcome
-// so the syscall package stays decoupled from the sub package
+// peerExecutorAdapter satisfies the agentsyscall.Executor interface over an
+// agentfabric Cognition (M4-D: the L2 router). It is the same field-for-field
+// StepOutcome translation as cognitionExecutor, but for the syscall contract
+// instead of the scheduler contract (the two StepOutcome types differ, so one
+// struct cannot implement both).
 // (interface defined at the consumer, code_rules_v2 5.2).
 type peerExecutorAdapter struct {
-	agent sub.Agent
+	id  string
+	typ models.AgentType
+	cog agentfabric.Cognition
 }
 
-// ID returns the wrapped agent's ID.
-func (a *peerExecutorAdapter) ID() string { return a.agent.ID() }
+// ID returns the agent's ID.
+func (a *peerExecutorAdapter) ID() string { return a.id }
 
-// Type returns the wrapped agent's type.
-func (a *peerExecutorAdapter) Type() models.AgentType { return a.agent.Type() }
+// Type returns the agent's type.
+func (a *peerExecutorAdapter) Type() models.AgentType { return a.typ }
 func (a *peerExecutorAdapter) ExecuteStep(ctx context.Context, task *models.Task) (*agentsyscall.StepOutcome, error) {
-	out, err := a.agent.ExecuteStep(ctx, task)
+	out, err := a.cog.ExecuteStep(ctx, task)
 	if err != nil {
 		return nil, err
 	}

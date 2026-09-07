@@ -70,14 +70,14 @@ func TestTaskFromPayloadRestoresDependencies(t *testing.T) {
 }
 
 // TestKernelDAGGateDefersDependentTask verifies the DAG-as-scheduling-source
-// wiring in the kernel path (ares-runtime.md §9): the leader dispatch SUBMITS
+// wiring in the kernel path : the leader dispatch SUBMITS
 // tasks to the fabric (submitFabricTask) and the kernelScheduler drains only
 // READY tasks — a task whose dependencies are not all COMPLETED stays queued
 // until its dependency completes (it never executes out of order).
 func TestKernelDAGGateDefersDependentTask(t *testing.T) {
 	f := taskfabric.NewFabric()
-	research := &stubAgent{id: "research_01", typ: models.AgentType("research")}
-	writer := &stubAgent{id: "writer_01", typ: models.AgentType("write")}
+	research := &stubAgent{id: "research_01", typ: models.AgentType("tool/research")}
+	writer := &stubAgent{id: "writer_01", typ: models.AgentType("tool/write")}
 	executors := map[string]CapabilityExecutor{"research_01": research, "writer_01": writer}
 	tracker := newLoadTracker()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -89,7 +89,7 @@ func TestKernelDAGGateDefersDependentTask(t *testing.T) {
 	go sched.Run(ctx)
 
 	// Submit B (depends on A) first: it must NOT run before A completes.
-	b := models.NewTask("task_b", models.AgentType("write"), nil)
+	b := models.NewTask("task_b", models.AgentType("tool/write"), nil)
 	b.Context.Dependencies = []string{"task_a"}
 	if err := submitFabricTask(ctx, f, b); err != nil {
 		t.Fatalf("submitFabricTask(B): %v", err)
@@ -100,7 +100,7 @@ func TestKernelDAGGateDefersDependentTask(t *testing.T) {
 	}
 
 	// Submit A: the scheduler runs it, completing A and unlocking B.
-	a := models.NewTask("task_a", models.AgentType("research"), nil)
+	a := models.NewTask("task_a", models.AgentType("tool/research"), nil)
 	if err := submitFabricTask(ctx, f, a); err != nil {
 		t.Fatalf("submitFabricTask(A): %v", err)
 	}
@@ -140,11 +140,11 @@ func slicesEqual(a, b []string) bool {
 // that shadow mode is turned off (so the legacy path is not re-run).
 func TestEnableKernelExecutionRunsFabricPath(t *testing.T) {
 	kernel, flag := wireKernelDispatcher([]subAgentCapability{
-		{ID: "code_01", Type: "code"},
+		{ID: "code_01", Type: "tool/code"},
 	})
 
 	f := taskfabric.NewFabric()
-	executor := &stubAgent{id: "code_01", typ: models.AgentType("code")}
+	executor := &stubAgent{id: "code_01", typ: models.AgentType("tool/code")}
 	executors := map[string]CapabilityExecutor{"code_01": executor}
 	tracker := newLoadTracker()
 
@@ -155,7 +155,7 @@ func TestEnableKernelExecutionRunsFabricPath(t *testing.T) {
 	flag.Set(agentipc.PolicyTaskFabric)
 
 	// Dispatch through the kernel (active path = fabric submit).
-	payload := map[string]any{"agent_type": "code"}
+	payload := map[string]any{"agent_type": "tool/code"}
 	if err := kernel.Dispatch(context.Background(), "", "t1", payload); err != nil {
 		t.Fatalf("dispatch: %v", err)
 	}
@@ -367,7 +367,7 @@ func TestToModelTaskPreservesMetaAcrossYieldCheckpoint(t *testing.T) {
 // the task to READY; only the second failure finalizes FAILED.
 func TestRetryPolicyAllowsOneRetry(t *testing.T) {
 	f := taskfabric.NewFabric()
-	task := models.NewTask("t-retry", models.AgentType("code"), nil)
+	task := models.NewTask("t-retry", models.AgentType("tool/code"), nil)
 	if err := submitFabricTask(context.Background(), f, task); err != nil {
 		t.Fatalf("submitFabricTask: %v", err)
 	}

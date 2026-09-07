@@ -312,9 +312,14 @@ func Bootstrap(ctx context.Context, cfg *ares_config.Config, deps *BootstrapDeps
 				}
 			})
 			// W8: start the skill outcome recorder so skill usage/results are
-			// observed from the EventSubTaskResult stream (emitted by the sub
-			// executor on task completion) and persisted for experience-guided
-			// selection. Best-effort: a nil catalog/store is a no-op.
+			// observed from the EventSubTaskResult stream and persisted for
+			// experience-guided selection. Best-effort: a nil catalog/store
+			// is a no-op.
+			// M4-D note: the retired tool loop was the only emitter, and its
+			// shape never matched what the recorder reads (Payload["task"] /
+			// ["success"]) — the recorder was already starved before D and
+			// stays that way until an M6-side emitter feeds the conforming
+			// shape. Kept running (harmless subscribe), not silently dropped.
 			recorder := ares_skills.NewSkillOutcomeRecorder(catalog)
 			if serr := recorder.Start(ctx, comp.EventStore); serr != nil {
 				log.Warn("bootstrap: skill outcome recorder start failed", "error", serr)
