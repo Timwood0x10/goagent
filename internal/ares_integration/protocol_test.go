@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Timwood0x10/ares/internal/ares_protocol/ahp"
+	"github.com/Timwood0x10/ares/internal/runtime/protocol/ahp"
 )
 
 // TestProtocolSendMessageReceiveMessage verifies the full round-trip:

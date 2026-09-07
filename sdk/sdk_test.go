@@ -12,9 +12,9 @@ import (
 	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/api/tools"
 	ares_events "github.com/Timwood0x10/ares/internal/ares_events"
-	aresexp "github.com/Timwood0x10/ares/internal/ares_experience"
-	memory "github.com/Timwood0x10/ares/internal/ares_memory"
 	"github.com/Timwood0x10/ares/internal/detector"
+	memory "github.com/Timwood0x10/ares/internal/runtime/memory"
+	aresexp "github.com/Timwood0x10/ares/internal/runtime/memory/experience"
 )
 
 func TestNew(t *testing.T) {

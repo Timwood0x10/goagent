@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/Timwood0x10/ares/internal/agentfabric"
-	evolution "github.com/Timwood0x10/ares/internal/ares_evolution"
 	"github.com/Timwood0x10/ares/internal/aresrecovery"
+	evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
 )
 
 // population policy param keys read from the active evolution strategy's Params

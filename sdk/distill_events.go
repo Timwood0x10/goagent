@@ -9,9 +9,9 @@ import (
 
 	ares_bootstrap "github.com/Timwood0x10/ares/internal/ares_bootstrap"
 	ares_events "github.com/Timwood0x10/ares/internal/ares_events"
-	aresexp "github.com/Timwood0x10/ares/internal/ares_experience"
-	"github.com/Timwood0x10/ares/internal/ares_memory/distillation"
 	"github.com/Timwood0x10/ares/internal/knowledge/adapter"
+	"github.com/Timwood0x10/ares/internal/runtime/memory/distillation"
+	aresexp "github.com/Timwood0x10/ares/internal/runtime/memory/experience"
 )
 
 // akgBridgeTimeout caps how long a single AKG DistillConversation call may

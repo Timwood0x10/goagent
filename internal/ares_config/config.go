@@ -12,7 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/Timwood0x10/ares/internal/errors"
-	"github.com/Timwood0x10/ares/internal/evolution/deployment"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution/deployment"
 )
 
 // allowedConfigDir and its guard mutex restrict where Load may read config
@@ -1052,7 +1052,7 @@ type EvolutionGateConfig struct {
 	// calls POST /api/evolution/approve (P2-4). Default: false.
 	RequireManualApproval bool `yaml:"require_manual_approval"`
 	// EvalSuite loads the G3 regression test suite from a YAML file
-	// (ares_eval.TestSuite schema: {name, description, test_cases: [...]}).
+	// (eval.TestSuite schema: {name, description, test_cases: [...]}).
 	// Empty string disables the G3 gate (it degrades to pass-through).
 	EvalSuite string `yaml:"eval_suite"`
 	// EvalStrict fails the G3 gate closed when eval infrastructure is

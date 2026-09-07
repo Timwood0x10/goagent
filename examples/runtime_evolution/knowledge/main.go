@@ -45,15 +45,15 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/Timwood0x10/ares/internal/evolution/coordinator"
-	"github.com/Timwood0x10/ares/internal/evolution/diff"
-	"github.com/Timwood0x10/ares/internal/evolution/genome"
-	"github.com/Timwood0x10/ares/internal/evolution/patch"
 	"github.com/Timwood0x10/ares/internal/knowledge"
 	"github.com/Timwood0x10/ares/internal/knowledge/pipeline"
 	"github.com/Timwood0x10/ares/internal/knowledge/planner"
 	"github.com/Timwood0x10/ares/internal/knowledge/provider"
 	knowledgeruntime "github.com/Timwood0x10/ares/internal/knowledge/runtime"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution/coordinator"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution/diff"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution/genome"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution/patch"
 )
 
 func main() {

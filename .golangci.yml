@@ -113,11 +113,7 @@ linters:
         linters:
           - goconst
       # Arena event/status field names.
-      - path: internal/ares_arena/
-        linters:
-          - goconst
-      # Eval service status strings.
-      - path: internal/ares_eval/service/
+      - path: internal/runtime/arena/
         linters:
           - goconst
       # Workflow engine configuration strings.
@@ -162,7 +158,7 @@ linters:
         linters:
           - goconst
       # Evolution guardrail/dream-cycle status strings.
-      - path: internal/ares_evolution/
+      - path: internal/runtime/ares_evolution/
         linters:
           - goconst
       # Shutdown manager event/status strings.
@@ -189,10 +185,10 @@ linters:
         linters:
           - goconst
       # Eval LLM judge/report status strings.
-      - path: internal/ares_eval/llm_judge.go
+      - path: internal/runtime/eval/llm_judge.go
         linters:
           - goconst
-      - path: internal/ares_eval/report.go
+      - path: internal/runtime/eval/report.go
         linters:
           - goconst
       # Tool schema definitions.
@@ -209,11 +205,11 @@ linters:
         linters:
           - goconst
       # Distillation internal strings.
-      - path: internal/ares_memory/distillation/
+      - path: internal/runtime/memory/distillation/
         linters:
           - goconst
       # Observability metric label names.
-      - path: internal/ares_observability/
+      - path: internal/runtime/observability/
         linters:
           - goconst
       # API tool schema parameter/result field names.
@@ -221,13 +217,13 @@ linters:
         linters:
           - goconst
       # Memory manager event payload field names.
-      - path: internal/ares_memory/manager_impl.go
+      - path: internal/runtime/memory/manager_impl.go
         linters:
           - goconst
-      - path: internal/ares_memory/production_manager.go
+      - path: internal/runtime/memory/production_manager.go
         linters:
           - goconst
-      - path: internal/ares_memory/embedding/spec.go
+      - path: internal/runtime/memory/embedding/spec.go
         linters:
           - goconst
       # Text tool schema definitions.
@@ -262,13 +258,10 @@ linters:
         linters:
           - goconst
       # Memory pipeline config strings.
-      - path: internal/ares_memory/pipeline.go
+      - path: internal/runtime/memory/pipeline.go
         linters:
           - goconst
-      - path: internal/ares_memory/report/generator.go
-        linters:
-          - goconst
-      - path: internal/ares_memory/retrieval_api/service.go
+      - path: internal/runtime/memory/report/generator.go
         linters:
           - goconst
       # Secret adapter meta-key strings.
@@ -290,7 +283,7 @@ linters:
         text: "SA1019"
       - path: cmd/ares/(agent_cli|workflow_cli)\.go
         text: "SA1019"
-      - path: internal/(api_impl|ares_eval/service|ares_memory/(context|distillation|experienceadapters)|knowledge/service)/
+      - path: internal/(api_impl|ares_memory/(context|distillation|experienceadapters)|knowledge/service)/
         text: "SA1019"
       - path: examples/
         text: "SA1019"

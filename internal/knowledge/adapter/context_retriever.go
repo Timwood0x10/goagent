@@ -11,7 +11,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/scoreutil"
 )
 
-// ContextSnippet matches context.ContextSnippet in internal/ares_memory/context.
+// ContextSnippet matches context.ContextSnippet in internal/runtime/memory/context.
 // Kept as a local struct to avoid the import cycle knowledge → ares_memory
 // (ares_memory already depends on knowledge via distillation). The main agent
 // adapts this shape to the canonical ares_memory/context.ContextSnippet.

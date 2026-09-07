@@ -15,10 +15,10 @@ import (
 	"time"
 
 	"github.com/Timwood0x10/ares/internal/ares_callbacks"
-	"github.com/Timwood0x10/ares/internal/ares_observability"
 	"github.com/Timwood0x10/ares/internal/ares_ratelimit"
 	"github.com/Timwood0x10/ares/internal/ares_security"
 	"github.com/Timwood0x10/ares/internal/errors"
+	"github.com/Timwood0x10/ares/internal/runtime/observability"
 )
 
 // Default configuration constants for LLM client.
@@ -96,7 +96,7 @@ type Client struct {
 	config         *Config
 	httpClient     *http.Client
 	streamClient   *http.Client // No Timeout — streaming uses context for cancellation.
-	tracer         ares_observability.Tracer
+	tracer         observability.Tracer
 	ares_callbacks ares_callbacks.Emitter   // Optional: emits lifecycle events for LLM calls.
 	limiter        ares_ratelimit.Limiter   // Optional: rate limiter for API calls.
 	sanitizer      *ares_security.Sanitizer // Optional: masks secrets in recorded prompts/responses.
@@ -169,9 +169,9 @@ func (c *Client) Close() {
 	})
 }
 
-// SetTracer sets an optional ares_observability tracer on the client.
+// SetTracer sets an optional observability tracer on the client.
 // When set, Generate and GenerateStream will record LLM call spans.
-func (c *Client) SetTracer(t ares_observability.Tracer) {
+func (c *Client) SetTracer(t observability.Tracer) {
 	c.tracer = t
 }
 
@@ -249,7 +249,7 @@ func (c *Client) recordLLMCall(ctx context.Context, prompt, response string, tok
 	if c.config != nil {
 		model = c.config.Model
 	}
-	c.tracer.RecordLLMCall(ctx, &ares_observability.LLMCall{
+	c.tracer.RecordLLMCall(ctx, &observability.LLMCall{
 		TraceID:    c.tracer.GetTraceID(ctx),
 		Model:      model,
 		Prompt:     prompt,

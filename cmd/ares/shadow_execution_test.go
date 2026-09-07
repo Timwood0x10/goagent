@@ -9,11 +9,11 @@ import (
 
 	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/agents"
-	evolution "github.com/Timwood0x10/ares/internal/ares_evolution"
-	"github.com/Timwood0x10/ares/internal/ares_evolution/mutation"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	"github.com/Timwood0x10/ares/internal/evidence"
 	"github.com/Timwood0x10/ares/internal/llm/output"
+	evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
+	"github.com/Timwood0x10/ares/internal/runtime/ares_evolution/mutation"
 	resources "github.com/Timwood0x10/ares/internal/tools/resources/core"
 )
 

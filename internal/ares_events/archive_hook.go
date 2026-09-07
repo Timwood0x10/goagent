@@ -7,8 +7,8 @@ import "context"
 //
 // It is defined here, in the ares_events package, rather than imported from
 // ares_archive, to avoid a cyclic import: ares_archive imports ares_events
-// (extraction takes []*Event), so ares_events must not import ares_archive.
-// The concrete bridge ares_archive.NewEventArchiveSink returns a value that
+// (extraction takes []*Event), so ares_events must not import archive.
+// The concrete bridge archive.NewEventArchiveSink returns a value that
 // satisfies this function type, and the wiring layer (internal/api_impl)
 // connects the two.
 //

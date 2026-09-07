@@ -38,8 +38,8 @@ import (
 	"log"
 	"os"
 
-	ares_arena "github.com/Timwood0x10/ares/internal/ares_arena"
 	"github.com/Timwood0x10/ares/internal/llm"
+	ares_arena "github.com/Timwood0x10/ares/internal/runtime/arena"
 )
 
 // runScorerSmoke performs a live smoke test of the LLMArenaScorer: it scores

@@ -43,8 +43,8 @@ import (
 
 	"github.com/Timwood0x10/ares/internal/agents"
 	"github.com/Timwood0x10/ares/internal/evidence"
-	"github.com/Timwood0x10/ares/internal/evolution"
 	"github.com/Timwood0x10/ares/internal/llm"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution"
 )
 
 // runGate3E2E runs the FULL candidate gate-3 end-to-end against a real LLM:

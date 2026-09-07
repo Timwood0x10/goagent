@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	evolution "github.com/Timwood0x10/ares/internal/ares_evolution"
-	"github.com/Timwood0x10/ares/internal/evolution/deployment"
-	"github.com/Timwood0x10/ares/internal/evolution/patch"
+	evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution/deployment"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution/patch"
 )
 
 // defaultEvalEvidenceWindow bounds the staging comparison to recent evidence

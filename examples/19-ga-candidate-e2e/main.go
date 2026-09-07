@@ -60,10 +60,10 @@ import (
 	"time"
 
 	"github.com/Timwood0x10/ares/internal/agents"
-	ares_genome "github.com/Timwood0x10/ares/internal/ares_evolution/genome"
-	"github.com/Timwood0x10/ares/internal/ares_evolution/mutation"
 	"github.com/Timwood0x10/ares/internal/evidence"
-	"github.com/Timwood0x10/ares/internal/evolution"
+	ares_genome "github.com/Timwood0x10/ares/internal/runtime/ares_evolution/genome"
+	"github.com/Timwood0x10/ares/internal/runtime/ares_evolution/mutation"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution"
 )
 
 // promptPool is the instruction pool the GA mutator draws from when mutating a

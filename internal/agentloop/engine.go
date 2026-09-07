@@ -10,10 +10,10 @@ import (
 	"github.com/Timwood0x10/ares/api/service/llm"
 	"github.com/Timwood0x10/ares/api/tools"
 	ares_events "github.com/Timwood0x10/ares/internal/ares_events"
-	memory "github.com/Timwood0x10/ares/internal/ares_memory"
-	memctx "github.com/Timwood0x10/ares/internal/ares_memory/context"
 	kctx "github.com/Timwood0x10/ares/internal/kernel/ctx"
 	"github.com/Timwood0x10/ares/internal/logger"
+	memory "github.com/Timwood0x10/ares/internal/runtime/memory"
+	memctx "github.com/Timwood0x10/ares/internal/runtime/memory/context"
 )
 
 // log is the module-scoped structured logger for the agent loop. Best-effort

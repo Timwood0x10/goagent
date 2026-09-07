@@ -21,10 +21,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Timwood0x10/ares/internal/agents/base"
-	arena "github.com/Timwood0x10/ares/internal/ares_arena"
 	"github.com/Timwood0x10/ares/internal/ares_runtime"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	"github.com/Timwood0x10/ares/internal/evidence"
+	arena "github.com/Timwood0x10/ares/internal/runtime/arena"
 	"github.com/Timwood0x10/ares/internal/workflow/engine"
 )
 

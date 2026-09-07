@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/Timwood0x10/ares/internal/ares_mcp"
+	"github.com/Timwood0x10/ares/internal/runtime/protocol/mcp"
 )
 
 var mcpNullCmd = &cobra.Command{

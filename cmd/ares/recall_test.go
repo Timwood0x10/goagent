@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Timwood0x10/ares/internal/ares_archive"
+	"github.com/Timwood0x10/ares/internal/runtime/archive"
 )
 
 // Potential bug scenarios tested below:
@@ -41,9 +41,9 @@ func writeTestConfig(t *testing.T, archiveDir string) string {
 }
 
 // writeTestRound writes a single round record to the given archive dir.
-func writeTestRound(t *testing.T, archiveDir string, rec ares_archive.RoundRecord) {
+func writeTestRound(t *testing.T, archiveDir string, rec archive.RoundRecord) {
 	t.Helper()
-	w, err := ares_archive.NewFileArchiveWriter(archiveDir, 0)
+	w, err := archive.NewFileArchiveWriter(archiveDir, 0)
 	require.NoError(t, err)
 	require.NoError(t, w.RecordRound(context.Background(), rec))
 }
@@ -59,7 +59,7 @@ func withRecallConfig(t *testing.T, cfgPath string) {
 
 func TestRecall_Round_PrintsJSON(t *testing.T) {
 	archiveDir := t.TempDir()
-	writeTestRound(t, archiveDir, ares_archive.RoundRecord{
+	writeTestRound(t, archiveDir, archive.RoundRecord{
 		Round:     1,
 		Action:    "implement",
 		Summary:   "implemented the feature",
@@ -76,7 +76,7 @@ func TestRecall_Round_PrintsJSON(t *testing.T) {
 func TestRecall_RoundNotFound(t *testing.T) {
 	archiveDir := t.TempDir()
 	// Write round 1 so the directory exists, but ask for round 99.
-	writeTestRound(t, archiveDir, ares_archive.RoundRecord{
+	writeTestRound(t, archiveDir, archive.RoundRecord{
 		Round:   1,
 		Action:  "implement",
 		Summary: "exists",
@@ -107,11 +107,11 @@ func TestRecall_RoundInvalidArg(t *testing.T) {
 
 func TestRecall_Query_MatchesExistingRound(t *testing.T) {
 	archiveDir := t.TempDir()
-	writeTestRound(t, archiveDir, ares_archive.RoundRecord{
+	writeTestRound(t, archiveDir, archive.RoundRecord{
 		Round:   1,
 		Action:  "fix",
 		Summary: "fix the broken test suite",
-		Files:   []ares_archive.FileChange{{Path: "main.go", LinesAdded: 3}},
+		Files:   []archive.FileChange{{Path: "main.go", LinesAdded: 3}},
 	})
 	withRecallConfig(t, writeTestConfig(t, archiveDir))
 
@@ -122,7 +122,7 @@ func TestRecall_Query_MatchesExistingRound(t *testing.T) {
 
 func TestRecall_Query_NoMatches(t *testing.T) {
 	archiveDir := t.TempDir()
-	writeTestRound(t, archiveDir, ares_archive.RoundRecord{
+	writeTestRound(t, archiveDir, archive.RoundRecord{
 		Round:   1,
 		Action:  "implement",
 		Summary: "unrelated content",
@@ -165,18 +165,18 @@ func TestRecall_EndToEnd_RecallReturnsArchivedContent(t *testing.T) {
 	// via the archive reader (the same reader the recall command uses).
 	// This verifies the round-trip integrity that recall depends on.
 	archiveDir := t.TempDir()
-	original := ares_archive.RoundRecord{
+	original := archive.RoundRecord{
 		Round:     42,
 		Action:    "review",
 		Summary:   "reviewed the PR changes",
-		Files:     []ares_archive.FileChange{{Path: "auth.go", LinesAdded: 10, Summary: "added JWT"}},
-		Verdict:   ares_archive.Verdict{GoVet: "pass", GoLint: "pass", GoTest: "pass"},
+		Files:     []archive.FileChange{{Path: "auth.go", LinesAdded: 10, Summary: "added JWT"}},
+		Verdict:   archive.Verdict{GoVet: "pass", GoLint: "pass", GoTest: "pass"},
 		Decisions: []string{"approved the approach"},
 		Refs:      map[string]string{"commit": "deadbeef"},
 	}
 	writeTestRound(t, archiveDir, original)
 
-	reader, err := ares_archive.NewFileArchiveReader(archiveDir)
+	reader, err := archive.NewFileArchiveReader(archiveDir)
 	require.NoError(t, err)
 
 	// Read back the specific round.

@@ -14,10 +14,10 @@ import (
 
 	"github.com/Timwood0x10/ares/internal/agentipc"
 	"github.com/Timwood0x10/ares/internal/agents/sub"
-	evolution "github.com/Timwood0x10/ares/internal/ares_evolution"
 	"github.com/Timwood0x10/ares/internal/aresrecovery"
 	"github.com/Timwood0x10/ares/internal/evidence"
 	"github.com/Timwood0x10/ares/internal/feedback"
+	evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
 )
 
 // Compile-time proof that the recorder satisfies both producer-side observer

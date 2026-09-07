@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/Timwood0x10/ares/internal/ares_evolution/experience"
+	"github.com/Timwood0x10/ares/internal/runtime/ares_evolution/experience"
 )
 
 // OutcomeExperienceRecorder implements OutcomeRecorder by converting execution

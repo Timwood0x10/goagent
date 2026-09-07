@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Timwood0x10/ares/internal/ares_observability"
 	"github.com/Timwood0x10/ares/internal/ares_ratelimit"
+	"github.com/Timwood0x10/ares/internal/runtime/observability"
 )
 
 // Edge represents a connection between two nodes with optional condition.
@@ -47,9 +47,9 @@ type Graph struct {
 	edges     map[string][]*Edge
 	start     string
 	scheduler Scheduler
-	tracer    ares_observability.Tracer // ares_observability tracer for execution tracking
-	limiter   ares_ratelimit.Limiter    // rate limiter for execution throttling
-	router    NodeRouter                // optional dynamic routing callback
+	tracer    observability.Tracer   // observability tracer for execution tracking
+	limiter   ares_ratelimit.Limiter // rate limiter for execution throttling
+	router    NodeRouter             // optional dynamic routing callback
 }
 
 // NewGraph creates a new graph with the given ID.
@@ -66,8 +66,8 @@ func NewGraph(id string) (*Graph, error) {
 		nodes:     make(map[string]Node),
 		edges:     make(map[string][]*Edge),
 		scheduler: NewDefaultScheduler(),
-		tracer:    ares_observability.NewNoopTracer(), // default to no-op tracer
-		limiter:   nil,                                // default to no rate limiting
+		tracer:    observability.NewNoopTracer(), // default to no-op tracer
+		limiter:   nil,                           // default to no rate limiting
 	}, nil
 }
 
@@ -88,7 +88,7 @@ func NewGraphWithLimiter(id string, limiter ares_ratelimit.Limiter) (*Graph, err
 		nodes:     make(map[string]Node),
 		edges:     make(map[string][]*Edge),
 		scheduler: NewDefaultScheduler(),
-		tracer:    ares_observability.NewNoopTracer(),
+		tracer:    observability.NewNoopTracer(),
 		limiter:   limiter,
 	}, nil
 }

@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Timwood0x10/ares/internal/ares_memory/distillation"
 	"github.com/Timwood0x10/ares/internal/knowledge"
 	"github.com/Timwood0x10/ares/internal/knowledge/pipeline"
 	memorystore "github.com/Timwood0x10/ares/internal/knowledge/store/memory"
+	"github.com/Timwood0x10/ares/internal/runtime/memory/distillation"
 )
 
 // testDistiller is a minimal Distiller that returns fixed memories.

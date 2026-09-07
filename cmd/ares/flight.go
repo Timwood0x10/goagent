@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Timwood0x10/ares/internal/ares_events"
-	flight "github.com/Timwood0x10/ares/internal/ares_flight"
+	flight "github.com/Timwood0x10/ares/internal/runtime/observability/flight"
 )
 
 var flightCmd = &cobra.Command{

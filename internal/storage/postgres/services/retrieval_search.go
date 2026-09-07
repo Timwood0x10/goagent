@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	experience "github.com/Timwood0x10/ares/internal/ares_experience"
+	experience "github.com/Timwood0x10/ares/internal/runtime/memory/experience"
 	storage_models "github.com/Timwood0x10/ares/internal/storage/postgres/models"
 )
 

@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 
-	internalmutation "github.com/Timwood0x10/ares/internal/ares_evolution/mutation"
+	internalmutation "github.com/Timwood0x10/ares/internal/runtime/ares_evolution/mutation"
 )
 
 // MutationType represents the type of mutation applied to a strategy.

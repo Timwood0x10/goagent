@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Timwood0x10/ares/internal/ares_memory/distillation"
 	"github.com/Timwood0x10/ares/internal/knowledge"
+	"github.com/Timwood0x10/ares/internal/runtime/memory/distillation"
 )
 
 func TestFromMemory(t *testing.T) {

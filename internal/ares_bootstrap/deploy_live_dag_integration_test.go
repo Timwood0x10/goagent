@@ -9,8 +9,8 @@ import (
 
 	aresruntime "github.com/Timwood0x10/ares/internal/ares_runtime"
 	"github.com/Timwood0x10/ares/internal/evidence"
-	"github.com/Timwood0x10/ares/internal/evolution/deployment"
-	"github.com/Timwood0x10/ares/internal/evolution/patch"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution/deployment"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution/patch"
 	"github.com/Timwood0x10/ares/internal/workflow/engine"
 )
 

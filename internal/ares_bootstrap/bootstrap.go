@@ -12,24 +12,24 @@ import (
 	apiembed "github.com/Timwood0x10/ares/api/embedding"
 	"github.com/Timwood0x10/ares/internal/ares_callbacks"
 	"github.com/Timwood0x10/ares/internal/ares_config"
-	"github.com/Timwood0x10/ares/internal/ares_eval"
 	"github.com/Timwood0x10/ares/internal/ares_events"
-	evolution "github.com/Timwood0x10/ares/internal/ares_evolution"
-	aresexp "github.com/Timwood0x10/ares/internal/ares_experience"
-	flight "github.com/Timwood0x10/ares/internal/ares_flight"
-	"github.com/Timwood0x10/ares/internal/ares_mcp"
-	ares_memory "github.com/Timwood0x10/ares/internal/ares_memory"
-	"github.com/Timwood0x10/ares/internal/ares_observability"
 	"github.com/Timwood0x10/ares/internal/ares_runtime"
-	ares_skills "github.com/Timwood0x10/ares/internal/ares_skills"
 	"github.com/Timwood0x10/ares/internal/aresrecovery"
 	"github.com/Timwood0x10/ares/internal/evidence"
-	"github.com/Timwood0x10/ares/internal/evolution/deployment"
 	"github.com/Timwood0x10/ares/internal/kernel"
 	"github.com/Timwood0x10/ares/internal/knowledge"
 	"github.com/Timwood0x10/ares/internal/knowledge/adapter"
 	knowledgeruntime "github.com/Timwood0x10/ares/internal/knowledge/runtime"
 	"github.com/Timwood0x10/ares/internal/knowledge/skills"
+	evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
+	"github.com/Timwood0x10/ares/internal/runtime/eval"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution/deployment"
+	ares_memory "github.com/Timwood0x10/ares/internal/runtime/memory"
+	aresexp "github.com/Timwood0x10/ares/internal/runtime/memory/experience"
+	"github.com/Timwood0x10/ares/internal/runtime/observability"
+	flight "github.com/Timwood0x10/ares/internal/runtime/observability/flight"
+	"github.com/Timwood0x10/ares/internal/runtime/protocol/mcp"
+	ares_skills "github.com/Timwood0x10/ares/internal/runtime/protocol/skills"
 	"github.com/Timwood0x10/ares/internal/storage"
 	"github.com/Timwood0x10/ares/internal/storage/postgres"
 	"github.com/Timwood0x10/ares/internal/storage/postgres/repositories"
@@ -219,14 +219,14 @@ type LLMComponents struct {
 	CallbackReg *ares_callbacks.Registry
 	// CostDashboard is the W1 cost surface served at
 	// /api/v1/observability/cost*; fed by the LLM client's MetricsTracer.
-	CostDashboard *ares_observability.CostDashboard
+	CostDashboard *observability.CostDashboard
 }
 
 // BootstrapDeps holds optional external dependencies for full wiring.
 type BootstrapDeps struct {
 	EventStore ares_events.EventStore
 	ExpRepo    repositories.ExperienceRepositoryInterface
-	LLMClient  ares_eval.LLMClient
+	LLMClient  eval.LLMClient
 }
 
 // Bootstrap assembles all components from config and optional dependencies.

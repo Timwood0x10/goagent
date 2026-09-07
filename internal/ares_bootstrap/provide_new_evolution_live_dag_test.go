@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Timwood0x10/ares/internal/evolution/genome"
-	"github.com/Timwood0x10/ares/internal/evolution/patch"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution/genome"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution/patch"
 	"github.com/Timwood0x10/ares/internal/workflow/engine"
 	wfgraph "github.com/Timwood0x10/ares/internal/workflow/graph"
 )

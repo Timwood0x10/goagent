@@ -6,9 +6,9 @@ import (
 	"os"
 	"time"
 
-	memory "github.com/Timwood0x10/ares/internal/ares_memory"
 	"github.com/Timwood0x10/ares/internal/errors"
 	"github.com/Timwood0x10/ares/internal/llm"
+	memory "github.com/Timwood0x10/ares/internal/runtime/memory"
 	"github.com/Timwood0x10/ares/internal/storage/postgres/repositories"
 	"github.com/Timwood0x10/ares/internal/tools/resources/base"
 	builtin_embedding "github.com/Timwood0x10/ares/internal/tools/resources/builtin/embedding"

@@ -9,9 +9,9 @@ import (
 
 	"github.com/Timwood0x10/ares/internal/ares_config"
 	"github.com/Timwood0x10/ares/internal/ares_events"
-	evolution "github.com/Timwood0x10/ares/internal/ares_evolution"
-	aresexp "github.com/Timwood0x10/ares/internal/ares_experience"
 	"github.com/Timwood0x10/ares/internal/llm"
+	evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
+	aresexp "github.com/Timwood0x10/ares/internal/runtime/memory/experience"
 	"github.com/Timwood0x10/ares/internal/storage/postgres"
 	"github.com/Timwood0x10/ares/internal/storage/postgres/embedding"
 	storage_models "github.com/Timwood0x10/ares/internal/storage/postgres/models"

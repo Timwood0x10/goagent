@@ -4,7 +4,7 @@ package ares_bootstrap
 import (
 	"fmt"
 
-	ares_memory "github.com/Timwood0x10/ares/internal/ares_memory"
+	ares_memory "github.com/Timwood0x10/ares/internal/runtime/memory"
 )
 
 // ProvideMemory creates a MemoryManager. If cfg is nil, DefaultMemoryConfig() is used.

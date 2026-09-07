@@ -38,8 +38,8 @@ import (
 	"fmt"
 	"log"
 
-	ares_arena "github.com/Timwood0x10/ares/internal/ares_arena"
 	"github.com/Timwood0x10/ares/internal/llm"
+	ares_arena "github.com/Timwood0x10/ares/internal/runtime/arena"
 )
 
 // runRegressionDemo runs a real-LLM preserved-case regression comparison

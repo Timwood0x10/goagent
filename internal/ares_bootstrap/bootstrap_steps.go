@@ -15,14 +15,14 @@ import (
 	"github.com/Timwood0x10/ares/internal/agents"
 	"github.com/Timwood0x10/ares/internal/ares_config"
 	"github.com/Timwood0x10/ares/internal/ares_events"
-	evolution "github.com/Timwood0x10/ares/internal/ares_evolution"
-	"github.com/Timwood0x10/ares/internal/ares_evolution/genome"
-	"github.com/Timwood0x10/ares/internal/ares_evolution/mutation"
-	evoService "github.com/Timwood0x10/ares/internal/ares_evolution/service"
-	"github.com/Timwood0x10/ares/internal/ares_observability"
 	"github.com/Timwood0x10/ares/internal/evidence"
 	evoprovider "github.com/Timwood0x10/ares/internal/knowledge/provider/evolution"
 	knowledgeruntime "github.com/Timwood0x10/ares/internal/knowledge/runtime"
+	evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
+	"github.com/Timwood0x10/ares/internal/runtime/ares_evolution/genome"
+	"github.com/Timwood0x10/ares/internal/runtime/ares_evolution/mutation"
+	evoService "github.com/Timwood0x10/ares/internal/runtime/ares_evolution/service"
+	"github.com/Timwood0x10/ares/internal/runtime/observability"
 	"github.com/Timwood0x10/ares/internal/storage/postgres"
 	"github.com/Timwood0x10/ares/internal/storage/postgres/embedding"
 	storage_models "github.com/Timwood0x10/ares/internal/storage/postgres/models"
@@ -287,7 +287,7 @@ func wireGAEvolution(ctx context.Context, cfg *ares_config.Config, comp *Compone
 	// NewPrometheusMetrics is idempotent (AlreadyRegisteredError returns the
 	// cached instance created by provide_llm), so this reuses the same
 	// collector the /metrics endpoint serves.
-	if m, merr := ares_observability.NewPrometheusMetrics(); merr == nil {
+	if m, merr := observability.NewPrometheusMetrics(); merr == nil {
 		gaCfg.Metrics = m
 	} else {
 		log.WarnContext(ctx, "bootstrap: evolution metrics wiring skipped", "error", merr)
@@ -775,7 +775,7 @@ func findUnknownPoolTools(pool, known []string) map[string][]string {
 func buildEvolutionGuardrails(
 	ctx context.Context,
 	ec *ares_config.EvolutionConfig,
-	metrics *ares_observability.PrometheusMetrics,
+	metrics *observability.PrometheusMetrics,
 ) *evolution.EvolutionGuardrails {
 	if ec == nil {
 		return nil

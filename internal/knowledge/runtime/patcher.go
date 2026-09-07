@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/Timwood0x10/ares/internal/evolution/patch"
 	"github.com/Timwood0x10/ares/internal/knowledge"
 	"github.com/Timwood0x10/ares/internal/knowledge/planner"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution/patch"
 )
 
 // PlanConfig holds the runtime-tunable planner configuration.

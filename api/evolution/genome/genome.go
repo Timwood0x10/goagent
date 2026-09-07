@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/Timwood0x10/ares/api/evolution/mutation"
-	internalgenome "github.com/Timwood0x10/ares/internal/ares_evolution/genome"
-	internalmutation "github.com/Timwood0x10/ares/internal/ares_evolution/mutation"
+	internalgenome "github.com/Timwood0x10/ares/internal/runtime/ares_evolution/genome"
+	internalmutation "github.com/Timwood0x10/ares/internal/runtime/ares_evolution/mutation"
 )
 
 // CrossoverType defines the crossover strategy used during reproduction.

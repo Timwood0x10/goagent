@@ -19,11 +19,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	evolution "github.com/Timwood0x10/ares/internal/ares_evolution"
-	"github.com/Timwood0x10/ares/internal/ares_evolution/mutation"
-	aresmemory "github.com/Timwood0x10/ares/internal/ares_memory"
 	"github.com/Timwood0x10/ares/internal/evidence"
-	"github.com/Timwood0x10/ares/internal/evolution/patch"
+	evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
+	"github.com/Timwood0x10/ares/internal/runtime/ares_evolution/mutation"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution/patch"
+	aresmemory "github.com/Timwood0x10/ares/internal/runtime/memory"
 )
 
 // newStagingRuntime builds a deploymentStagingRuntime over the given evidence

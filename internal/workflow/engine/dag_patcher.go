@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Timwood0x10/ares/internal/evolution/patch"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution/patch"
 )
 
 // DAGSnapshot captures a deep copy of the whole live DAG so a structure patch

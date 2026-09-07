@@ -1,5 +1,5 @@
 // The storage/knowledge adapters (experience searcher, knowledge retriever
-// adapter) live in internal/ares_memory/experienceadapters and are shared
+// adapter) live in internal/runtime/memory/experienceadapters and are shared
 // with the sdk layer, so the field mapping has a single source of truth.
 package ares_bootstrap
 
@@ -8,13 +8,13 @@ import (
 	"fmt"
 
 	aresconfig "github.com/Timwood0x10/ares/internal/ares_config"
-	memctx "github.com/Timwood0x10/ares/internal/ares_memory/context"
-	memembed "github.com/Timwood0x10/ares/internal/ares_memory/embedding"
-	"github.com/Timwood0x10/ares/internal/ares_memory/experienceadapters"
 	"github.com/Timwood0x10/ares/internal/evidence"
 	"github.com/Timwood0x10/ares/internal/knowledge"
 	"github.com/Timwood0x10/ares/internal/knowledge/adapter"
 	knowledgeruntime "github.com/Timwood0x10/ares/internal/knowledge/runtime"
+	memctx "github.com/Timwood0x10/ares/internal/runtime/memory/context"
+	memembed "github.com/Timwood0x10/ares/internal/runtime/memory/embedding"
+	"github.com/Timwood0x10/ares/internal/runtime/memory/experienceadapters"
 	"github.com/Timwood0x10/ares/internal/storage/postgres/embedding"
 	"github.com/Timwood0x10/ares/internal/storage/postgres/repositories"
 )

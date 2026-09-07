@@ -9,12 +9,12 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Timwood0x10/ares/internal/ares_bootstrap"
-	memory "github.com/Timwood0x10/ares/internal/ares_memory"
 	"github.com/Timwood0x10/ares/internal/evidence"
-	"github.com/Timwood0x10/ares/internal/evolution/coordinator"
-	"github.com/Timwood0x10/ares/internal/evolution/diff"
-	"github.com/Timwood0x10/ares/internal/evolution/genome"
-	"github.com/Timwood0x10/ares/internal/evolution/patch"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution/coordinator"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution/diff"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution/genome"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution/patch"
+	memory "github.com/Timwood0x10/ares/internal/runtime/memory"
 	"github.com/Timwood0x10/ares/internal/workflow/engine"
 )
 

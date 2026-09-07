@@ -26,9 +26,9 @@ import (
 	"time"
 
 	ares_config "github.com/Timwood0x10/ares/internal/ares_config"
-	evosvc "github.com/Timwood0x10/ares/internal/ares_evolution/service"
 	"github.com/Timwood0x10/ares/internal/evidence"
 	"github.com/Timwood0x10/ares/internal/llm"
+	evosvc "github.com/Timwood0x10/ares/internal/runtime/ares_evolution/service"
 )
 
 // configPath is the git-ignored local config holding the real LLM credentials.

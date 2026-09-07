@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	flight "github.com/Timwood0x10/ares/internal/ares_flight"
+	flight "github.com/Timwood0x10/ares/internal/runtime/observability/flight"
 )
 
 // fakeFlight is a fixed FlightProvider for handler tests.

@@ -1,7 +1,7 @@
 // Package sdk — Context cleaner factory.
 //
 // The differential turn-aware context cleaner lives in an internal package
-// (internal/ares_memory/context), so external consumers cannot construct it
+// (internal/runtime/memory/context), so external consumers cannot construct it
 // directly. This file re-exports a factory through the public SDK surface so
 // host applications (e.g. ARES POLIS) can wire ARES's advanced context
 // compression into their own chat pipelines.
@@ -9,7 +9,7 @@ package sdk
 
 import (
 	"github.com/Timwood0x10/ares/api/core"
-	memctx "github.com/Timwood0x10/ares/internal/ares_memory/context"
+	memctx "github.com/Timwood0x10/ares/internal/runtime/memory/context"
 )
 
 // NewContextCleaner returns an ARES turn-aware ContextCleaner backed by the

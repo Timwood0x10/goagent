@@ -21,13 +21,13 @@ import (
 	"github.com/Timwood0x10/ares/internal/ares_bootstrap"
 	"github.com/Timwood0x10/ares/internal/ares_config"
 	"github.com/Timwood0x10/ares/internal/ares_events"
-	evolution "github.com/Timwood0x10/ares/internal/ares_evolution"
-	flight "github.com/Timwood0x10/ares/internal/ares_flight"
 	"github.com/Timwood0x10/ares/internal/ares_runtime"
 	"github.com/Timwood0x10/ares/internal/ares_security"
 	"github.com/Timwood0x10/ares/internal/ares_shutdown"
 	"github.com/Timwood0x10/ares/internal/introspect"
 	"github.com/Timwood0x10/ares/internal/llm/output"
+	evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
+	flight "github.com/Timwood0x10/ares/internal/runtime/observability/flight"
 )
 
 // evolutionLifecycleForServe returns the wired evolution lifecycle, or nil

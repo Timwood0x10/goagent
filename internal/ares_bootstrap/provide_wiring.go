@@ -6,8 +6,8 @@ import (
 	"errors"
 
 	"github.com/Timwood0x10/ares/internal/ares_events"
-	evolution "github.com/Timwood0x10/ares/internal/ares_evolution"
-	flight "github.com/Timwood0x10/ares/internal/ares_flight"
+	evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
+	flight "github.com/Timwood0x10/ares/internal/runtime/observability/flight"
 	storage_models "github.com/Timwood0x10/ares/internal/storage/postgres/models"
 	"github.com/Timwood0x10/ares/internal/storage/postgres/repositories"
 )

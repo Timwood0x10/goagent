@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Timwood0x10/ares/internal/ares_protocol/ahp"
+	"github.com/Timwood0x10/ares/internal/runtime/protocol/ahp"
 )
 
 // heartbeatSender sends heartbeat to leader.

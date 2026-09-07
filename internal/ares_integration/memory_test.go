@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Timwood0x10/ares/api/embedding"
-	memory "github.com/Timwood0x10/ares/internal/ares_memory"
-	"github.com/Timwood0x10/ares/internal/ares_memory/distillation"
+	memory "github.com/Timwood0x10/ares/internal/runtime/memory"
+	"github.com/Timwood0x10/ares/internal/runtime/memory/distillation"
 	"github.com/Timwood0x10/ares/internal/storage/postgres"
 	pgembed "github.com/Timwood0x10/ares/internal/storage/postgres/embedding"
 )

@@ -5,13 +5,13 @@ import (
 	"errors"
 	"testing"
 
-	memory "github.com/Timwood0x10/ares/internal/ares_memory"
 	"github.com/Timwood0x10/ares/internal/knowledge"
 	"github.com/Timwood0x10/ares/internal/knowledge/linker"
 	"github.com/Timwood0x10/ares/internal/knowledge/pipeline"
 	"github.com/Timwood0x10/ares/internal/knowledge/planner"
 	"github.com/Timwood0x10/ares/internal/knowledge/provider"
 	khruntime "github.com/Timwood0x10/ares/internal/knowledge/runtime"
+	memory "github.com/Timwood0x10/ares/internal/runtime/memory"
 )
 
 // newTestConfig returns a fresh default config so each subtest starts from a

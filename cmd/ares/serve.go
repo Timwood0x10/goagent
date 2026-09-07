@@ -16,13 +16,13 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/Timwood0x10/ares/internal/agents/sub"
-	"github.com/Timwood0x10/ares/internal/ares_archive"
 	"github.com/Timwood0x10/ares/internal/ares_bootstrap"
 	"github.com/Timwood0x10/ares/internal/ares_config"
 	"github.com/Timwood0x10/ares/internal/ares_shutdown"
-	"github.com/Timwood0x10/ares/internal/ares_skills"
 	"github.com/Timwood0x10/ares/internal/knowledge/compiler"
 	akf_mcp "github.com/Timwood0x10/ares/internal/knowledge/mcp"
+	"github.com/Timwood0x10/ares/internal/runtime/archive"
+	"github.com/Timwood0x10/ares/internal/runtime/protocol/skills"
 	core_tools "github.com/Timwood0x10/ares/internal/tools/resources/core"
 )
 
@@ -152,11 +152,11 @@ func runServe() error {
 	// --- EventStore (archive-enabled, shared pipeline) ---
 	// Build the archive-enabled store once and inject it into Bootstrap so
 	// `ares serve` uses the same construction path as `ares start`
-	// (ares_archive.NewCompactableStoreWithArchive is the single source).
+	// (archive.NewCompactableStoreWithArchive is the single source).
 	// Archive defaults to on; disable via memory.archive.enabled: false.
 	// The raw *MemoryEventStore is unused here — serve consumes the store via
 	// the EventStore interface only — so it is discarded.
-	compactableStore, _, err := ares_archive.NewCompactableStoreWithArchive(cfg.Memory.Archive)
+	compactableStore, _, err := archive.NewCompactableStoreWithArchive(cfg.Memory.Archive)
 	if err != nil {
 		return fmt.Errorf("create event store: %w", err)
 	}

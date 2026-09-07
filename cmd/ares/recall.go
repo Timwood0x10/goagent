@@ -16,8 +16,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Timwood0x10/ares/internal/ares_archive"
 	"github.com/Timwood0x10/ares/internal/ares_config"
+	"github.com/Timwood0x10/ares/internal/runtime/archive"
 )
 
 var recallCmd = &cobra.Command{
@@ -110,7 +110,7 @@ func runRecallQuery(query string) error {
 		return errors.New("archive is disabled in config (set memory.archive.enabled: true or omit it)")
 	}
 
-	reader, err := ares_archive.NewFileArchiveReader(cfg.Memory.Archive.Dir)
+	reader, err := archive.NewFileArchiveReader(cfg.Memory.Archive.Dir)
 	if err != nil {
 		return fmt.Errorf("create archive reader: %w", err)
 	}
@@ -150,14 +150,14 @@ func runRecallRound(arg string) error {
 		return errors.New("archive is disabled in config (set memory.archive.enabled: true or omit it)")
 	}
 
-	reader, err := ares_archive.NewFileArchiveReader(cfg.Memory.Archive.Dir)
+	reader, err := archive.NewFileArchiveReader(cfg.Memory.Archive.Dir)
 	if err != nil {
 		return fmt.Errorf("create archive reader: %w", err)
 	}
 
 	rec, err := reader.Read(context.Background(), n)
 	if err != nil {
-		if errors.Is(err, ares_archive.ErrRoundNotFound) {
+		if errors.Is(err, archive.ErrRoundNotFound) {
 			fmt.Printf("round %d not found in archive at %s\n", n, cfg.Memory.Archive.Dir)
 			return nil
 		}

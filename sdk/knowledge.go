@@ -11,8 +11,6 @@ import (
 
 	apiembed "github.com/Timwood0x10/ares/api/embedding"
 	ares_bootstrap "github.com/Timwood0x10/ares/internal/ares_bootstrap"
-	ares_evolution "github.com/Timwood0x10/ares/internal/ares_evolution"
-	memory "github.com/Timwood0x10/ares/internal/ares_memory"
 	"github.com/Timwood0x10/ares/internal/evidence"
 	"github.com/Timwood0x10/ares/internal/knowledge"
 	"github.com/Timwood0x10/ares/internal/knowledge/adapter"
@@ -26,6 +24,8 @@ import (
 	memstore "github.com/Timwood0x10/ares/internal/knowledge/store/memory"
 	postgresstore "github.com/Timwood0x10/ares/internal/knowledge/store/postgres"
 	sqlitestore "github.com/Timwood0x10/ares/internal/knowledge/store/sqlite"
+	ares_evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
+	memory "github.com/Timwood0x10/ares/internal/runtime/memory"
 	"github.com/Timwood0x10/ares/internal/storage/postgres"
 )
 

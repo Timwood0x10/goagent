@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	ares_evolution "github.com/Timwood0x10/ares/internal/ares_evolution"
 	"github.com/Timwood0x10/ares/internal/evidence"
 	"github.com/Timwood0x10/ares/internal/knowledge"
+	ares_evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
 )
 
 // mockStrategyStore implements StrategyStore for tests.

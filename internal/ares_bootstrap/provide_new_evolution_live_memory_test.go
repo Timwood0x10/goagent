@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	aresmemory "github.com/Timwood0x10/ares/internal/ares_memory"
-	"github.com/Timwood0x10/ares/internal/evolution/patch"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution/patch"
+	aresmemory "github.com/Timwood0x10/ares/internal/runtime/memory"
 )
 
 // TestProvideNewEvolution_LiveMemoryStore verifies that when a live

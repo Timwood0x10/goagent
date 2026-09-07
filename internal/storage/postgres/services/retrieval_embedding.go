@@ -4,7 +4,7 @@ package services
 import (
 	"context"
 
-	memembed "github.com/Timwood0x10/ares/internal/ares_memory/embedding"
+	memembed "github.com/Timwood0x10/ares/internal/runtime/memory/embedding"
 	"github.com/Timwood0x10/ares/internal/truncate"
 )
 

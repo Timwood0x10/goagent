@@ -19,12 +19,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Timwood0x10/ares/internal/ares_eval"
-	evolution "github.com/Timwood0x10/ares/internal/ares_evolution"
-	"github.com/Timwood0x10/ares/internal/ares_evolution/mutation"
+	evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
+	"github.com/Timwood0x10/ares/internal/runtime/ares_evolution/mutation"
+	"github.com/Timwood0x10/ares/internal/runtime/eval"
 )
 
-// llmEvalExecutor adapts an ares_eval.LLMClient into an ares_eval.AgentExecutor
+// llmEvalExecutor adapts an eval.LLMClient into an eval.AgentExecutor
 // for the G3 gate. The candidate strategy's PromptTemplate is prepended to
 // every test-case input, so candidate and active strategies produce genuinely
 // different outputs and the judge scores discriminate between them.
@@ -34,13 +34,13 @@ import (
 // template is the artifact the GA actually mutates, so it is the honest
 // discriminator here. Thread-safe: lifecycle Submit can run concurrently.
 type llmEvalExecutor struct {
-	client ares_eval.LLMClient
+	client eval.LLMClient
 
 	mu             sync.Mutex
 	promptTemplate string
 }
 
-func newLLMEvalExecutor(client ares_eval.LLMClient) *llmEvalExecutor {
+func newLLMEvalExecutor(client eval.LLMClient) *llmEvalExecutor {
 	return &llmEvalExecutor{client: client}
 }
 
@@ -55,7 +55,7 @@ func (e *llmEvalExecutor) setCandidate(cand *mutation.Strategy) {
 	e.promptTemplate = cand.PromptTemplate
 }
 
-// Execute implements ares_eval.AgentExecutor.
+// Execute implements eval.AgentExecutor.
 func (e *llmEvalExecutor) Execute(ctx context.Context, input string) (string, []string, int, error) {
 	e.mu.Lock()
 	tmpl := e.promptTemplate
@@ -85,8 +85,8 @@ var errEvalGateNotConfigured = errors.New("eval gate not configured")
 // an error when a CONFIGURED suite cannot be loaded (fail closed — see the
 // package comment).
 func buildEvalGate(
-	registry *ares_eval.EvaluatorRegistry,
-	client ares_eval.LLMClient,
+	registry *eval.EvaluatorRegistry,
+	client eval.LLMClient,
 	suitePath string,
 	minScore float64,
 	strict bool,
@@ -96,7 +96,7 @@ func buildEvalGate(
 		// the documented degradation contract, not a fake pass-through.
 		return nil, errEvalGateNotConfigured
 	}
-	suite, err := ares_eval.NewLoader().Load(suitePath)
+	suite, err := eval.NewLoader().Load(suitePath)
 	if err != nil {
 		return nil, fmt.Errorf("bootstrap: load eval suite %q (evolution.gates.eval_suite): %w", suitePath, err)
 	}
@@ -105,7 +105,7 @@ func buildEvalGate(
 	}
 
 	exec := newLLMEvalExecutor(client)
-	runner, err := ares_eval.NewAgentTestRunner(exec)
+	runner, err := eval.NewAgentTestRunner(exec)
 	if err != nil {
 		return nil, fmt.Errorf("bootstrap: create eval runner: %w", err)
 	}

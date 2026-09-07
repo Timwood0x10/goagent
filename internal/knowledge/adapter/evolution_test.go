@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	ares_evolution "github.com/Timwood0x10/ares/internal/ares_evolution"
 	"github.com/Timwood0x10/ares/internal/evidence"
 	"github.com/Timwood0x10/ares/internal/knowledge"
+	ares_evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
 )
 
 func TestFromStrategyNil(t *testing.T) {

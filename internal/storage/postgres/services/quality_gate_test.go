@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	memembed "github.com/Timwood0x10/ares/internal/ares_memory/embedding"
 	"github.com/Timwood0x10/ares/internal/errors"
+	memembed "github.com/Timwood0x10/ares/internal/runtime/memory/embedding"
 )
 
 // pipelineSpy implements memembed.EmbeddingPipeline for testing.

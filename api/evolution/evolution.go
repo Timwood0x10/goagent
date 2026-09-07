@@ -8,11 +8,11 @@ import (
 	"time"
 
 	pubmutation "github.com/Timwood0x10/ares/api/evolution/mutation"
-	evolve "github.com/Timwood0x10/ares/internal/ares_evolution"
-	"github.com/Timwood0x10/ares/internal/ares_evolution/experience"
-	"github.com/Timwood0x10/ares/internal/ares_evolution/genome"
-	internalmutation "github.com/Timwood0x10/ares/internal/ares_evolution/mutation"
-	"github.com/Timwood0x10/ares/internal/ares_evolution/promotion"
+	evolve "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
+	"github.com/Timwood0x10/ares/internal/runtime/ares_evolution/experience"
+	"github.com/Timwood0x10/ares/internal/runtime/ares_evolution/genome"
+	internalmutation "github.com/Timwood0x10/ares/internal/runtime/ares_evolution/mutation"
+	"github.com/Timwood0x10/ares/internal/runtime/ares_evolution/promotion"
 )
 
 const paramKeyTemperature = "temperature"

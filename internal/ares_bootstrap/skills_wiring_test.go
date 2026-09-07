@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	ares_memory "github.com/Timwood0x10/ares/internal/ares_memory"
 	"github.com/Timwood0x10/ares/internal/knowledge/skills"
+	ares_memory "github.com/Timwood0x10/ares/internal/runtime/memory"
 )
 
 // stubSkillsSetter records the registry attached via SetSkillsRegistry so the

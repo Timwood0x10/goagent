@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/Timwood0x10/ares/internal/ares_config"
-	"github.com/Timwood0x10/ares/internal/ares_skills"
+	"github.com/Timwood0x10/ares/internal/runtime/protocol/skills"
 )
 
 // chdir changes the working directory for the duration of the test and

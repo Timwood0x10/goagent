@@ -17,7 +17,7 @@ import (
 	"fmt"
 
 	"github.com/Timwood0x10/ares/compat/protocol"
-	aresmcp "github.com/Timwood0x10/ares/internal/ares_mcp"
+	aresmcp "github.com/Timwood0x10/ares/internal/runtime/protocol/mcp"
 )
 
 // Adapter satisfies compat/protocol.ProtocolAdapter for MCP.

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/Timwood0x10/ares/internal/agents"
-	evolution "github.com/Timwood0x10/ares/internal/ares_evolution"
+	evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
 )
 
 func TestNewStrategySource_Nil(t *testing.T) {

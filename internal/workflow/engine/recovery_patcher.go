@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Timwood0x10/ares/internal/evolution/patch"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution/patch"
 )
 
 // RecoveryPatchExecutor handles recovery-related runtime patches.

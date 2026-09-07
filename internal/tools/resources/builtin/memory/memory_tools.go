@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	memory "github.com/Timwood0x10/ares/internal/ares_memory"
+	memory "github.com/Timwood0x10/ares/internal/runtime/memory"
 	"github.com/Timwood0x10/ares/internal/storage/postgres/repositories"
 	"github.com/Timwood0x10/ares/internal/tools/resources/base"
 	"github.com/Timwood0x10/ares/internal/tools/resources/core"

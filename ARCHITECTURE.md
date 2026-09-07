@@ -60,6 +60,8 @@ cmd/ares/main.go = 唯一入口；kernel/fabric/runtime 平级（kernel 不被 f
 [已完成 2026-09-07] Phase0 三件套（freeze-manifest.txt + 巡查脚本 + fanin.md v2，CI 已接入）
 [已完成 2026-09-07] Phase1 内核收敛（`kernelscheduler/kernelctx/system_runtime` → `internal/kernel/`，旧目录已删，import 零残留）
 [已完成 2026-09-07] Phase2a 占位（`internal/fabric/{agent,task,task/workflow,planprojection}/doc.go`，生产代码禁引）
+[已完成 2026-09-07] Phase3 子集·eval/observability（`internal/runtime/{eval,observability}/`，乱序特批：不依赖 M4）
+[已完成 2026-09-07] Phase3 全部（乱序特批）：protocol 三包→`runtime/protocol/{mcp,skills,ahp}`（包名保持 `ares_*`，§5.1 禁双轨的反面：改名收益＜风险）、arena/flight/archive→`runtime/{arena,observability/flight,archive}`、memory 两包→`runtime/memory/`（+`experience/` 子包）、evolution v1+v2→`runtime/{ares_evolution,evolution}/`（分层保留，雙包同名靠别名）。`internal/` 顶层 50→37
 [剩余主线] M4 D 阶段（唯一不可逆，被“B2 生产对拍 + 协作栈 L2 化 + 客户端迁移 + 影子退役”阻塞）
 [其后]  M4 通过 → Phase2b(fabric 合并) → Phase3(runtime 服务化) → Phase4(CLI 单一化) → Phase5(验证)
 ```
@@ -92,6 +94,19 @@ cmd/ares/main.go = 唯一入口；kernel/fabric/runtime 平级（kernel 不被 f
 - **验收**：`rg "chatStepState\|stepSchemaVersion"` 0 命中；全量测试 + `make gate` 绿。D 前打 tag + 回滚 runbook。
 - **B2 是独立 gate，不是某 Phase 的验收**（#17）：生产采样=运维动作（配置开启 + 对数），拆成独立 gate 排期，不卡代码阶段。
 
+### 2026-09-07 复核（kernel 搬家后重测 P1–P4，D 未动手）
+
+| 前置 | 状态 | 新锚点 |
+|---|---|---|
+| P1 闸门可开 | ✅ | `ares_config/config.go:141-170`（默认关，零值安全）；`cmd/ares/dag_execution.go` + `peer_mode.go:308` 接线 |
+| P2 L2 生产流量 | ⛔ 0 | `Enabled=true` 只出现在测试（`dag_execution_test.go:25`、`deploy_live_dag_integration_test.go:72`、`config_test.go:1148`）；`configs/ares.yaml:307` 注释态 |
+| P3 chat 构造收口 | ✅（维持） | 闸门后：`peer_mode.go:382-397`；闸门外仅剩 harness/demo：`shadow_execution.go:91`（测量 harness，by design）、`dashboard.go:261`（demo 冻结，Phase 4 处理）、`shadow_compare.go:165`（B1 harness） |
+| P4 单 ReAct 路 | ⛔ | 静态池死注册已摘（`peer_mode.go:145-151`）；但 `sub.Agent` 作为 peer 身份类型存活：`createPeerSubAgents`（`peer_mode.go:94`）+ `newPeerExecutor`（`peer_mode.go:553+`，spawn/恢复/IPC 链） |
+| D5 agentloop | ✅ 冻结维持 | 无 cmd 引用；有 sdk 引用（`sdk/discovery.go`、`sdk/sdk.go`、`sdk/agent.go`）——仍不删 |
+
+**证据基线（本轮实跑，`-count=1`）**：`agentfabric`、`taskfabric`、`planprojection`、`workflow/...`、`ares_bootstrap`、`kernel`、`kernel/ctx` 全绿；M4 定向集（`TestShadowCompare|TestCanary|TestDualPath|TestM4|TestDAGExecution|TestL2Graph|TestPeerCapabilities|TestShadowRunner`，`agentfabric` + `cmd/ares`）全绿。
+**裁决**：D 删除仍阻塞（P2 + P4 未成）。本轮 M4 可执行部分已到顶：再往前即删 ReAct 本体，违反门控。下一步 = B2 生产采样（运维动作，需真实流量 + 开闸）或四阻塞中任一项的结构性推进（需立项）。
+
 ## 六、Phase 2b — 编排层正式合并（M4 通过后）
 
 | 来源 | 去向 |
@@ -108,16 +123,16 @@ cmd/ares/main.go = 唯一入口；kernel/fabric/runtime 平级（kernel 不被 f
 
 ## 七、Phase 3 — 运行时服务化（runtime 管完整生命周期）
 
-| 来源 | 去向 |
+| 来源 | 去向（✅ 全部落地 2026-09-07，乱序特批） |
 |---|---|
-| `ares_memory/` + `ares_experience/` | `internal/runtime/memory/`（边界：经验=任务级蒸馏；会话记忆=per-session） |
-| `ares_evolution/`(v1) + `evolution/`(v2) | `internal/runtime/evolution/`（**v1/v2 都保留、分层**——v1 持部署/闸门/fitness 接线含 M6；v2 持基因组/补丁引擎；**不删 v1**，#5）|
-| `ares_mcp/` `ares_skills/` `ares_protocol/` | `internal/runtime/protocol/` |
-| `ares_observability/` | `internal/runtime/observability/` |
+| `ares_memory/` + `ares_experience/` | `internal/runtime/memory/` + `memory/experience/`（同模块分 API；包名保持，纯路径迁移） |
+| `ares_evolution/`(v1) + `evolution/`(v2) | `internal/runtime/ares_evolution/` + `runtime/evolution/`（分层保留；双包同名 `evolution` 靠既有别名，不合并，#5）|
+| `ares_mcp/` `ares_skills/` `ares_protocol/` | `internal/runtime/protocol/{mcp,skills,ahp}/`（包名保持 `ares_mcp`/`ares_skills`：前者有局部变量冲突，后者与 `skills.Registry` 包撞名；ahp 压平一层） |
+| `ares_observability/` | `internal/runtime/observability/` ✅ 已落地 2026-09-07（包改名 `observability`，13 引用文件全量迁移，测试绿） |
 | `ares_arena/` | `internal/runtime/arena/`（主线能力：`cmd/ares/arena.go` 直接 import；归档 examples 会造成 cmd→examples 反向依赖，#3） |
 | `ares_flight/` | `internal/runtime/observability/flight/`（与 `ares_observability/` 合流；`cmd/ares/flight.go` 直接 import，#3） |
 | `ares_archive/` | `internal/runtime/archive/`（`cmd/ares/recall.go` + `serve.go:155-159` 直接 import，同属生产 CLI 依赖，同样不能归档 examples） |
-| `ares_eval/` + `eval/` | `internal/runtime/eval/` |
+| `ares_eval/` + `eval/` | `internal/runtime/eval/` ✅ 已落地 2026-09-07（两包零标识符冲突，合并为单一 `package eval`；桥接文件自引用已解；fixture 路径 `../../../test/` 已修，测试绿） |
 
 - **记忆边界已核实（#10 关闭）**：`distilled_memories` 是 postgres 表（`storage/postgres/migrate_storage.go:396-397`，`base_repository.go:41` 注册）；`ares_memory` 依赖经验仓储（`NewMemoryManagerWithDistiller(..., expRepo distillation.ExperienceRepository)`，`manager_impl.go:167`）——两包是"上下游"不是"重复"，合并方式是"同一模块、按粒度分 API"；`ares_experience` 有异步 embedding 回填（`distillation_service.go`，`embedding.EmbeddingClient`）。**未证实、不写进验收**：全仓无 `QueryByVec` 符号；sqlite-vec 仅见 `knowledge/adapter/distill.go:346` 注释。向量检索实现位置 Phase 3 开工时再定。
 - 验收：agent 生命周期闭环（serve→spawn→process→snapshot→stop→restore 重启一致）；`evolution run` 触发闭环（C1–C7 + E1–E6）——**此项依赖 M6 已落地，Timing 上放在 M6 之后（#8：验收门不能早于依赖的里程碑）；`go test ./internal/runtime/...` 通过。

@@ -7,8 +7,8 @@ import (
 	"log/slog"
 
 	"github.com/Timwood0x10/ares/api/embedding"
-	"github.com/Timwood0x10/ares/internal/ares_memory/distillation"
 	"github.com/Timwood0x10/ares/internal/knowledge"
+	"github.com/Timwood0x10/ares/internal/runtime/memory/distillation"
 )
 
 // ConversationDistiller is the minimal interface for distilling conversations

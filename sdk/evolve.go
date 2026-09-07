@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/Timwood0x10/ares/api/tools"
-	"github.com/Timwood0x10/ares/internal/ares_evolution/genome"
-	"github.com/Timwood0x10/ares/internal/ares_evolution/mutation"
+	"github.com/Timwood0x10/ares/internal/runtime/ares_evolution/genome"
+	"github.com/Timwood0x10/ares/internal/runtime/ares_evolution/mutation"
 )
 
 // Evolvable strategy parameter keys. Shared across base strategy creation,

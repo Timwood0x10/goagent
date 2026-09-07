@@ -43,10 +43,10 @@ import (
 
 	"github.com/Timwood0x10/ares/internal/agents"
 	"github.com/Timwood0x10/ares/internal/evidence"
-	"github.com/Timwood0x10/ares/internal/evolution"
-	"github.com/Timwood0x10/ares/internal/evolution/coordinator"
-	"github.com/Timwood0x10/ares/internal/evolution/patch"
 	"github.com/Timwood0x10/ares/internal/llm"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution/coordinator"
+	"github.com/Timwood0x10/ares/internal/runtime/evolution/patch"
 )
 
 // runReleaseClosedLoop runs the FULL candidate release closed loop against a

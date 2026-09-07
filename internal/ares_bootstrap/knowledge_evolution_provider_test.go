@@ -6,9 +6,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	ares_evolution "github.com/Timwood0x10/ares/internal/ares_evolution"
 	"github.com/Timwood0x10/ares/internal/knowledge"
 	evoprovider "github.com/Timwood0x10/ares/internal/knowledge/provider/evolution"
+	ares_evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
 )
 
 // TestKnowledgeRuntime_EvolutionProviderWired locks the server-side closure of

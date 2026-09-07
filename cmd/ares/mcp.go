@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	api_tools "github.com/Timwood0x10/ares/api/tools"
-	"github.com/Timwood0x10/ares/internal/ares_mcp"
+	"github.com/Timwood0x10/ares/internal/runtime/protocol/mcp"
 	builtintools "github.com/Timwood0x10/ares/internal/tools/resources/builtin"
 	"github.com/Timwood0x10/ares/internal/tools/resources/core"
 )

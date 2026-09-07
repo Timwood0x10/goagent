@@ -17,11 +17,11 @@ import (
 	"time"
 
 	api_tools "github.com/Timwood0x10/ares/api/tools"
-	evolution "github.com/Timwood0x10/ares/internal/ares_evolution"
-	"github.com/Timwood0x10/ares/internal/ares_observability"
 	"github.com/Timwood0x10/ares/internal/ares_runtime"
 	"github.com/Timwood0x10/ares/internal/ares_security"
 	"github.com/Timwood0x10/ares/internal/introspect"
+	evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
+	"github.com/Timwood0x10/ares/internal/runtime/observability"
 )
 
 // writeJSON encodes v to w. HTTP handlers cannot recover a failed response
@@ -70,7 +70,7 @@ type actionHandler struct {
 	lifecycle *evolution.StrategyLifecycle
 	// cost serves the LLM cost dashboard API (W1): /api/v1/observability/cost*
 	// and the HTML dashboard. Nil disables the routes (404).
-	cost *ares_observability.CostDashboard
+	cost *observability.CostDashboard
 	// costMux routes the cost endpoints; built once at handler construction
 	// via buildCostMux. Non-nil iff cost is non-nil — serveIntrospect
 	// dereferences it whenever cost is set, so a nil here panics on the
@@ -89,7 +89,7 @@ type actionHandler struct {
 // at handler construction. The result is assigned to actionHandler.costMux
 // in the same literal that sets cost, so the two can never drift apart
 // (an earlier per-request rebuild hid exactly that drift until it panicked).
-func buildCostMux(dash *ares_observability.CostDashboard) *http.ServeMux {
+func buildCostMux(dash *observability.CostDashboard) *http.ServeMux {
 	if dash == nil {
 		return nil
 	}
@@ -217,7 +217,7 @@ func (h *actionHandler) serveIntrospect(w http.ResponseWriter, r *http.Request, 
 		// Prometheus scrape endpoint (monitoring.md Phase 4: the old :8090
 		// dashboard server mounted /metrics; re-mounted here so scraping the
 		// ARES runtime survives the dashboard deletion).
-		ares_observability.MetricsHTTPHandler().ServeHTTP(w, r)
+		observability.MetricsHTTPHandler().ServeHTTP(w, r)
 		return true
 	case h.cost != nil && (strings.HasPrefix(path, "/api/v1/observability/cost") ||
 		path == "/api/v1/observability/dashboard"):

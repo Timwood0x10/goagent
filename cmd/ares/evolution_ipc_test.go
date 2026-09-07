@@ -8,9 +8,9 @@ import (
 
 	"github.com/Timwood0x10/ares/internal/agentipc"
 	"github.com/Timwood0x10/ares/internal/agents/peer"
-	"github.com/Timwood0x10/ares/internal/ares_protocol/ahp"
 	"github.com/Timwood0x10/ares/internal/aresrecovery"
 	"github.com/Timwood0x10/ares/internal/core/models"
+	"github.com/Timwood0x10/ares/internal/runtime/protocol/ahp"
 )
 
 // fakeMessageAgent implements the SendMessage surface (interface assertion

@@ -3,8 +3,8 @@ package sub
 import (
 	"context"
 
-	"github.com/Timwood0x10/ares/internal/ares_protocol/ahp"
 	"github.com/Timwood0x10/ares/internal/errors"
+	"github.com/Timwood0x10/ares/internal/runtime/protocol/ahp"
 )
 
 // messageHandler handles incoming AHP messages.

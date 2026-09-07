@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/Timwood0x10/ares/internal/ares_evolution/genome"
-	"github.com/Timwood0x10/ares/internal/ares_evolution/mutation"
+	"github.com/Timwood0x10/ares/internal/runtime/ares_evolution/genome"
+	"github.com/Timwood0x10/ares/internal/runtime/ares_evolution/mutation"
 )
 
 type stubMutator struct{}

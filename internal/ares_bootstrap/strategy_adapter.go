@@ -6,7 +6,7 @@ import (
 	"errors"
 
 	"github.com/Timwood0x10/ares/internal/agents"
-	evolution "github.com/Timwood0x10/ares/internal/ares_evolution"
+	evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
 )
 
 // evolutionStrategySource adapts an evolution.StrategyStore to the

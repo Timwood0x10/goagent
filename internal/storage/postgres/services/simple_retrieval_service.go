@@ -9,8 +9,8 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	memembed "github.com/Timwood0x10/ares/internal/ares_memory/embedding"
 	"github.com/Timwood0x10/ares/internal/errors"
+	memembed "github.com/Timwood0x10/ares/internal/runtime/memory/embedding"
 	"github.com/Timwood0x10/ares/internal/storage/postgres/embedding"
 	"github.com/Timwood0x10/ares/internal/storage/postgres/repositories"
 )

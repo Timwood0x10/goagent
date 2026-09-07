@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	ares_evolution "github.com/Timwood0x10/ares/internal/ares_evolution"
+	ares_evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
 	"github.com/Timwood0x10/ares/internal/storage/postgres/models"
 )
 

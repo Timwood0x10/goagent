@@ -17,7 +17,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/Timwood0x10/ares/internal/ares_protocol/ahp"
+	"github.com/Timwood0x10/ares/internal/runtime/protocol/ahp"
 )
 
 // SendFunc delivers a message to one agent. Implementations enqueue onto the

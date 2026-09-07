@@ -6,9 +6,9 @@ import (
 	"math"
 	"time"
 
-	ares_evolution "github.com/Timwood0x10/ares/internal/ares_evolution"
 	"github.com/Timwood0x10/ares/internal/evidence"
 	"github.com/Timwood0x10/ares/internal/knowledge"
+	ares_evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
 )
 
 // FromStrategy converts an evolution Strategy into a KnowledgeObject.

@@ -13,7 +13,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	flight "github.com/Timwood0x10/ares/internal/ares_flight"
+	flight "github.com/Timwood0x10/ares/internal/runtime/observability/flight"
 )
 
 // JSON response keys reused across flight endpoints.

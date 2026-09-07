@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Timwood0x10/ares/internal/ares_config"
-	evolution "github.com/Timwood0x10/ares/internal/ares_evolution"
-	"github.com/Timwood0x10/ares/internal/ares_observability"
+	evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
+	"github.com/Timwood0x10/ares/internal/runtime/observability"
 )
 
 // guardrailCounterValue reads ARES_evolution_guardrail_total{code} off the
@@ -130,7 +130,7 @@ func TestBuildEvolutionGuardrailsForwardsEventsToMetrics(t *testing.T) {
 	// NewPrometheusMetrics registers on the default registry and is idempotent,
 	// so the counter may already carry values from other tests in this package.
 	// Measure the delta rather than the absolute value.
-	metrics, err := ares_observability.NewPrometheusMetrics()
+	metrics, err := observability.NewPrometheusMetrics()
 	require.NoError(t, err)
 	code := string(evolution.ErrCodeUnevaluatedPopulation)
 	before := guardrailCounterValue(t, code)

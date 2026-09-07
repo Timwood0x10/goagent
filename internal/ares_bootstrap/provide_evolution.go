@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/Timwood0x10/ares/internal/ares_config"
-	"github.com/Timwood0x10/ares/internal/ares_eval"
 	"github.com/Timwood0x10/ares/internal/ares_events"
-	evolution "github.com/Timwood0x10/ares/internal/ares_evolution"
-	experience "github.com/Timwood0x10/ares/internal/ares_experience"
-	flight "github.com/Timwood0x10/ares/internal/ares_flight"
+	evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
+	"github.com/Timwood0x10/ares/internal/runtime/eval"
+	experience "github.com/Timwood0x10/ares/internal/runtime/memory/experience"
+	flight "github.com/Timwood0x10/ares/internal/runtime/observability/flight"
 	"github.com/Timwood0x10/ares/internal/storage/postgres/repositories"
 )
 
@@ -21,11 +21,11 @@ type EvolutionComponents struct {
 	Adapter           interface{}
 	Scheduler         interface{}
 	FeedbackService   *experience.FeedbackService
-	EvaluatorRegistry *ares_eval.EvaluatorRegistry
+	EvaluatorRegistry *eval.EvaluatorRegistry
 	// EvalLLMClient is the LLM client the evaluators were built with. The
 	// G3 eval gate needs it to score candidate strategies through the
 	// AgentTestRunner at promote time. Nil when no LLM client was available.
-	EvalLLMClient ares_eval.LLMClient
+	EvalLLMClient eval.LLMClient
 	// FlightRecorder is the recorder created for the Flight→Experience
 	// adapter. It is exposed so Bootstrap can start/stop it explicitly:
 	// without Start the collector never subscribes to events and the GA
@@ -48,7 +48,7 @@ func ProvideEvolution(
 	cfg *ares_config.EvolutionConfig,
 	eventStore ares_events.EventStore,
 	expRepo repositories.ExperienceRepositoryInterface,
-	llmClient ares_eval.LLMClient,
+	llmClient eval.LLMClient,
 	fr *flight.FlightRecorder,
 ) (*EvolutionComponents, error) {
 	if eventStore == nil || expRepo == nil {
@@ -98,7 +98,7 @@ func ProvideEvolution(
 	scheduler := evolution.NewEvolutionScheduler(eventStore, adapter, opts...)
 	scheduler.Register()
 	// 3. Evaluators (optional — requires LLM client).
-	var evalRegistry *ares_eval.EvaluatorRegistry
+	var evalRegistry *eval.EvaluatorRegistry
 	if llmClient != nil {
 		evalRegistry, err = setupEvaluators(llmClient)
 		if err != nil {
@@ -119,15 +119,15 @@ func ProvideEvolution(
 	}, nil
 }
 
-func setupEvaluators(llmClient ares_eval.LLMClient) (*ares_eval.EvaluatorRegistry, error) {
-	judge, err := ares_eval.NewLLMJudgeEvaluator(llmClient,
-		ares_eval.WithChinesePrompt(),
-		ares_eval.WithScale(ares_eval.ScaleOneToTen),
+func setupEvaluators(llmClient eval.LLMClient) (*eval.EvaluatorRegistry, error) {
+	judge, err := eval.NewLLMJudgeEvaluator(llmClient,
+		eval.WithChinesePrompt(),
+		eval.WithScale(eval.ScaleOneToTen),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create llm judge: %w", err)
 	}
-	registry := ares_eval.NewEvaluatorRegistry()
+	registry := eval.NewEvaluatorRegistry()
 	if err := registry.Register("llm_judge", judge); err != nil {
 		return nil, fmt.Errorf("register llm judge: %w", err)
 	}

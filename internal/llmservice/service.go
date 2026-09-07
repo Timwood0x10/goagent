@@ -9,9 +9,9 @@ import (
 
 	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/ares_callbacks"
-	"github.com/Timwood0x10/ares/internal/ares_observability"
 	"github.com/Timwood0x10/ares/internal/errors"
 	"github.com/Timwood0x10/ares/internal/llm"
+	"github.com/Timwood0x10/ares/internal/runtime/observability"
 )
 
 // LLMClient is the interface satisfied by both *llm.Client and *llm.FailoverClient.
@@ -47,8 +47,8 @@ type Config struct {
 	Repo core.LLMRepository
 	// EmbeddingClient is the embedding service client (optional).
 	EmbeddingClient any
-	// Tracer is an optional ares_observability tracer for LLM call tracing.
-	Tracer ares_observability.Tracer
+	// Tracer is an optional observability tracer for LLM call tracing.
+	Tracer observability.Tracer
 	// CallbackRegistry is an optional callback registry for lifecycle event emission.
 	// When set, Generate and GenerateStream calls will emit events to this registry.
 	CallbackRegistry *ares_callbacks.Registry

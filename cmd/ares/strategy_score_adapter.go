@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	evolution "github.com/Timwood0x10/ares/internal/ares_evolution"
 	"github.com/Timwood0x10/ares/internal/aresrecovery"
+	evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
 )
 
 // strategyScoreAdapter bridges the aresrecovery.StrategyScoreWriter interface

@@ -14,8 +14,8 @@ import (
 
 	"github.com/Timwood0x10/ares/internal/agents/base"
 	"github.com/Timwood0x10/ares/internal/ares_events"
-	memory "github.com/Timwood0x10/ares/internal/ares_memory"
 	"github.com/Timwood0x10/ares/internal/core/models"
+	memory "github.com/Timwood0x10/ares/internal/runtime/memory"
 )
 
 // --- Mock implementations ---

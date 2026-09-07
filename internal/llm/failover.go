@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/Timwood0x10/ares/api/core"
-	"github.com/Timwood0x10/ares/internal/ares_observability"
 	"github.com/Timwood0x10/ares/internal/ares_ratelimit"
+	"github.com/Timwood0x10/ares/internal/runtime/observability"
 )
 
 // Default cooldown duration for rate-limited providers.
@@ -456,7 +456,7 @@ func (fc *FailoverClient) GetModel() string {
 }
 
 // SetTracer sets the tracer on all underlying clients.
-func (fc *FailoverClient) SetTracer(t ares_observability.Tracer) {
+func (fc *FailoverClient) SetTracer(t observability.Tracer) {
 	for _, c := range fc.clients {
 		c.SetTracer(t)
 	}

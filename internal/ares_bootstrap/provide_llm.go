@@ -11,9 +11,9 @@ import (
 	"github.com/Timwood0x10/ares/internal/agents/sub"
 	"github.com/Timwood0x10/ares/internal/ares_callbacks"
 	"github.com/Timwood0x10/ares/internal/ares_config"
-	"github.com/Timwood0x10/ares/internal/ares_observability"
 	"github.com/Timwood0x10/ares/internal/ares_security"
 	"github.com/Timwood0x10/ares/internal/llm"
+	"github.com/Timwood0x10/ares/internal/runtime/observability"
 )
 
 func ProvideLLM(cfg ares_config.LLMConfig) (*LLMComponents, error) {
@@ -39,12 +39,12 @@ func ProvideLLM(cfg ares_config.LLMConfig) (*LLMComponents, error) {
 	// increments counters and attributes cost — a NoopTracer here left all
 	// ARES_* counters at zero. Registration is idempotent
 	// (AlreadyRegisteredError returns the cached instance).
-	metrics, merr := ares_observability.NewPrometheusMetrics()
+	metrics, merr := observability.NewPrometheusMetrics()
 	if merr != nil {
 		log.Warn("bootstrap: prometheus metrics registration skipped", "error", merr)
 	}
-	dashboard := ares_observability.NewCostDashboard()
-	client.SetTracer(ares_observability.NewMetricsTracer(metrics, dashboard))
+	dashboard := observability.NewCostDashboard()
+	client.SetTracer(observability.NewMetricsTracer(metrics, dashboard))
 
 	// Register the LLM provider in the compat layer for ecosystem access.
 	// B31: Dispatch to the correct adapter based on provider name instead of

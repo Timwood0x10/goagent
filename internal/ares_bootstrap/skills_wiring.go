@@ -13,8 +13,8 @@ import (
 	"os"
 	"path/filepath"
 
-	ares_skills "github.com/Timwood0x10/ares/internal/ares_skills"
 	"github.com/Timwood0x10/ares/internal/knowledge/skills"
+	ares_skills "github.com/Timwood0x10/ares/internal/runtime/protocol/skills"
 )
 
 // skillsRegistrySetter is the minimal interface for injecting a skills registry

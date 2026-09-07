@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Timwood0x10/ares/internal/ares_config"
-	"github.com/Timwood0x10/ares/internal/ares_evolution/mutation"
+	"github.com/Timwood0x10/ares/internal/runtime/ares_evolution/mutation"
 )
 
 // stubLLMScorerClient is a minimal LLM client for wireLLMScorer tests.

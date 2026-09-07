@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Timwood0x10/ares/internal/ares_config"
-	evolution "github.com/Timwood0x10/ares/internal/ares_evolution"
+	evolution "github.com/Timwood0x10/ares/internal/runtime/ares_evolution"
 )
 
 // defaultFilledEvolution returns an EvolutionConfig exactly as LoadConfig hands

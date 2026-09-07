@@ -5,8 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Timwood0x10/ares/internal/ares_observability"
 	"github.com/Timwood0x10/ares/internal/introspect"
+	"github.com/Timwood0x10/ares/internal/runtime/observability"
 )
 
 // TestActionHandlerCostRoutesWired locks the W1 construction contract: a
@@ -15,7 +15,7 @@ import (
 // literal in serve_routine.go uses — an earlier revision set cost without
 // costMux and every dashboard request panicked on the nil mux.
 func TestActionHandlerCostRoutesWired(t *testing.T) {
-	dash := ares_observability.NewCostDashboard()
+	dash := observability.NewCostDashboard()
 	h := &actionHandler{
 		intro:   introspect.NewHandler(&introspect.Store{}),
 		cost:    dash,

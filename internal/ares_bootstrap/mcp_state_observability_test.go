@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Timwood0x10/ares/internal/ares_config"
-	"github.com/Timwood0x10/ares/internal/ares_mcp"
+	"github.com/Timwood0x10/ares/internal/runtime/protocol/mcp"
 	"github.com/Timwood0x10/ares/internal/tools/resources/core"
 )
 
