@@ -168,6 +168,11 @@ func convertStep(f *StepFile) (*Step, error) {
 	}
 
 	if f.RetryPolicy != nil {
+		// Verbatim copy, including MaxAttempts=0: a declared-but-zero policy
+		// is deliberately indistinguishable from an absent one — ProjectStep
+		// maps both to PlanStep.MaxRetries=0, which CompilePlan resolves to
+		// the kernel default (2 total attempts). Keeping this loader a pure
+		// decoder means JSON and YAML sources can never diverge on defaults.
 		step.RetryPolicy = &RetryPolicy{
 			MaxAttempts:       f.RetryPolicy.MaxAttempts,
 			InitialDelay:      f.RetryPolicy.InitialDelay,

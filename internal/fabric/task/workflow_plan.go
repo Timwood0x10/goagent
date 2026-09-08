@@ -6,6 +6,13 @@ import (
 	"fmt"
 )
 
+// planDefaultMaxRetries is the retry budget CompilePlan stamps when a
+// PlanStep leaves MaxRetries unset (<= 0). It mirrors the kernel's task
+// submission default (cmd/ares agent task creation: MaxRetries=2), so a plan
+// step without an explicit budget behaves like a directly submitted task
+// instead of the fabric's 0 = no retries.
+const planDefaultMaxRetries = 2
+
 // PlanStep is the minimal step description compiled into a Task batch. It is
 // defined in taskfabric (not workflow/engine) so the kernel never imports the
 // planner package — the caller (cmd layer) projects engine.Step onto it.
@@ -22,6 +29,8 @@ type PlanStep struct {
 	// Priority drives preemption (higher wins); 0 = normal.
 	Priority int
 	// MaxRetries counts TOTAL attempts (taskfabric.CanRetry semantics).
+	// <= 0 means "unset": CompilePlan resolves it to planDefaultMaxRetries
+	// (2), it never reaches the fabric as a literal zero.
 	MaxRetries int
 	// Payload carries the step's input metadata (surfaced via the checkpoint
 	// envelope to the executor).
@@ -96,15 +105,22 @@ func (f *Fabric) CompilePlan(ctx context.Context, steps []PlanStep) ([]string, e
 	created := make([]string, 0, len(steps))
 	for _, s := range steps {
 		deps := append([]string(nil), s.DependsOn...)
+		// PlanStep.MaxRetries <= 0 means "unset" (LLM omitted it / engine
+		// step carried no retry_policy). The fabric reads 0 as "no retries",
+		// so resolving unset to the kernel submission default here keeps the
+		// documented plan contract: an unset step gets 2 total attempts
+		// (first try + one retry), same as a directly submitted task.
+		maxRetries := s.MaxRetries
+		if maxRetries <= 0 {
+			maxRetries = planDefaultMaxRetries
+		}
 		t := &Task{
 			ID:           s.ID,
 			Capability:   s.Capability,
 			Dependencies: deps,
 			Priority:     s.Priority,
 			Origin:       s.Origin,
-			// MaxRetries <= 0 keeps the kernel default (2 = first attempt +
-			// one retry); a positive value is honored verbatim.
-			RetryPolicy: RetryPolicy{MaxRetries: s.MaxRetries},
+			RetryPolicy:  RetryPolicy{MaxRetries: maxRetries},
 		}
 		if s.Payload != nil || s.SessionID != "" {
 			env := &CheckpointEnvelope{Payload: s.Payload}

@@ -80,6 +80,39 @@ func TestVerifyDeniesWhenSecretNil(t *testing.T) {
 	}
 }
 
+// TestVerifyDeniesTokenForgedWithEmptyKey is the case the deny-by-default claim
+// actually has to survive: an attacker who knows the deployment forgot its key
+// can mint a perfectly well-formed HS256 token under the EMPTY key. Sending no
+// header at all only exercises the "missing token" branch, so this test forges
+// a real token and asserts it is rejected — and rejected as a server fault
+// (503), not as a client mistake.
+func TestVerifyDeniesTokenForgedWithEmptyKey(t *testing.T) {
+	forged, err := encodeSigned(nil, jwtClaims{
+		Subject: "alice",
+		Role:    string(RoleAdmin),
+		Expires: time.Now().Add(time.Hour).Unix(),
+		Issued:  time.Now().Unix(),
+	})
+	if err != nil {
+		t.Fatalf("forge: %v", err)
+	}
+
+	for _, mw := range []*AuthMiddleware{
+		NewAuthMiddleware(nil, PermWrite),
+		NewAuthMiddleware([]byte{}, PermWrite),
+	} {
+		req := httptest.NewRequest(http.MethodPost, "/api/agents/1/kill", nil)
+		req.Header.Set("Authorization", "Bearer "+forged)
+		p, status := mw.Verify(req)
+		if p != nil {
+			t.Fatalf("forged empty-key token must yield no principal, got %+v", p)
+		}
+		if status != http.StatusServiceUnavailable {
+			t.Fatalf("status = %d, want 503 (unconfigured key is a server fault)", status)
+		}
+	}
+}
+
 func TestFromContextNilOnUnprotected(t *testing.T) {
 	if p := FromContext(context.Background()); p != nil {
 		t.Fatalf("FromContext on plain ctx = %+v, want nil", p)

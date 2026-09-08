@@ -19,7 +19,6 @@ const (
 	EventTaskCompleted    EventType = "task.completed"
 	EventTaskFailed       EventType = "task.failed"
 	EventTaskExpired      EventType = "task.expired"
-	EventTaskStolen       EventType = "task.stolen"
 	// EventTaskUpdated records an in-place rewrite of a task's scheduling
 	// shape (Dependencies) or its payload by the incremental compiler: one
 	// graph change moves one task instead of rebuilding the whole compiled

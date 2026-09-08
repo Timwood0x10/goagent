@@ -111,10 +111,6 @@ var ErrAgentNotFound = errors.New("agentfabric: agent not found")
 // ErrAgentExists is returned when an agent with the given id already exists.
 var ErrAgentExists = errors.New("agentfabric: agent already exists")
 
-// ErrAgentNotIdle is returned when an operation requires an IDLE agent but
-// the agent is in a different state.
-var ErrAgentNotIdle = errors.New("agentfabric: agent not idle")
-
 // ErrAgentRetired is returned when an operation targets a retired agent.
 var ErrAgentRetired = errors.New("agentfabric: agent retired")
 

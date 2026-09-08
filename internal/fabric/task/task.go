@@ -50,7 +50,11 @@ type Task struct {
 
 // RetryPolicy bounds re-queueing after failures.
 type RetryPolicy struct {
-	// MaxRetries is the total attempts allowed (0 = no retries).
+	// MaxRetries is the TOTAL attempt budget: the first try counts, so
+	// MaxRetries=2 allows exactly one requeue after the first failure
+	// (CanRetry: Attempts < MaxRetries, checked after Attempts is
+	// incremented by Fail). 0 — and any negative value — means no retries:
+	// the first Fail transitions the task straight to terminal FAILED.
 	MaxRetries int
 	// Attempts counts executions so far.
 	Attempts int
@@ -58,7 +62,7 @@ type RetryPolicy struct {
 
 // CanRetry reports whether another attempt is allowed.
 func (t *Task) CanRetry() bool {
-	return t.RetryPolicy.MaxRetries <= 0 || t.RetryPolicy.Attempts < t.RetryPolicy.MaxRetries
+	return t.RetryPolicy.Attempts < t.RetryPolicy.MaxRetries
 }
 
 // transition moves the task to a new state, rejecting illegal transitions

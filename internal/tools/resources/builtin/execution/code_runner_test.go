@@ -247,6 +247,25 @@ func TestCodeRunnerExecute_CodeValidation(t *testing.T) {
 			code:      "open('/etc/passwd')",
 			wantError: true,
 		},
+		// Python permits whitespace between a callee and its "(", so the
+		// denylist used to be defeated by inserting one space. "open" needs no
+		// import, so the allowlist never sees it and this was a file-access
+		// escape rather than a cosmetic gap.
+		{
+			name:      "dangerous - open with space before paren",
+			code:      "open ('/etc/passwd')",
+			wantError: true,
+		},
+		{
+			name:      "dangerous - exec with tab before paren",
+			code:      "exec\t('print(1)')",
+			wantError: true,
+		},
+		{
+			name:      "dangerous - eval with newline before paren",
+			code:      "eval\n('1+1')",
+			wantError: true,
+		},
 		{
 			name:      "dangerous - system",
 			code:      "import os; os.system('ls')",

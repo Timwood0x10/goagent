@@ -57,7 +57,8 @@ type Scheduler struct {
 	eventStore ares_events.EventStore
 	// maxConcurrent caps how many ready tasks run in parallel during one
 	// drain (work stealing: multiple agents pick up tasks concurrently).
-	// <= 0 falls back to the executor count (bounded by 32).
+	// <= 0 falls back to the auto chain in drainLimit (executor count, then
+	// live fabric candidates; bounded by 32).
 	maxConcurrent int
 	// scheduled counts successfully executed tasks (for observability).
 	// atomic: incremented from concurrent drain goroutines (work stealing).
@@ -177,6 +178,14 @@ func (s *Scheduler) Running() bool { return s.running.Load() }
 // window — the condition is a waiting state, not an error worth per-poll noise.
 const noCandidateLogInterval = 5 * time.Second
 
+// maxConcurrentPerAgent caps how many quanta one agent may run at the same
+// time. It is 1 by architectural definition: an agent is a PROCESS with one
+// cognitive state, not a reentrant worker pool, and Score already treats
+// load >= 1 as "unschedulable". The constant exists so the admission gate in
+// executeWithCandidates and the scoring model state the same rule once instead
+// of agreeing by accident.
+const maxConcurrentPerAgent = 1
+
 // WithGovernance attaches the budget provider (agentfabric.Fabric). It is
 // wired by the kernel lifecycle once the agent fabric exists; without it the
 // scheduler enforces nothing (backward compatible with tests and minimal
@@ -274,8 +283,9 @@ func (s *Scheduler) WithAgentFabric(f *agentfabric.Fabric) *Scheduler {
 }
 
 // WithMaxConcurrent caps how many ready tasks run in parallel per drain
-// (work stealing). <= 0 falls back to the executor count. Returns the
-// scheduler for chaining.
+// (work stealing). <= 0 keeps the auto fallback chain in drainLimit
+// (executor count, then live fabric candidates). Returns the scheduler for
+// chaining.
 func (s *Scheduler) WithMaxConcurrent(n int) *Scheduler {
 	s.maxConcurrent = n
 	return s
@@ -465,23 +475,18 @@ func (s *Scheduler) drain(ctx context.Context) {
 	// BEFORE this drain spawns its own goroutines — between quanta — so a
 	// quantum is never interrupted mid-step.
 	s.PreemptLowerPriority(tasks)
-	limit := s.maxConcurrent
-	if limit <= 0 {
-		limit = s.ExecutorCount()
-	}
-	if limit <= 0 {
-		limit = 1
-	}
-	if limit > 32 {
-		limit = 32 // sanity cap: a drain never spawns unbounded goroutines
-	}
-
-	sem := make(chan struct{}, limit)
+	sem := make(chan struct{}, s.drainLimit())
 	var wg sync.WaitGroup
+drainLoop:
 	for _, taskID := range tasks {
 		select {
 		case <-ctx.Done():
-			return
+			// Stop spawning new quanta, but never abandon the ones already in
+			// flight: Run() clears s.running as soon as drain returns, so a bare
+			// return here would let shutdown complete while goroutines still hold
+			// leases and mutate fabric state. The wg.Wait() below is what makes
+			// shutdown honest. (break alone would only exit the select.)
+			break drainLoop
 		default:
 		}
 		wg.Add(1)
@@ -502,6 +507,56 @@ func (s *Scheduler) drain(ctx context.Context) {
 	wg.Wait()
 }
 
+// drainLimit computes how many ready tasks one drain may run in parallel.
+// Fallback chain: an explicit WithMaxConcurrent value wins; otherwise the
+// static executor registry size; when that is empty AND an agent fabric is
+// wired, the count of live IDLE executable fabric agents. That third step is
+// the production (peer-mode) default: the static registry is empty BY DESIGN
+// there — the fabric's live population is the single candidate source — so
+// without it the chain collapsed to 1 and every drain ran ONE quantum at a
+// time while capable peers sat idle. The floor of 1 keeps the drain alive
+// before any agent exists; 32 caps goroutine fan-out per drain.
+func (s *Scheduler) drainLimit() int {
+	limit := s.maxConcurrent
+	if limit <= 0 {
+		// Auto mode: the STATIC registry and the fabric population are two
+		// different candidate sources, not a fallback chain. A recovery-bound
+		// replacement (RegisterExecutorForTask) temporarily enters the static
+		// registry while fabric agents remain idle — taking the registry count
+		// alone would collapse parallelism to 1 for the binding's lifetime,
+		// so auto mode is the MAX of both.
+		limit = max(s.ExecutorCount(), s.fabricCandidateCount())
+	}
+	if limit <= 0 {
+		limit = 1
+	}
+	if limit > 32 {
+		limit = 32 // sanity cap: a drain never spawns unbounded goroutines
+	}
+	return limit
+}
+
+// fabricCandidateCount returns how many live fabric agents are IDLE and
+// executable — the same schedulability predicate PreemptLowerPriority uses
+// to decide whether any candidate exists. O(n) scan of the live population
+// per drain; n is small. Returns 0 when no agent fabric is wired (static
+// registry only, e.g. tests and the SDK path).
+func (s *Scheduler) fabricCandidateCount() int {
+	if s.agents == nil {
+		return 0
+	}
+	count := 0
+	for _, id := range s.agents.Agents() {
+		if !s.agents.IsIdle(id) {
+			continue
+		}
+		if a, err := s.agents.Get(id); err == nil && a != nil && a.Executable() {
+			count++
+		}
+	}
+	return count
+}
+
 // preemptLowerPriority cooperatively preempts any RUNNING task whose priority
 // is lower than the highest-priority READY task in this drain, so the next
 // drain can hand the executor to the higher-priority work. No-op when no
@@ -512,17 +567,7 @@ func (s *Scheduler) PreemptLowerPriority(ready []string) {
 	// The guard must also check fabric agents, not just static executors.
 	// In production mode (agent fabric wired), the static executor count may
 	// be 0 while fabric agents are the real candidate source.
-	hasCandidates := s.ExecutorCount() > 0
-	if !hasCandidates && s.agents != nil {
-		for _, id := range s.agents.Agents() {
-			if s.agents.IsIdle(id) {
-				if a, err := s.agents.Get(id); err == nil && a != nil && a.Executable() {
-					hasCandidates = true
-					break
-				}
-			}
-		}
-	}
+	hasCandidates := s.ExecutorCount() > 0 || s.fabricCandidateCount() > 0
 	if !hasCandidates || len(ready) == 0 {
 		return
 	}
@@ -553,7 +598,10 @@ func (s *Scheduler) PreemptLowerPriority(ready []string) {
 // the scheduler re-polls every interval, so it must not spam the log. Other
 // errors are logged every time (they are transient and need attention).
 func (s *Scheduler) logFailure(taskID string, err error) {
-	if err == taskfabric.ErrNoCapableCandidate {
+	// errors.Is, not ==: the empty-candidate path returns the sentinel wrapped
+	// in an apperrors.Kernel attribution (see executeWithCandidates), so an
+	// identity comparison never matches and the throttle silently dies.
+	if errors.Is(err, taskfabric.ErrNoCapableCandidate) {
 		now := time.Now()
 		s.noCandidateMu.Lock()
 		defer s.noCandidateMu.Unlock()
@@ -653,6 +701,48 @@ func (s *Scheduler) executeUnbound(ctx context.Context, taskID string) error {
 	return s.executeWithCandidates(ctx, taskID, cands)
 }
 
+// handleStaleWinner resolves the case where the scheduling winner died (or
+// became non-executable) between candidate build and executor lookup.
+//
+// The task must only be released to someone who can actually pick it up.
+// Releasing clears the lease, which also removes the task from
+// CheckExpiredLeases' scope — so releasing into an empty world would strand
+// it permanently, which is strictly worse than the TTL stall. Hence three
+// cases, in order of preference:
+//
+//  1. Another capable executor exists → release; the next drain re-schedules
+//     within one poll interval.
+//  2. No capable executor, but a recovery loop is wired → release AND
+//     nominate the task to it. Recovery gives the task a replacement
+//     execution body promptly, instead of the task waiting out the full
+//     lease TTL. This is the production path (cmd/ares peer mode).
+//  3. Neither → keep the lease. TTL expiry is then the ONLY recovery trigger
+//     available, and keeping the lease is what makes the task visible to
+//     CheckExpiredLeases. Leader/SDK/chaos-sandbox paths land here.
+//
+// Release is epoch-fenced (only the current holder can release) and
+// PRESERVES the checkpoint, so the "resume, don't restart" contract holds in
+// cases 1 and 2.
+func (s *Scheduler) handleStaleWinner(taskID, winner string, epoch uint64) error {
+	if s.HasCapableExecutor(taskID) {
+		if releaseErr := s.fabric.Release(taskID, winner, epoch); releaseErr != nil {
+			log.Error("kernel scheduler: release for stale winner failed", "task_id", taskID, "winner", winner, "error", releaseErr)
+		}
+		return nil
+	}
+	if s.hasRecoveryHint() {
+		if releaseErr := s.fabric.Release(taskID, winner, epoch); releaseErr != nil {
+			log.Error("kernel scheduler: release for stale winner failed", "task_id", taskID, "winner", winner, "error", releaseErr)
+			return nil
+		}
+		log.Warn("kernel scheduler: winner no longer executable; released to READY and nominated for recovery", "winner", winner, "task_id", taskID)
+		s.notifyRecovery(taskID)
+		return nil
+	}
+	log.Warn("kernel scheduler: winner no longer executable and no capable replacement or recovery loop exists; task stays leased until TTL expiry", "winner", winner, "task_id", taskID)
+	return nil
+}
+
 // executeWithCandidates runs the shared Schedule → Acquire → RunQuantum →
 // finalize path for a prebuilt candidate list. The task capability is read
 // for attribution at the outcome boundary.
@@ -709,47 +799,7 @@ func (s *Scheduler) executeWithCandidates(ctx context.Context, taskID string, ca
 	if executor == nil {
 		executor, ok = s.LookupExecutor(winner)
 		if !ok || executor == nil {
-			// The candidate snapshot is stale: the winner died (or became
-			// non-executable) between candidate build and executor lookup.
-			//
-			// The task must only be released to someone who can actually pick
-			// it up. Releasing clears the lease, which also removes the task
-			// from CheckExpiredLeases' scope — so releasing into an empty
-			// world would strand it permanently, which is strictly worse than
-			// the TTL stall. Hence three cases, in order of preference:
-			//
-			//  1. Another capable executor exists → release; the next drain
-			//     re-schedules within one poll interval.
-			//  2. No capable executor, but a recovery loop is wired → release
-			//     AND nominate the task to it. Recovery gives the task a
-			//     replacement execution body promptly, instead of the task
-			//     waiting out the full lease TTL. This is the production path
-			//     (cmd/ares peer mode).
-			//  3. Neither → keep the lease. TTL expiry is then the ONLY
-			//     recovery trigger available, and keeping the lease is what
-			//     makes the task visible to CheckExpiredLeases. Leader/SDK/
-			//     chaos-sandbox paths land here.
-			//
-			// Release is epoch-fenced (only the current holder can release)
-			// and PRESERVES the checkpoint, so the "resume, don't restart"
-			// contract holds in cases 1 and 2.
-			if s.HasCapableExecutor(taskID) {
-				if releaseErr := s.fabric.Release(taskID, winner, epoch); releaseErr != nil {
-					log.Error("kernel scheduler: release for stale winner failed", "task_id", taskID, "winner", winner, "error", releaseErr)
-				}
-				return nil
-			}
-			if s.hasRecoveryHint() {
-				if releaseErr := s.fabric.Release(taskID, winner, epoch); releaseErr != nil {
-					log.Error("kernel scheduler: release for stale winner failed", "task_id", taskID, "winner", winner, "error", releaseErr)
-					return nil
-				}
-				log.Warn("kernel scheduler: winner no longer executable; released to READY and nominated for recovery", "winner", winner, "task_id", taskID)
-				s.notifyRecovery(taskID)
-				return nil
-			}
-			log.Warn("kernel scheduler: winner no longer executable and no capable replacement or recovery loop exists; task stays leased until TTL expiry", "winner", winner, "task_id", taskID)
-			return nil
+			return s.handleStaleWinner(taskID, winner, epoch)
 		}
 	}
 	// Track the busy slot while the quantum runs so the next Schedule sees the
@@ -774,7 +824,19 @@ func (s *Scheduler) executeWithCandidates(ctx context.Context, taskID string, ca
 		}
 		return nil
 	}
-	s.tracker.Begin(winner)
+	// Admission gate: take the winner's busy slot ATOMICALLY before the quantum
+	// starts. The candidate snapshot above was built before Schedule, so two
+	// concurrent drain goroutines could both see this agent idle and hand it two
+	// different tasks — running two quanta on one agent process at once, whose
+	// cognitive state is not reentrant. A full gate releases the lease
+	// (epoch-fenced, checkpoint preserved) so the next drain re-schedules the
+	// task onto a free agent, exactly like the budget gate above.
+	if !s.tracker.TryBegin(winner, maxConcurrentPerAgent) {
+		if releaseErr := s.fabric.Release(taskID, winner, epoch); releaseErr != nil {
+			log.Error("kernel scheduler: release for busy winner failed", "task_id", taskID, "winner", winner, "error", releaseErr)
+		}
+		return nil
+	}
 	// Quantum boundary hooks (observational): before the quantum runs and
 	// after it finalizes. See quantum_hook.go for the contract.
 	s.beforeQuantum(ctx, taskID, winner)

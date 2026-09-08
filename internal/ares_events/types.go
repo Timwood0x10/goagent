@@ -65,7 +65,6 @@ const (
 	EventTaskPreempted    EventType = "task.preempted"
 	EventTaskReleased     EventType = "task.released"
 	EventTaskExpired      EventType = "task.expired"
-	EventTaskStolen       EventType = "task.stolen"
 
 	// EventMemoryFinalize requests async memory finalization (update task output,
 	// record assistant message, distill). Emitted by the leader after aggregating

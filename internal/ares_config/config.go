@@ -86,6 +86,11 @@ type KernelConfig struct {
 	Policy string `yaml:"policy"`
 	// PollInterval is the kernelScheduler drain interval (default 500ms).
 	PollInterval string `yaml:"poll_interval"`
+	// MaxConcurrent caps how many ready tasks the kernel scheduler runs in
+	// parallel per drain (0 = auto: static executor count, then live idle
+	// executable fabric agents). A negative is a config error, rejected by
+	// Validate.
+	MaxConcurrent int `yaml:"max_concurrent"`
 	// Resources is the resource budget applied to the Agent Fabric
 	// (name → max total across live agents, e.g. {"cpu": 8, "memory": 8192}).
 	// Spawn rejects claims that exceed the remaining budget
@@ -107,10 +112,6 @@ type KernelConfig struct {
 	// RecoverySweepTimeout bounds each recovery sweep (default "30s"). A hung
 	// store must neither block the recovery loop nor pile up sweeps.
 	RecoverySweepTimeout string `yaml:"recovery_sweep_timeout"`
-	// DispatchTimeout bounds how long kernelTaskDispatcher.Dispatch waits for
-	// a submitted task's completion event before reporting it failed
-	// (default "300s",  mirrors the legacy dispatcher timeout).
-	DispatchTimeout string `yaml:"dispatch_timeout"`
 	// EvolutionApplyInterval is how often the evolution population adapter
 	// applies the agent population policy (spawn/retire) to the Agent Fabric
 	// (default "1m"). Parsed with time.ParseDuration; empty/invalid falls back

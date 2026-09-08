@@ -10,13 +10,11 @@ import (
 type State int
 
 const (
-	// StateDeclared means the component is registered but not yet
-	// constructed.
-	StateDeclared State = iota
-
 	// StateConstructed means the component instance is created but
-	// dependencies are not yet bound.
-	StateConstructed
+	// dependencies are not yet bound. Registration hands over a constructed
+	// instance directly (there is no separate "declared" step), so this is
+	// the zero value.
+	StateConstructed State = iota
 
 	// StateBound means Bind() has completed successfully.
 	StateBound
@@ -49,8 +47,6 @@ const (
 // String returns a human-readable state name.
 func (s State) String() string {
 	switch s {
-	case StateDeclared:
-		return "declared"
 	case StateConstructed:
 		return "constructed"
 	case StateBound:

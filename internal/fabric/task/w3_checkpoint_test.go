@@ -191,7 +191,6 @@ func TestW3MustPersistEventClassification(t *testing.T) {
 		EventTaskYielded,
 		EventTaskPreempted,
 		EventTaskReleased,
-		EventTaskStolen,
 	}
 	for _, typ := range observability {
 		if isMustPersistEvent(typ) {

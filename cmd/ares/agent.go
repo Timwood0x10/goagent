@@ -1060,7 +1060,15 @@ func createPeerAgents(
 	if store != nil {
 		sched.WithEventStore(store)
 	}
-	sched.WithMaxConcurrent(0)
+	// Honor the YAML kernel.max_concurrent (0/unset = auto). The old literal
+	// WithMaxConcurrent(0) relied on the auto fallback, which stopped at
+	// ExecutorCount() — empty by design in peer mode — and collapsed to 1,
+	// so every drain ran ONE quantum at a time despite fabric candidates
+	// existing. With the fixed fallback chain, 0 now means "parallelism =
+	// live fabric candidates"; a positive value caps it explicitly.
+	if cfg.Kernel.MaxConcurrent > 0 {
+		sched.WithMaxConcurrent(cfg.Kernel.MaxConcurrent)
+	}
 	// Honor the YAML kernel.poll_interval. Previously the config field was
 	// never injected — the scheduler always drained on the 500ms default.
 	if d := parseKernelPollInterval(cfg.Kernel.PollInterval); d > 0 {
@@ -1257,6 +1265,38 @@ func createPeerAgents(
 		}
 	})
 	slog.InfoContext(ctx, "peer mode: session idle-TTL sweeper wired", "ttl", effectiveTTL)
+
+	// answer-failure session release. The answer node is the session's
+	// ONLY terminal exit: when the answer task itself dies terminally
+	// (retry budget exhausted by a failing executor), no successor can
+	// reference the session graph again, yet nothing on that path called
+	// ReleaseSession — the idle TTL (above) was the sole cleanup, pinning
+	// every terminal task of the dead session for the full 30min. This
+	// subscription closes the loop: a terminal task.failed whose capability
+	// is ares/answer releases the session immediately, so the reaper
+	// harvests after the normal grace window instead of after the TTL.
+	if store != nil {
+		runBackground(ctx, comp, "answer-fail-release", func(loopCtx context.Context) error {
+			ch, err := store.Subscribe(loopCtx, ares_events.EventFilter{
+				Types: []ares_events.EventType{ares_events.EventTaskFailed},
+			})
+			if err != nil {
+				slog.WarnContext(loopCtx, "peer mode: answer-fail release subscription failed, idle TTL remains the backstop", "error", err)
+				return nil
+			}
+			for {
+				select {
+				case <-loopCtx.Done():
+					return nil
+				case ev, ok := <-ch:
+					if !ok {
+						return nil
+					}
+					releaseSessionOnAnswerFailure(loopCtx, sessionReg, ev)
+				}
+			}
+		})
+	}
 
 	// Every peer advertises the single L2 capability set via
 	// peerCapabilities below. There is no legacy partition anymore.
@@ -1483,6 +1523,12 @@ func loadExperiencePrior(ctx context.Context, expRepo repositories.ExperienceRep
 // planCapability is the submission capability in the single-L2-path world
 // (every submitted task is the first plan quantum of its session).
 const planCapability = "ares/plan"
+
+// answerCapability is the terminal L2 node: the session's sole exit. A
+// terminal failure of an ares/answer task means no successor can reach the
+// session graph (the answer-failure release key, see
+// releaseSessionOnAnswerFailure).
+const answerCapability = "ares/answer"
 
 func submitPeerTask(ctx context.Context, kernel *kernelHandle, capability string, payload map[string]any) (string, error) {
 	if kernel == nil || kernel.fabric == nil {
@@ -2153,7 +2199,7 @@ func resolveSessionIdleTTL(c ares_config.DAGExecutionConfig) time.Duration {
 // anymore, so every peer serves the whole L2 set and the canary partition
 // is retired with the gate.
 func peerCapabilities(toolNames []string) []string {
-	caps := []string{"ares/root", "ares/plan", "ares/answer"}
+	caps := []string{"ares/root", planCapability, answerCapability}
 	for _, name := range toolNames {
 		if name == "" {
 			continue
@@ -2318,6 +2364,40 @@ func sessionKeepSet(reg *agentfabric.SessionRegistry) func(taskID string) bool {
 		_, err := reg.GetSession(sid)
 		return err == nil
 	}
+}
+
+// releaseSessionOnAnswerFailure releases a session whose terminal answer
+// task FAILED. The event payload carries the capability and the session id
+// (taskfabric stamps both on must-persist events; task.failed is one), so
+// the check is pure payload reading. Only the FAILED state releases: the
+// requeue branch of fabric.Fail also records task.failed (state READY) while
+// the retry budget still stands, and an answer that succeeds on retry must
+// not lose its session. Only the answer node releases here: it is the
+// session's sole terminal exit, so its terminal failure leaves the graph
+// unreachable from any successor. A release miss (session already gone —
+// released earlier, or reaped by the idle TTL) is logged, not an error: the
+// postcondition — no live session — already holds.
+func releaseSessionOnAnswerFailure(ctx context.Context, reg *agentfabric.SessionRegistry, ev *ares_events.Event) {
+	if ev == nil || reg == nil {
+		return
+	}
+	if c, _ := ev.Payload["capability"].(string); c != answerCapability {
+		return
+	}
+	if s, _ := ev.Payload["state"].(string); taskfabric.TaskState(s) != taskfabric.StateFailed {
+		return
+	}
+	sid, _ := ev.Payload["session_id"].(string)
+	if strings.TrimSpace(sid) == "" {
+		return
+	}
+	if err := reg.ReleaseSession(sid); err != nil {
+		slog.WarnContext(ctx, "peer mode: answer-failure release found no live session",
+			"session", sid, "error", err)
+		return
+	}
+	slog.InfoContext(ctx, "peer mode: released session after terminal answer failure",
+		"session", sid, "task_id", ev.StreamID)
 }
 
 // Collaboration graphs execute as KERNEL fabric tasks:

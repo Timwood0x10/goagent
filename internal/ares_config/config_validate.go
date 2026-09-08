@@ -316,6 +316,10 @@ func (c *Config) validateKernel() error {
 		return fmt.Errorf("kernel: loop_round_quanta must be non-negative (0 = default 1), got %d",
 			c.Kernel.LoopRoundQuanta)
 	}
+	if c.Kernel.MaxConcurrent < 0 {
+		return fmt.Errorf("kernel: max_concurrent must be non-negative (0 = auto), got %d",
+			c.Kernel.MaxConcurrent)
+	}
 	if c.Kernel.DAGExecution.MaxPlanDepth < 0 {
 		return fmt.Errorf("kernel: dag_execution.max_plan_depth must be non-negative (0 = planner default), got %d",
 			c.Kernel.DAGExecution.MaxPlanDepth)

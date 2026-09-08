@@ -163,7 +163,8 @@ func TestPlanLoopFailureContinuesAndAllSucceededStops(t *testing.T) {
 		Steps: []PlanStep{
 			// MaxRetries=1: the first failed attempt exhausts the budget, so
 			// the task lands in terminal FAILED instead of requeueing READY
-			// (CanRetry treats MaxRetries<=0 as unlimited).
+			// (0 would mean the same — no retries — but an explicit 1 pins
+			// the single-attempt intent).
 			{ID: "probe", Capability: "coder", MaxRetries: 1},
 		},
 		MaxRounds: 4,

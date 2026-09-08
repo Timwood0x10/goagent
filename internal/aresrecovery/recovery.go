@@ -45,6 +45,23 @@ type Recovery struct {
 	mu       sync.Mutex
 	restarts map[string]int
 	now      func() time.Time
+	// sleep suspends the calling goroutine for d, returning ctx.Err() when
+	// ctx is cancelled first. It exists as a field so tests can replace the
+	// real time.Sleep (same determinism pattern as the now clock above).
+	sleep func(ctx context.Context, d time.Duration) error
+}
+
+// realSleeper sleeps for d unless ctx is cancelled first. The production
+// default injected into Recovery.sleep.
+func realSleeper(ctx context.Context, d time.Duration) error {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.C:
+		return nil
+	}
 }
 
 // RestartPolicy bounds agent restart attempts after a crash.
@@ -88,12 +105,21 @@ func New(tasks *taskfabric.Fabric, agents *agentfabric.Fabric, policy RestartPol
 		policy:   policy,
 		restarts: make(map[string]int),
 		now:      time.Now,
+		sleep:    realSleeper,
 	}
 }
 
 // WithClock injects a controllable clock for deterministic tests.
 func (r *Recovery) WithClock(now func() time.Time) *Recovery {
 	r.now = now
+	return r
+}
+
+// WithSleeper injects a controllable sleeper for deterministic tests: the
+// restart backoff is observable through the durations handed to it, without
+// real time.Sleep. Returns the Recovery for chaining.
+func (r *Recovery) WithSleeper(sleep func(ctx context.Context, d time.Duration) error) *Recovery {
+	r.sleep = sleep
 	return r
 }
 
@@ -217,7 +243,10 @@ func (r *Recovery) RecoverTaskCheckpoint(ctx context.Context, taskID, replacemen
 // dead agent's cognitive checkpoint (agent restart). The original
 // agent must be gone (killed). The new agent is spawned with the original's
 // capabilities and cognitive state. The restart budget is checked; if
-// exhausted, ErrRecoveryExhausted is returned.
+// exhausted, ErrRecoveryExhausted is returned. A backoff delay (Backoff
+// doubled per prior attempt, capped at MaxBackoff) is slept before the
+// replacement spawn, so consecutive crash-restart cycles cannot hammer the
+// fabric; a cancelled ctx aborts the wait.
 //
 // Args:
 //   - ctx: for event sinks.
@@ -227,7 +256,8 @@ func (r *Recovery) RecoverTaskCheckpoint(ctx context.Context, taskID, replacemen
 //
 // Returns:
 //   - *agentfabric.Agent: the replacement agent.
-//   - error: ErrRecoveryExhausted.
+//   - error: ErrRecoveryExhausted, or the ctx error when the ctx is
+//     cancelled during the backoff sleep (no spawn happens).
 func (r *Recovery) RestartAgent(ctx context.Context, deadAgentID string, cognitive agentfabric.CognitiveState, capabilities []string) (*agentfabric.Agent, error) {
 	r.mu.Lock()
 	// Lifetime-cumulative budget (see the restarts field note): successful
@@ -238,6 +268,23 @@ func (r *Recovery) RestartAgent(ctx context.Context, deadAgentID string, cogniti
 		return nil, ErrRecoveryExhausted
 	}
 	r.mu.Unlock()
+	// Crash-restart storm prevention: consecutive crash-restart cycles used
+	// to hammer the fabric instantly (sleep-less restarts, the exact storm
+	// the policy's Backoff was written to prevent). Sleep backoff doubled
+	// per prior attempt, capped at MaxBackoff — the 0-th restart pays the
+	// plain Backoff. The sleeper honors ctx, so a shutdown aborts the wait
+	// instead of spawning a replacement into a dying process. Sleep BEFORE
+	// charging the budget and spawning, and never under r.mu (holding the
+	// lock while sleeping would freeze RestartCount/budget checks).
+	delay := r.policy.Backoff << attempts
+	if delay > r.policy.MaxBackoff || delay <= 0 {
+		// Cap at MaxBackoff; the <=0 guard also catches the (unreachable
+		// for sane policies) shift-overflow into non-positive values.
+		delay = r.policy.MaxBackoff
+	}
+	if err := r.sleep(ctx, delay); err != nil {
+		return nil, fmt.Errorf("aresrecovery: restart backoff for %s: %w", deadAgentID, err)
+	}
 	// Arbitration: when a death snapshot exists for THIS
 	// identity, revive IN PLACE under the same id — provenance and the audit
 	// trail stay continuous ("有状态认知复活"). Without a snapshot, fall back

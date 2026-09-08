@@ -42,6 +42,11 @@ type CodeRunner struct {
 	strictAllowlist   bool
 }
 
+// pythonIOGracePeriod bounds how long cmd.Wait keeps reading the child's output
+// pipes after the process is gone or the context expired. It exists so the
+// timeout path can never wedge on a pipe held open by a grandchild.
+const pythonIOGracePeriod = 5 * time.Second
+
 // allowedPythonImports is the default allowlist of modules that may be imported
 // in executed Python code. Operators can extend this via AddAllowedImport.
 var allowedPythonImports = []string{
@@ -308,6 +313,32 @@ func foldLineContinuations(code string) string {
 	return b.String()
 }
 
+// collapseCallSpacing removes whitespace between a callee and its opening
+// parenthesis, so `open ("/etc/passwd")` normalizes to `open("/etc/passwd")`.
+// The dangerous-pattern denylist matched literal strings like "open(", which
+// Python's legal whitespace defeated; normalizing first closes that hole without
+// weakening the patterns themselves.
+func collapseCallSpacing(s string) string {
+	out := make([]byte, 0, len(s))
+	for i := 0; i < len(s); i++ {
+		if s[i] == '(' {
+			// Drop the whitespace run immediately before this "(".
+			j := len(out)
+			for j > 0 {
+				switch out[j-1] {
+				case ' ', '\t', '\n', '\r':
+					j--
+					continue
+				}
+				break
+			}
+			out = out[:j]
+		}
+		out = append(out, s[i])
+	}
+	return string(out)
+}
+
 // validateCode checks code for potential security issues.
 //
 // When strictAllowlist is true (the default), only the modules listed in
@@ -320,9 +351,15 @@ func (t *CodeRunner) validateCode(code string) error {
 	stripped := foldLineContinuations(stripPythonComments(code))
 	lowerCode := strings.ToLower(stripped)
 
-	// Defense-in-depth: reject known dangerous builtins.
+	// Defense-in-depth: reject known dangerous builtins. Match against the
+	// call-normalized form, not the raw text: Python permits whitespace (and a
+	// folded newline) between a callee and its "(", so a literal "open(" test
+	// was defeated by a single space — and "open" is a builtin needing no
+	// import, so the allowlist above never sees it and this denylist is the
+	// ONLY control over file access.
+	callCode := collapseCallSpacing(lowerCode)
 	for _, pattern := range t.dangerousPatterns {
-		if strings.Contains(lowerCode, strings.ToLower(pattern)) {
+		if strings.Contains(callCode, strings.ToLower(pattern)) {
 			return fmt.Errorf("potentially dangerous pattern detected: %s", pattern)
 		}
 	}
@@ -404,6 +441,14 @@ func (w *limitedWriter) String() string {
 func (t *CodeRunner) runPython(ctx context.Context, code string, maxOutputSize int) (core.Result, error) {
 	cmd := exec.CommandContext(ctx, "python3", "-c", code) // #nosec G204
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	// WaitDelay is what makes the timeout path actually terminate. On context
+	// expiry CommandContext kills the DIRECT child only, and Wait then keeps
+	// blocking on the stdout/stderr pipes for as long as any grandchild holds a
+	// write end — so a script that spawns a child and hangs would pin this
+	// goroutine forever and the process-group kill below would never run. With
+	// WaitDelay set, Go gives the pipes a grace period and then force-closes
+	// and returns.
+	cmd.WaitDelay = pythonIOGracePeriod
 	cmd.Env = []string{"PATH=" + os.Getenv("PATH")}
 	workDir, err := os.MkdirTemp("", "code-runner-*")
 	if err != nil {

@@ -156,7 +156,15 @@ func (s *Scheduler) HasCapableExecutor(taskID string) bool {
 	// A live, IDLE, executable fabric agent can also resume the task.
 	if s.agents != nil {
 		for _, id := range s.agents.Agents() {
-			if _, ok := execs[id]; ok {
+			// No `execs[id]` skip here: in peer mode a same-id static
+			// registration does NOT mask the managed fabric copy, which is
+			// exactly what appendFabricCandidates offers to Schedule. This
+			// predicate previously excluded those agents while the dispatcher
+			// still selected them, so a dual-registered agent made recovery
+			// report "no candidate" for a task that was in fact schedulable.
+			// Recovery-bound executors stay excluded because
+			// appendFabricCandidates excludes them too (checked below).
+			if s.isBoundToAnyTask(id) {
 				continue
 			}
 			if !s.agents.IsIdle(id) {

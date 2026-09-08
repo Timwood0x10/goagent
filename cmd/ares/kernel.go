@@ -615,14 +615,6 @@ const evolutionApplyTimeout = 30 * time.Second
 // must not stall the quota loop, so every Apply runs under this timeout.
 const quotaApplyTimeout = 30 * time.Second
 
-// kernelDispatchTimeout bounds how long kernelTaskDispatcher.Dispatch waits
-// for a submitted task's completion event before reporting it failed. It
-// mirrors the legacy leader dispatcher's timeout contract
-// (DefaultDispatcherTimeoutSeconds = 300) so the kernel path does not time
-// out sooner than the path it replaces. It is the default when
-// kernel.dispatch_timeout is not configured.
-const kernelDispatchTimeout = 300 * time.Second
-
 // kernelLoopConfig carries the tunable intervals/timeouts for the kernel
 // background loops (quota, recovery, dispatch). Zero durations fall back to
 // the package defaults, so an absent kernel loop config section keeps prior
@@ -642,8 +634,6 @@ type kernelLoopConfig struct {
 	RecoverySweepInterval time.Duration
 	// RecoverySweepTimeout bounds each recovery sweep.
 	RecoverySweepTimeout time.Duration
-	// DispatchTimeout bounds Dispatch's wait for a worker completion event.
-	DispatchTimeout time.Duration
 	// LoopMaxIterations caps the kernel loop clock's round count (0 =
 	// unlimited). Past the budget the round clock stops advancing; the
 	// scheduler's task flow is never gated by it.
@@ -723,9 +713,6 @@ func (c kernelLoopConfig) withDefaults() kernelLoopConfig {
 	if c.RecoverySweepTimeout <= 0 {
 		c.RecoverySweepTimeout = recoverySweepTimeout
 	}
-	if c.DispatchTimeout <= 0 {
-		c.DispatchTimeout = kernelDispatchTimeout
-	}
 	if c.LoopRoundQuanta <= 0 {
 		c.LoopRoundQuanta = 1
 	}
@@ -763,7 +750,6 @@ func parseKernelLoopConfig(cfg *ares_config.Config) kernelLoopConfig {
 		EvolutionApplyTimeout:  parse(cfg.Kernel.EvolutionApplyTimeout, evolutionApplyTimeout),
 		RecoverySweepInterval:  parse(cfg.Kernel.RecoverySweepInterval, recoverySweepInterval),
 		RecoverySweepTimeout:   parse(cfg.Kernel.RecoverySweepTimeout, recoverySweepTimeout),
-		DispatchTimeout:        parse(cfg.Kernel.DispatchTimeout, kernelDispatchTimeout),
 		LoopMaxIterations:      cfg.Kernel.LoopMaxIterations,
 		LoopRoundQuanta:        cfg.Kernel.LoopRoundQuanta,
 	}.withDefaults()

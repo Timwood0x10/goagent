@@ -68,8 +68,10 @@ func (e *fabricAgentExecutor) ExecuteStep(ctx context.Context, task *models.Task
 }
 
 // appendFabricCandidates appends every live, IDLE, executable fabric agent as
-// a candidate. Agents already in the registered pool are skipped — the
-// registry wins (it may carry a richer binding than the fabric snapshot).
+// a candidate. In peer mode the fabric population IS the single candidate
+// source: a same-id static registration does not mask the managed fabric copy
+// (the fabric agent is the live, kill-visible one), and recovery-bound
+// executors are excluded because they are reserved for their own task.
 // Capabilities use the agent's FULL declared set (not the single primary
 // Type()) so the capability scorer matches any overlap with the task's
 // required capability.

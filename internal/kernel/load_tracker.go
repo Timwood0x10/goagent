@@ -68,6 +68,27 @@ func (t *LoadTracker) Begin(agentID string) {
 	t.mu.Unlock()
 }
 
+// TryBegin atomically acquires a busy slot for agentID, refusing without
+// mutating anything when the agent already holds maxLoad slots. It makes the
+// load counter the per-agent admission gate.
+//
+// Why it exists: Score treats load >= 1 as unschedulable (the (1-load) factor
+// zeroes the score), but the candidate snapshot is built BEFORE Schedule picks
+// a winner and Begin used to run only AFTER it. With drain parallelism > 1 two
+// concurrent execute goroutines could both read load == 0 for the same agent
+// and each acquire a different task for it, running two quanta on one agent at
+// the same time — and an agent is a process, so its cognitive state is not
+// reentrant. TryBegin closes that check-and-increment window.
+func (t *LoadTracker) TryBegin(agentID string, maxLoad int) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.load[agentID] >= float64(maxLoad) {
+		return false
+	}
+	t.load[agentID]++
+	return true
+}
+
 func (t *LoadTracker) End(agentID string, success bool) {
 	t.mu.Lock()
 	defer t.mu.Unlock()

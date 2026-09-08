@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Timwood0x10/ares/internal/ares_events"
 	"github.com/Timwood0x10/ares/internal/fabric/agent"
 	"github.com/Timwood0x10/ares/internal/fabric/planprojection"
 	"github.com/Timwood0x10/ares/internal/fabric/task"
@@ -51,6 +52,94 @@ func TestSessionKeepSet(t *testing.T) {
 	}
 	if keep("sess/keep-1/d0/alpha#1") {
 		t.Error("released session task must become harvestable")
+	}
+}
+
+// TestReleaseSessionOnAnswerFailure pins the answer-failure release: only a
+// terminal task.failed on the ares/answer node releases the session; other
+// capabilities and missing session ids must leave the registry untouched.
+func TestReleaseSessionOnAnswerFailure(t *testing.T) {
+	ctx := context.Background()
+	reg := agentfabric.NewSessionRegistry()
+	for _, sid := range []string{"fail-1", "fail-2", "fail-3", "fail-4"} {
+		if _, err := reg.InitSession(ctx, sid, "p", nil, nil); err != nil {
+			t.Fatalf("InitSession(%s): %v", sid, err)
+		}
+	}
+
+	tests := []struct {
+		name     string
+		session  string
+		event    *ares_events.Event
+		wantGone bool
+	}{
+		{
+			name:    "answer_failure_releases_session",
+			session: "fail-1",
+			event: &ares_events.Event{
+				Type:     ares_events.EventTaskFailed,
+				StreamID: "sess/fail-1/d1/answer#1",
+				Payload:  map[string]any{"capability": answerCapability, "session_id": "fail-1", "state": "FAILED"},
+			},
+			wantGone: true,
+		},
+		{
+			name:    "answer_requeue_keeps_session",
+			session: "fail-4",
+			event: &ares_events.Event{
+				Type:     ares_events.EventTaskFailed,
+				StreamID: "sess/fail-4/d1/answer#1",
+				Payload:  map[string]any{"capability": answerCapability, "session_id": "fail-4", "state": "READY"},
+			},
+			wantGone: false,
+		},
+		{
+			name:    "tool_failure_keeps_session",
+			session: "fail-2",
+			event: &ares_events.Event{
+				Type:     ares_events.EventTaskFailed,
+				StreamID: "sess/fail-2/d1/tool/web#1",
+				Payload:  map[string]any{"capability": "tool/web", "session_id": "fail-2"},
+			},
+			wantGone: false,
+		},
+		{
+			name:    "answer_failure_without_session_id_is_ignored",
+			session: "fail-3",
+			event: &ares_events.Event{
+				Type:     ares_events.EventTaskFailed,
+				StreamID: "peer-plan-1",
+				Payload:  map[string]any{"capability": answerCapability},
+			},
+			wantGone: false,
+		},
+		{
+			name:     "nil_event_is_ignored",
+			session:  "fail-3",
+			event:    nil,
+			wantGone: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			releaseSessionOnAnswerFailure(ctx, reg, tt.event)
+			_, err := reg.GetSession(tt.session)
+			gone := err != nil
+			if tt.wantGone != gone {
+				t.Errorf("session %s live=%v, want gone=%v", tt.session, !gone, tt.wantGone)
+			}
+		})
+	}
+
+	// The answer-failure release must converge with the keep-set: after the
+	// release the session's tasks are no longer pinned.
+	keep := sessionKeepSet(reg)
+	if keep("sess/fail-1/d1/answer#1") {
+		t.Error("tasks of the answer-failed session must be harvestable")
+	}
+	if !keep("sess/fail-2/d1/tool/web#1") {
+		t.Error("tasks of a still-live session must stay kept")
 	}
 }
 

@@ -2,6 +2,7 @@ package ares_security
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -16,11 +17,16 @@ import (
 //   - rejects the request unless the role holds the required permission;
 //   - injects the authenticated principal into the request context.
 //
-// When the secret is nil, every request is denied with 401 — the same
-// deny-by-default posture the existing API-key middleware uses, so enabling
-// JWT cannot accidentally open a destructive endpoint.
+// When the secret is nil or empty, EVERY request is denied — the same
+// deny-by-default posture the API-key middleware uses, so enabling JWT can
+// never accidentally open a destructive endpoint. The denial is enforced in
+// decodeSigned (see ErrUnconfiguredSecret), not by an early return here, so
+// every verification path inherits it; the middleware reports it as 503
+// because an absent key is a server misconfiguration rather than a client
+// error.
 type AuthMiddleware struct {
-	// secret is the HS256 signing key. nil disables auth entirely (deny all).
+	// secret is the HS256 signing key. Empty means "deny all": no token can
+	// verify, because verification refuses to run against an empty key.
 	secret []byte
 	// require is the minimum permission for the wrapped route.
 	require Permission
@@ -42,8 +48,9 @@ func WithAudit(a *AuditLogger) AuthOption {
 	}
 }
 
-// NewAuthMiddleware builds an AuthMiddleware. When secret is nil the
-// middleware is in "deny all" mode until a secret is provided.
+// NewAuthMiddleware builds an AuthMiddleware. When secret is nil or empty the
+// middleware is in "deny all" mode until a real key is provided; it never
+// becomes permissive.
 func NewAuthMiddleware(secret []byte, require Permission, opts ...AuthOption) *AuthMiddleware {
 	m := &AuthMiddleware{
 		secret:  secret,
@@ -97,6 +104,13 @@ func (m *AuthMiddleware) authenticate(r *http.Request) (*Principal, int) {
 	}
 	sub, roleStr, err := VerifyJWT(m.secret, token, m.now())
 	if err != nil {
+		// An unconfigured key is OUR bug, not the caller's: answer 5xx so it
+		// cannot masquerade as a stream of bad client tokens, and never let it
+		// fall through to an allow.
+		if errors.Is(err, ErrUnconfiguredSecret) {
+			m.auditAuth(r, "unconfigured jwt secret", sub, roleStr, http.StatusServiceUnavailable)
+			return nil, http.StatusServiceUnavailable
+		}
 		m.auditAuth(r, "invalid token", sub, roleStr, http.StatusUnauthorized)
 		return nil, http.StatusUnauthorized
 	}

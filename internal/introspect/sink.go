@@ -136,7 +136,7 @@ func MapTimelineEvent(evt *ares_events.Event) (TimelineEntry, bool) {
 	case ares_events.EventTaskYielded, ares_events.EventTaskCheckpointed:
 		e.Kind, e.Level = kindTask, feedInfo
 		e.Text = fmt.Sprintf("%s yielded at quantum", idOr(e.TaskID, "task"))
-	case ares_events.EventTaskPreempted, ares_events.EventTaskStolen, ares_events.EventTaskExpired:
+	case ares_events.EventTaskPreempted, ares_events.EventTaskExpired:
 		e.Kind, e.Level = kindTask, feedWarn
 		e.Text = fmt.Sprintf("%s preempted", idOr(e.TaskID, "task"))
 	case ares_events.EventTaskReleased:

@@ -14,8 +14,9 @@ func seedCollabTask(t *testing.T, f *taskfabric.Fabric, id, state string) {
 	t.Helper()
 	spec := &taskfabric.Task{ID: id, Capability: "x"}
 	if state == "failed" {
-		// A zero MaxRetries means INFINITE retries by contract; bound it so
-		// Fail() lands the task in terminal FAILED instead of requeueing.
+		// Bound the budget explicitly so Fail() lands the task in terminal
+		// FAILED. (MaxRetries<=0 now means no retries too — the explicit 1
+		// pins the single-attempt intent.)
 		spec.RetryPolicy = taskfabric.RetryPolicy{MaxRetries: 1}
 	}
 	if err := f.Create(spec); err != nil {

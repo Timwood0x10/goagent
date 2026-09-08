@@ -684,6 +684,19 @@ func (f *Fabric) ownerLocked(id, agentID string, epoch uint64) (*Task, error) {
 // released. recordLocked builds it under the lock (cheap, in-memory only);
 // flushAppends performs the actual store.Append I/O off-lock so a slow or
 // blocking event store never stalls the fabric's CAS/state-machine mutex.
+// Bounds for the durable-append path in flushAppends.
+const (
+	// flushAppendTimeout bounds a single store.Append. The fabric's in-memory
+	// transition is already committed by the time the flush runs, so a store
+	// that stops answering must fail this write rather than pin the caller's
+	// goroutine — and, through the ordering barrier, every later mutation.
+	flushAppendTimeout = 10 * time.Second
+	// flushOrderWaitTimeout bounds how long a flush may wait for an earlier
+	// sequence to land before it gives up on strict causal ordering. Exceeding
+	// it is logged as a durable-order divergence; it never stalls silently.
+	flushOrderWaitTimeout = 30 * time.Second
+)
+
 type pendingAppend struct {
 	store  ares_events.EventStore // captured under lock — never read via f.store off-lock
 	typ    EventType
@@ -820,6 +833,14 @@ func (f *Fabric) recordLocked(t *Task, typ EventType) *pendingAppend {
 // log) is detectable. The in-memory state machine stays authoritative within a
 // process (the append failure does not roll back the transition). Observability
 // events remain best-effort and silent on failure.
+//
+// Liveness: the ordering barrier is bounded on BOTH sides. The append itself
+// gets a deadline (a store that stops answering must not pin the caller), and
+// the wait for an earlier sequence gets a deadline too — sync.Cond has no
+// timed wait, so a broadcast timer wakes the waiter. Without those bounds a
+// single wedged append would block every later fabric mutation forever: the
+// in-memory transition has already happened by this point, so the caller would
+// never return and the whole write path would stall behind one dead store.
 func (f *Fabric) flushAppends(pending *[]*pendingAppend) {
 	for _, p := range *pending {
 		if p == nil {
@@ -829,12 +850,31 @@ func (f *Fabric) flushAppends(pending *[]*pendingAppend) {
 		// appended, so concurrent fabric calls flush in causal (record) order
 		// and the store's per-stream version sequence never inverts.
 		f.flushCond.L.Lock()
+		deadline := time.Now().Add(flushOrderWaitTimeout)
+		orderTimedOut := false
 		for p.seq > f.flushedSeq+1 {
+			if !time.Now().Before(deadline) {
+				orderTimedOut = true
+				break
+			}
+			// Wake this waiter at the deadline even if no flusher ever
+			// broadcasts again.
+			timer := time.AfterFunc(time.Until(deadline), f.flushCond.Broadcast)
 			f.flushCond.Wait()
+			timer.Stop()
+		}
+		if orderTimedOut {
+			f.flushCond.L.Unlock()
+			f.flushCond.Broadcast()
+			log.Error("taskfabric: durable append ordering timed out; skipping causal barrier",
+				"event_type", p.typ, "task_id", p.taskID, "seq", p.seq, "flushed_seq", f.flushedSeq)
+			continue
 		}
 		var appendErr error
 		if p.store != nil {
-			appendErr = p.store.Append(context.Background(), p.taskID, []*ares_events.Event{p.event}, 0)
+			ctx, cancel := context.WithTimeout(context.Background(), flushAppendTimeout)
+			appendErr = p.store.Append(ctx, p.taskID, []*ares_events.Event{p.event}, 0)
+			cancel()
 		}
 		f.flushedSeq++
 		f.flushCond.L.Unlock()
@@ -850,7 +890,7 @@ func (f *Fabric) flushAppends(pending *[]*pendingAppend) {
 // isMustPersistEvent reports whether a lifecycle event is a must-persist
 // transition: the runtime's recovery/replay correctness depends on these
 // events being in the durable log. Other events (Ready, Acquired, Started,
-// Yielded, Preempted, Released, Stolen) are observability-only: they enrich
+// Yielded, Preempted, Released) are observability-only: they enrich
 // the trace but are not required for state rebuild.
 func isMustPersistEvent(typ EventType) bool {
 	switch typ {
@@ -888,8 +928,6 @@ func taskEventType(typ EventType) ares_events.EventType {
 		return ares_events.EventTaskFailed
 	case EventTaskExpired:
 		return ares_events.EventTaskExpired
-	case EventTaskStolen:
-		return ares_events.EventTaskStolen
 	default:
 		return ""
 	}

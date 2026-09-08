@@ -344,9 +344,9 @@ func driveTaskToCompleted(t *testing.T, ctx context.Context, f *taskfabric.Fabri
 func createTask(t *testing.T, f *taskfabric.Fabric, id, capability string, state taskfabric.TaskState) {
 	t.Helper()
 	// For FAILED tasks, set MaxRetries=1 so CanRetry returns false after
-	// one attempt. MaxRetries=0 means "unlimited retries" in this fabric
-	// (CanRetry: MaxRetries <= 0 || Attempts < MaxRetries), so a 0-budget
-	// task never settles FAILED — it requeues to READY on every Fail.
+	// the single attempt. (MaxRetries<=0 now also means no retries — the
+	// fabric used to treat it as unlimited, which is why this workaround
+	// exists; the explicit 1 keeps the intent pinned either way.)
 	maxRetries := 0
 	if state == taskfabric.StateFailed {
 		maxRetries = 1

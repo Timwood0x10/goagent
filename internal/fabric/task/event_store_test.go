@@ -81,7 +81,7 @@ func TestTaskEventTypeMapping(t *testing.T) {
 		EventTaskCreated, EventTaskReady, EventTaskAcquired, EventTaskStarted,
 		EventTaskYielded, EventTaskCheckpointed, EventTaskPreempted,
 		EventTaskReleased, EventTaskCompleted, EventTaskFailed,
-		EventTaskExpired, EventTaskStolen,
+		EventTaskExpired,
 	}
 	for _, typ := range types {
 		if taskEventType(typ) == "" {

@@ -1098,6 +1098,40 @@ func TestValidateKernelLoopKnobs(t *testing.T) {
 	})
 }
 
+// TestValidateKernelMaxConcurrent covers the max_concurrent knob's
+// validation contract: 0 is legal (0 = auto — the scheduler's fallback chain
+// derives drain parallelism from the live candidate pool), while a negative
+// is rejected rather than silently normalized — a negative is always an
+// operator mistake.
+func TestValidateKernelMaxConcurrent(t *testing.T) {
+	t.Run("zero is legal (auto)", func(t *testing.T) {
+		cfg := validKernelTestConfig()
+		if err := cfg.Validate(); err != nil {
+			t.Errorf("Validate() with unset max_concurrent error = %v, want nil", err)
+		}
+	})
+
+	t.Run("negative rejected", func(t *testing.T) {
+		cfg := validKernelTestConfig()
+		cfg.Kernel.MaxConcurrent = -2
+		err := cfg.Validate()
+		if err == nil {
+			t.Fatal("Validate() with negative max_concurrent = nil, want error")
+		}
+		if !strings.Contains(err.Error(), "max_concurrent") {
+			t.Errorf("error %q must name the offending key max_concurrent", err)
+		}
+	})
+
+	t.Run("positive passes through", func(t *testing.T) {
+		cfg := validKernelTestConfig()
+		cfg.Kernel.MaxConcurrent = 8
+		if err := cfg.Validate(); err != nil {
+			t.Errorf("Validate() with positive max_concurrent error = %v, want nil", err)
+		}
+	})
+}
+
 // TestValidateKernelDAGExecution covers the dag_execution knobs' validation
 // contract (the L2 path is the only path — the `enabled` gate is gone;
 // what remains validated is the planner depth guard and the reaper/sweeper
