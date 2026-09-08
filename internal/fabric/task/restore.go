@@ -59,6 +59,13 @@ const (
 	// also lives inside the checkpoint envelope, but riding it on every event
 	// ensures it is visible to event subscribers without decoding checkpoints.
 	restoreKeySessionID = "session_id"
+	// Token-usage keys ride on terminal task.completed events (same
+	// reasoning as StrategyID/SessionID: the RuntimeObserver's cost channel
+	// reads them off the event without decoding the checkpoint). The values
+	// are the envelope's cumulative totals.
+	restoreKeyInputTokens  = "input_tokens"
+	restoreKeyOutputTokens = "output_tokens"
+	restoreKeyTotalTokens  = "total_tokens"
 )
 
 // RestoreFromStore rebuilds the in-memory task set from the attached event

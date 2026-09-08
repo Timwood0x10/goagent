@@ -120,6 +120,22 @@ func (f *Fabric) WithConfidenceSource(src ConfidenceSource) *Fabric {
 	return f
 }
 
+// PriorConfidence reports the wired experience prior for a task pattern,
+// 0 when no source is wired or no prior is recorded for the pattern. The
+// kernel scheduler reads it to decide whether an unmeasured (history-less)
+// candidate's confidence should yield to the prior (M4.4 read side) or keep
+// the neutral default — without this signal the tracker's neutral 1.0 would
+// permanently mask the prior.
+func (f *Fabric) PriorConfidence(taskPattern string) float64 {
+	f.mu.Lock()
+	src := f.confidence
+	f.mu.Unlock()
+	if src == nil {
+		return 0
+	}
+	return src.Confidence(taskPattern)
+}
+
 // WithStrategyStamp wires the submission-time attribution source (evolution
 // loop closure). The fabric calls it once per Create to stamp the task's
 // checkpoint envelope with the strategy that was active at submission, so
@@ -528,6 +544,16 @@ func (f *Fabric) Schedule(taskID string, candidates []Candidate, ttl time.Durati
 	// Design §8 (Skill-first): the experience prior supplies confidence for
 	// candidates that do not declare one — Score's Confidence comes from the
 	// wired ConfidenceSource (ares_skills.Experience BestMatch SuccessRate).
+	//
+	// The fill condition is the READ half of the M4.4 loop closure: the
+	// kernel scheduler pre-fills every candidate with the tracker's
+	// ConfidenceFor (an explicit value, or the NEUTRAL 1.0 when the agent
+	// has no execution history). A neutral 1.0 is "no opinion", not a
+	// measurement, so it must NOT mask a recorded experience prior — but a
+	// <= 0 check can never distinguish them. ConfidenceNoHistory on the
+	// tracker reports whether the value is measured; the scheduler zeroes
+	// unmeasured candidates so the prior fills them here. A MEASURED value
+	// (>= or < prior) always wins: live feedback outranks stale priors.
 	f.mu.Lock()
 	src := f.confidence
 	f.mu.Unlock()
@@ -779,8 +805,31 @@ func (f *Fabric) recordLocked(t *Task, typ EventType) *pendingAppend {
 	if sid := sessionIDFromCheckpoint(t.Checkpoint); sid != "" {
 		payload[restoreKeySessionID] = sid
 	}
-	if isMustPersistEvent(typ) {
+	// The task's capability rides on EVERY persisted event (not only the
+	// must-persist ones that fold the rebuild): terminal task.completed/
+	// task.failed events are what the skill outcome writer (the experience
+	// WRITE side, M4.4) subscribes to, and its {skill=capability, pattern}
+	// record needs the capability without decoding the checkpoint envelope.
+	// Without this key the writer would record every outcome under a ""
+	// capability — a prior the read side (Fabric.Schedule queries
+	// Confidence(t.Capability)) can never match, starved at the join.
+	if t.Capability != "" {
 		payload[restoreKeyCapability] = t.Capability
+	}
+	// Token usage (input/output/total) rides on the TERMINAL events only:
+	// the envelope accumulates the session's LLM spend across yield→resume
+	// quanta (see CheckpointEnvelope v4), and the completed event is where
+	// the RuntimeObserver's cost penalty reads it. Zero/absent on failed
+	// events and pre-v4 envelopes — the observer then scores on outcome and
+	// latency alone, never inventing a cost.
+	if typ == EventTaskCompleted {
+		if in, out := tokenUsageFromCheckpoint(t.Checkpoint); in > 0 || out > 0 {
+			payload[restoreKeyInputTokens] = in
+			payload[restoreKeyOutputTokens] = out
+			payload[restoreKeyTotalTokens] = in + out
+		}
+	}
+	if isMustPersistEvent(typ) {
 		payload[restoreKeyPriority] = t.Priority
 		if len(t.Dependencies) > 0 {
 			deps := make([]string, len(t.Dependencies))

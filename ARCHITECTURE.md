@@ -71,8 +71,8 @@ M2-b 修缮批 ✅（同日，源自全仓深审 DEEP_CODE_REVIEW）：持久化
 1. **事件持久化** ✅：`storage.enabled` 时 serve 用 PostgresEventStore（newServeEventStore PG 分支 + fail-loud），跨重启 ID 碰撞由 seedPeerTaskSeq 守卫；内存模式保持 compactableStore（归档+压缩）。PG 模式的 round 归档留待后续（内存模式不受影响）。
 2. **answer 合成器** ✅：content-less answer 节点经 answerSynthesizer（复用 assembleContext 前驱历史 + 无工具 LLM 调用）合成终答；失败降级 gap body 不烧重试预算；正常 content 路径零改动。
 3. 经验→spawn 先验读侧 ✅：执行 agent 盖章 executing_agent_id（payload 克隆防泄漏）→ planner 读 Fabric.CognitiveState 注入先验 system 消息（4096 rune 截断）；无先验消息逐字节不变。
-4. skill 置信写侧：随 M3.2 删除饿死 recorder 收敛——需先有合规 sub_task.result 发射方（TODO(tech-debt) 在 bootstrap.go 留痕）。
-5. fitness cost/latency 惩罚 ✅（latency 侧）：observer 对 task.completed 按 created_at 计算 wall latency，乘性惩罚 1/(1+t/30s)（正确性恒主导：失败永不救赎、慢成功恒胜失败）；聚合器经窗口均值继承。USD/token 成本侧仍无数据源（TODO 留痕）。回归门 arena 接线仍开放。
+4. skill 置信写侧 ✅（M4.4，2026-09-08 二批）：recordLocked 给所有持久事件盖 capability 键（M4.4 写侧数据源）→ bootstrap startSkillOutcomeWriter 订阅 task.completed/failed → `Experience.Record(skill=capability, pattern=capability, rate)`——与读侧 `Fabric.Schedule` 查询 key 严格一致（老 recorder 的两处死结：sub_task.result 无发射方 + task_desc pattern 读侧永不查询）。连带修读侧遮蔽 bug：kernel scheduler 对 tracker 未测量候选（ConfidenceForMeasured=false 且先验存在）置零让先验填充，测量值恒胜先验（live feedback outranks stale priors）；无先验时中性 1.0 不变。闭环测试：skill_outcome_writer_test（事件→Experience→ConfidenceSource 三段）。
+5. fitness cost/latency 惩罚 ✅（latency 侧 + token 成本侧，M4 二批）：observer 对 task.completed 按 created_at 计算 wall latency，乘性惩罚 1/(1+t/30s)；token 成本侧全链路：planner 每量子把 resp.Usage 写进 StepOutcome.Result.Metadata（input_tokens/output_tokens 跨包契约）→ scheduler 回写累加进 CheckpointEnvelope（schema v4，InputTokens/OutputTokens 跨量子累加，v3 前向兼容）→ recordLocked 在 task.completed 顶层盖 input/output/total_tokens → observer costPenalty 乘性惩罚 1/(1+tokens/100k)（正确性恒主导、未计量不发明成本、失败永不救赎）+ StrategySample.TotalTokens/CostUSD 字段 + 证据 payload 键。USD 计价仍缺每模型价目表（CostUSD 恒 0，管道已就位，TODO 已移除）。回归门 arena 接线仍开放。
 
 ### M5 — api/、agents/ 下葬（前置 M1-M3；口径已修正）
 - **api/ 实况修正（深审核实）：91 个文件仍在 import api/（serve/agent/bootstrap/llm/memory/knowledge/fabric 等）——"deprecated 下葬"名存实亡。必须先按 MIGRATION.md 迁移全部引用，才谈删除。**

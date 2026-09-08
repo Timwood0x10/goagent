@@ -186,6 +186,29 @@ func (t *LoadTracker) ConfidenceFor(agentID, capability string) float64 {
 	return 1.0
 }
 
+// ConfidenceForMeasured is ConfidenceFor with a "measured" verdict: false
+// when the returned value is the neutral prior (1.0) because the agent has
+// NO history and NO override, true when an override or an execution
+// history produced the value. The kernel scheduler uses the verdict to let
+// the task fabric's experience prior (M4.4 read side) fill genuinely
+// history-less candidates instead of being masked by a 1.0 that means
+// "no opinion", not "always succeeds".
+func (t *LoadTracker) ConfidenceForMeasured(agentID, capability string) (float64, bool) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	key := agentID + "|" + capability
+	if v, ok := t.capabilityConfidenceOverride[key]; ok {
+		return v, true
+	}
+	if v, ok := t.agentConfidenceOverride[agentID]; ok {
+		return v, true
+	}
+	if total, ok := t.done[agentID]; ok && total > 0 {
+		return t.ok[agentID] / total, true
+	}
+	return 1.0, false
+}
+
 // AgentLoadSnapshot is one agent's row in a LoadTracker snapshot — the
 // read-only view the runtime introspection panel consumes (monitoring.md
 // Domain A). All values are copies; mutating them never touches the tracker.

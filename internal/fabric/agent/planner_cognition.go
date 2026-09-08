@@ -257,7 +257,7 @@ func (c *plannerCognition) ExecuteStep(ctx context.Context, task *models.Task) (
 		c.forcedAnswers.Add(1)
 		c.logger.Warn("planner: max plan depth reached, forcing answer",
 			"session", sessionID, "depth", depth, "max", c.maxDepth)
-		return c.growAnswerNode(ctx, g, task, "max plan depth reached")
+		return c.growAnswerNode(ctx, g, task, "max plan depth reached", nil)
 	}
 
 	// Assemble the LLM context from the predecessor path.
@@ -309,9 +309,18 @@ func (c *plannerCognition) ExecuteStep(ctx context.Context, task *models.Task) (
 		return nil, fmt.Errorf("agentfabric: planner cognition: chat: %w", err)
 	}
 
+	// Token accounting (the fitness cost channel, M4): this quantum's LLM
+	// usage rides the StepOutcome result metadata; the scheduler's
+	// re-wrap path accumulates it into the checkpoint envelope, so the
+	// session's total spend surfaces on the terminal task.completed event
+	// for the RuntimeObserver's cost penalty. A provider that reports no
+	// usage contributes zero — the observer then scores on outcome and
+	// latency alone.
+	stampTokenUsage(resp)
+
 	// No tool calls: the LLM gave a final answer. Grow an answer node.
 	if len(resp.ToolCalls) == 0 {
-		return c.growAnswerNode(ctx, g, task, resp.Content)
+		return c.growAnswerNode(ctx, g, task, resp.Content, resp)
 	}
 
 	// Tool calls: grow tool nodes + a new plan node depending on them.
@@ -323,11 +332,12 @@ func (c *plannerCognition) ExecuteStep(ctx context.Context, task *models.Task) (
 		// All tool calls were skipped by L1 constraints (enabled=false
 		// or budget exhausted). Force an answer so the session terminates
 		// instead of looping on a planner that can never grow a tool.
-		return c.growAnswerNode(ctx, g, task, resp.Content)
+		return c.growAnswerNode(ctx, g, task, resp.Content, resp)
 	}
 
 	result := models.NewTaskResult(task.TaskID, task.AgentType)
 	result.SetSuccess(nil, "planner grew "+strconv.Itoa(grown)+" tool nodes")
+	result.Metadata = tokenUsageMetadata(resp)
 	return &StepOutcome{Done: true, Result: result}, nil
 }
 
@@ -749,6 +759,11 @@ func (c *plannerCognition) l1Priors() []string {
 // completes the quantum with Done:true. The answer node's content is read by
 // answerCognition when the scheduler executes it.
 //
+// resp is the LLM response this quantum produced (nil on the depth-guard
+// path — no LLM call happened, so there is no usage to report); its token
+// usage rides the answer node's task result metadata into the checkpoint
+// envelope (the fitness cost channel, M4).
+//
 // The predecessor is the current plan node when it exists in the graph
 // (subsequent quanta), or the root node when it doesn't (the first plan
 // quantum). When the plan node IS in the graph, its predecessor (the last
@@ -758,6 +773,7 @@ func (c *plannerCognition) growAnswerNode(
 	g *L2Graph,
 	task *models.Task,
 	content string,
+	resp *core.GenerateResponse,
 ) (*StepOutcome, error) {
 	depth := g.PlanDepth()
 	answerID := SessionNodeID(task.SessionID, depth+1, "answer", 0)
@@ -778,7 +794,43 @@ func (c *plannerCognition) growAnswerNode(
 
 	result := models.NewTaskResult(task.TaskID, task.AgentType)
 	result.SetSuccess(nil, "planner grew answer node")
+	result.Metadata = tokenUsageMetadata(resp)
 	return &StepOutcome{Done: true, Result: result}, nil
+}
+
+// Token-usage metadata keys on StepOutcome.Result.Metadata — the quantum's
+// LLM usage report. The scheduler's buildQuantumStep reads these keys when
+// re-wrapping the envelope (accumulating into InputTokens/OutputTokens), so
+// the key names are the cross-package contract (kernel/…/scheduler.go
+// mirrors them in tokenUsageFromResult).
+const (
+	resultMetaInputTokens  = "input_tokens"
+	resultMetaOutputTokens = "output_tokens"
+)
+
+// stampTokenUsage is the call-site marker for the M4 cost channel: the
+// quantum that made an LLM call reports its usage. Kept as a no-op function
+// (not inlined into the call sites) so the accounting point is grep-able and
+// future metrics hook one place. resp may be nil (defensive; every call site
+// has a non-nil response after the error check).
+func stampTokenUsage(resp *core.GenerateResponse) {}
+
+// tokenUsageMetadata extracts the response's token usage into result
+// metadata. A nil response or zero usage yields nil — the scheduler's
+// accumulate step treats a missing map as "nothing to add", so a provider
+// that reports no usage contributes nothing to the session total.
+func tokenUsageMetadata(resp *core.GenerateResponse) map[string]any {
+	if resp == nil {
+		return nil
+	}
+	in, out := resp.Usage.PromptTokens, resp.Usage.CompletionTokens
+	if in <= 0 && out <= 0 {
+		return nil
+	}
+	return map[string]any{
+		resultMetaInputTokens:  in,
+		resultMetaOutputTokens: out,
+	}
 }
 
 // extractOutputContent reads the textual output from a step checkpoint. The

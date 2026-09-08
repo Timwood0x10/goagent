@@ -19,7 +19,14 @@ import (
 // v2 → v3 (SessionID): SessionID added as an OPTIONAL field. A v2
 // envelope decodes under v3 code with SessionID == "" (reads as
 // "session-less"), so no migration code is needed in the forward direction.
-const CurrentCheckpointSchemaVersion = 3
+//
+// v3 → v4 (TokenUsage): InputTokens/OutputTokens added as OPTIONAL fields.
+// A v3 envelope decodes under v4 code with both == 0 (reads as "no token
+// accounting"), so no migration code is needed in the forward direction.
+// Same asymmetry as v1→v2: v3 code rejects a v4 envelope
+// (ErrCheckpointSchemaVersion), so rolling back a deployment requires
+// draining in-flight tasks first.
+const CurrentCheckpointSchemaVersion = 4
 
 // CheckpointEnvelope is the durable, versioned checkpoint schema. It
 // wraps the submission-time metadata (UserProfile, Payload, UsedExperienceID)
@@ -70,6 +77,16 @@ type CheckpointEnvelope struct {
 	// (pre-v3 envelope or a non-session task): consumers treat the task as
 	// belonging to no session.
 	SessionID string `json:"session_id,omitempty"`
+	// InputTokens is the cumulative LLM prompt-token spend of the quanta
+	// that have run on this task (the fitness cost channel, M4). The
+	// scheduler re-wrap path ACCUMULATES each quantum's reported usage
+	// (buildQuantumStep → EncodeCheckpoint), so a multi-quantum session
+	// carries the session total, not the last quantum's. 0 means "no token
+	// accounting" (pre-v4 envelope, or a quantum path with no LLM call).
+	InputTokens int `json:"input_tokens,omitempty"`
+	// OutputTokens is the cumulative LLM completion-token spend; see
+	// InputTokens.
+	OutputTokens int `json:"output_tokens,omitempty"`
 }
 
 // DecodedCheckpoint is the result of DecodeCheckpoint: the envelope's fields
@@ -92,6 +109,10 @@ type DecodedCheckpoint struct {
 	// SessionID is the session scope of this task ("" when absent or when the
 	// envelope predates schema v3).
 	SessionID string
+	// InputTokens/OutputTokens are the cumulative LLM token spend (0 when
+	// absent or when the envelope predates schema v4).
+	InputTokens  int
+	OutputTokens int
 	// SchemaVersion is the envelope's version (0 when no checkpoint).
 	SchemaVersion int
 }
@@ -129,6 +150,8 @@ func DecodeCheckpoint(cp any) (DecodedCheckpoint, error) {
 			StepCheckpoint:   env.StepCheckpoint,
 			StrategyID:       env.StrategyID,
 			SessionID:        env.SessionID,
+			InputTokens:      env.InputTokens,
+			OutputTokens:     env.OutputTokens,
 			SchemaVersion:    env.SchemaVersion,
 		}, nil
 	}
@@ -168,6 +191,8 @@ func DecodeCheckpoint(cp any) (DecodedCheckpoint, error) {
 			if sid, ok := m[restoreKeySessionID].(string); ok {
 				dc.SessionID = sid
 			}
+			dc.InputTokens = restoreInt(m, restoreKeyInputTokens)
+			dc.OutputTokens = restoreInt(m, restoreKeyOutputTokens)
 			return dc, nil
 		}
 		// A plain map without schema_version: treat as a raw step checkpoint.
@@ -202,6 +227,8 @@ func EncodeCheckpoint(dc DecodedCheckpoint) *CheckpointEnvelope {
 		StepCheckpoint:   dc.StepCheckpoint,
 		StrategyID:       dc.StrategyID,
 		SessionID:        dc.SessionID,
+		InputTokens:      dc.InputTokens,
+		OutputTokens:     dc.OutputTokens,
 	}
 }
 
@@ -229,6 +256,20 @@ func sessionIDFromCheckpoint(cp any) string {
 		return ""
 	}
 	return dc.SessionID
+}
+
+// tokenUsageFromCheckpoint extracts the cumulative LLM token spend from a
+// checkpoint value through the single shared decode path. Decode failure or
+// a pre-v4 envelope yields 0,0 — best-effort like strategyIDFromCheckpoint:
+// missing accounting must never break the state machine, and callers
+// (recordLocked's terminal-event payload) treat 0,0 as "emit nothing".
+// Pure in-memory decode, safe under the fabric mutex.
+func tokenUsageFromCheckpoint(cp any) (input, output int) {
+	dc, err := DecodeCheckpoint(cp)
+	if err != nil {
+		return 0, 0
+	}
+	return dc.InputTokens, dc.OutputTokens
 }
 
 // MarshalCheckpoint JSON-encodes a checkpoint value. When the value is a

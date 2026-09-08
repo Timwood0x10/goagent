@@ -310,16 +310,17 @@ func Bootstrap(ctx context.Context, cfg *ares_config.Config, deps *BootstrapDeps
 					log.Warn("bootstrap: cleanup skills catalog close error", "error", err)
 				}
 			})
-			// TODO(tech-debt): the skill outcome recorder (the experience
-			// WRITE side) was removed as dead code: the retired tool loop was
-			// the only emitter of sub_task.result and its payload shape never
-			// matched what the recorder read (Payload["task"]/["success"]),
-			// so the recorder was starved from the start (RUNTIME.md
-			// breakage #8). The READ side survives — cmd/ares
-			// resolveExperienceConfidence feeds taskfabric scheduling via
-			// ares_skills.NewExperienceConfidenceSource — but experience
-			// confidence for scheduling stays unwritten until an emitter of
-			// the conforming sub_task.result shape exists.
+			// M4.4 experience WRITE side: record taskfabric terminal
+			// outcomes (task.completed/failed, capability-stamped by
+			// recordLocked) as {capability → success-rate} priors on the
+			// catalog's Experience store. The READ side (cmd/ares
+			// resolveExperienceConfidence → Fabric.Schedule fills
+			// history-less candidates) closes the loop: the retired
+			// recorder starved on sub_task.result (no emitter, mismatched
+			// payload shape, pattern key the scheduler never queried);
+			// this writer consumes the production terminal-event stream
+			// at the join key the scheduler provably uses.
+			startSkillOutcomeWriter(ctx, comp.EventStore, catalog.Experience())
 		}
 	}
 

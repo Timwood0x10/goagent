@@ -42,16 +42,23 @@ type StrategySample struct {
 	// TaskType categorizes the observed task (e.g. "chat", "workflow").
 	TaskType string
 
+	// TotalTokens is the task's cumulative LLM token spend (input+output),
+	// read off the terminal task.completed event's payload. 0 means
+	// "unaccounted" (pre-v4 envelope, no-LLM quantum, or a provider that
+	// reports no usage) — the cost penalty then stays at 1.
+	TotalTokens int
+
+	// CostUSD is the task's estimated USD cost. Tokens → USD needs a
+	// per-model price table that has no data source in this repo yet, so
+	// the field stays 0.0 and the penalty works on the TOKEN dimension
+	// only (scale-free: expensive is "many tokens", not "many dollars").
+	// The design doc's USD term becomes computable once a price table
+	// lands; the plumbing (field + payload key) is in place.
+	CostUSD float64
+
 	// At is when the sample was recorded.
 	At time.Time
 }
-
-// TODO(tech-debt): the design doc gives StrategySample Latency and CostUSD
-// fields. Latency is now folded into Score at the observer (see
-// latencyPenalty), so a dedicated field would duplicate what the score
-// already carries; CostUSD still has no data source — reintroduce it (plus
-// the aggregator's cost penalty term) once per-call token/cost data reaches
-// the EventStore payloads.
 
 // RuntimeObserver subscribes to the EventStore for task and agent lifecycle
 // events, converts them into StrategySample values, and writes each sample
@@ -75,6 +82,46 @@ type RuntimeObserver struct {
 // so normal traffic is barely damped while runaway tasks are discounted
 // hard.
 const defaultLatencyScale = 30 * time.Second
+
+// defaultTokenScale is the cost penalty token constant: a task that burned
+// this many tokens keeps half of its success score. 100k sits above a
+// typical single-session planner loop (a few tool rounds ≈ tens of
+// thousands) and below runaway sessions, so normal sessions are barely
+// damped while token-hungry strategies are discounted hard — the same
+// shape/rationale as defaultLatencyScale, on the spend dimension.
+const defaultTokenScale = 100_000
+
+// costPenalty computes the multiplicative token-spend factor for a completed
+// task: 1 / (1 + tokens/scale) when the event carries a positive token
+// total, else 1. Same contract as latencyPenalty: monotonic decreasing in
+// spend, bounded in (0,1], strictly order-preserving (a cheap success >
+// an expensive success at every scale), correctness still dominates (any
+// success > any failure), and an unaccounted task is scored on outcome and
+// latency alone — a missing usage report never invents a cost.
+func (o *RuntimeObserver) costPenalty(evt *ares_events.Event) float64 {
+	if evt == nil || evt.Payload == nil {
+		return 1
+	}
+	v, ok := evt.Payload["total_tokens"]
+	if !ok {
+		return 1
+	}
+	var tokens int
+	switch n := v.(type) {
+	case int:
+		tokens = n
+	case int64:
+		tokens = int(n)
+	case float64:
+		tokens = int(n)
+	default:
+		return 1
+	}
+	if tokens <= 0 {
+		return 1
+	}
+	return 1.0 / (1.0 + float64(tokens)/float64(defaultTokenScale))
+}
 
 // latencyPenalty computes the multiplicative latency factor for a completed
 // task: 1 / (1 + t/scale). Properties the GA relies on: monotonic
@@ -268,6 +315,12 @@ func (o *RuntimeObserver) eventToSample(evt *ares_events.Event) (StrategySample,
 		// The penalty is multiplicative and bounded so correctness always
 		// dominates: a failure keeps 0.0, a success keeps (0,1].
 		score *= o.latencyPenalty(evt)
+		// Cost penalty (M4 cost channel): terminal completed events carry the
+		// envelope's cumulative token total (recordLocked stamps
+		// input/output/total_tokens). Same multiplicative-bounded contract as
+		// latency — spend discounts success, never rescues failure, and an
+		// unaccounted task (no keys, pre-v4 envelope) keeps 1.
+		score *= o.costPenalty(evt)
 	case ares_events.EventTaskFailed:
 		// 0.0 (already initialized). Failure is never penalty-rescued.
 	case ares_events.EventAgentStopped:
@@ -298,12 +351,36 @@ func (o *RuntimeObserver) eventToSample(evt *ares_events.Event) (StrategySample,
 		}
 	}
 	return StrategySample{
-		StrategyID: strategyID,
-		Success:    success,
-		Score:      score,
-		TaskType:   taskType,
-		At:         time.Now(),
+		StrategyID:  strategyID,
+		Success:     success,
+		Score:       score,
+		TaskType:    taskType,
+		TotalTokens: sampleTokenTotal(evt),
+		CostUSD:     0,
+		At:          time.Now(),
 	}, true
+}
+
+// sampleTokenTotal extracts the terminal event's cumulative token total
+// (0 when absent — see StrategySample.TotalTokens).
+func sampleTokenTotal(evt *ares_events.Event) int {
+	if evt == nil || evt.Payload == nil {
+		return 0
+	}
+	v, ok := evt.Payload["total_tokens"]
+	if !ok {
+		return 0
+	}
+	switch n := v.(type) {
+	case int:
+		return n
+	case int64:
+		return int(n)
+	case float64:
+		return int(n)
+	default:
+		return 0
+	}
 }
 
 // writeEvidence writes a KindFitness evidence record (source="strategy") so
@@ -315,8 +392,13 @@ func (o *RuntimeObserver) writeEvidence(ctx context.Context, sample StrategySamp
 		return
 	}
 	payload, err := json.Marshal(map[string]any{
-		"value":               sample.Score,
-		"success":             sample.Success,
+		"value":        sample.Score,
+		"success":      sample.Success,
+		"total_tokens": sample.TotalTokens,
+		// cost_usd rides as 0 (see StrategySample.CostUSD): the token
+		// dimension carries the cost signal; a future price table can
+		// populate this key without a schema change.
+		"cost_usd":            sample.CostUSD,
 		evidenceKeyStrategyID: sample.StrategyID,
 		"task_type":           sample.TaskType,
 	})

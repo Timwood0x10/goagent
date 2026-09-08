@@ -732,8 +732,29 @@ func (s *Scheduler) executeWithCandidates(ctx context.Context, taskID string, ca
 	// candidate's confidence against (agentID, task capability) before
 	// Schedule scores them. Without a capability override this falls back to
 	// the agent-level value (design-fix: per-capability feedback is consumed).
+	//
+	// M4.4 read-side closure: when the fabric carries a RECORDED experience
+	// prior for this capability, a candidate whose tracker confidence is the
+	// NEUTRAL prior (no history, no override) is zeroed so the fabric's
+	// Schedule fills it with that prior. A measured value — including the
+	// evolution feedback loop's overrides — always wins over the prior: live
+	// feedback outranks stale priors. When NO prior exists the neutral value
+	// stands (the historical default), so wiring a ConfidenceSource alone
+	// cannot change a system whose Experience store is empty.
+	prior := s.fabric.PriorConfidence(tk.Capability)
 	for i := range cands {
-		cands[i].Confidence = s.tracker.ConfidenceFor(cands[i].AgentID, tk.Capability)
+		conf, measured := s.tracker.ConfidenceForMeasured(cands[i].AgentID, tk.Capability)
+		switch {
+		case measured:
+			cands[i].Confidence = conf
+		case prior > 0:
+			// Unmeasured + prior exists: zero so Schedule's fill applies it.
+			cands[i].Confidence = 0
+		default:
+			// Unmeasured + no prior: the neutral prior stands (default
+			// behavior when nothing was ever recorded).
+			cands[i].Confidence = conf
+		}
 	}
 	winner, epoch, err := s.fabric.Schedule(taskID, cands, s.ttl)
 	// Record the scheduling decision for the Observatory (dashboard.md §7):
@@ -994,6 +1015,8 @@ func (s *Scheduler) buildQuantumStep(
 				StrategyID:       meta.StrategyID,
 				SessionID:        meta.SessionID,
 				StepCheckpoint:   out.Checkpoint,
+				InputTokens:      meta.InputTokens + tokenUsageFromResult(out.Result, "input"),
+				OutputTokens:     meta.OutputTokens + tokenUsageFromResult(out.Result, "output"),
 			}), false, nil
 		}
 		// Done: carry the worker's real output back through the fabric so the
@@ -1015,13 +1038,44 @@ func (s *Scheduler) buildQuantumStep(
 		}
 		// Re-wrap the step output in the metadata envelope so the dispatcher's
 		// outcomeFromFabric unwraps it on COMPLETED (same as pre-quantum).
+		// Token usage accumulates across quanta (the session total, not the
+		// last quantum's) — the terminal task.completed event carries it for
+		// the RuntimeObserver's cost channel.
 		return taskfabric.EncodeCheckpoint(taskfabric.DecodedCheckpoint{
 			UserProfile:      meta.UserProfile,
 			Payload:          meta.Payload,
 			UsedExperienceID: meta.UsedExperienceID,
 			StrategyID:       meta.StrategyID,
 			StepCheckpoint:   outMap,
+			InputTokens:      meta.InputTokens + tokenUsageFromResult(out.Result, "input"),
+			OutputTokens:     meta.OutputTokens + tokenUsageFromResult(out.Result, "output"),
 		}), true, nil
+	}
+}
+
+// tokenUsageFromResult reads one side of the quantum's LLM token usage from
+// the StepOutcome result metadata (the planner cognition stamps
+// input_tokens/output_tokens there — the cross-package key contract).
+// side is "input" or "output". A nil result, a missing key, or a non-number
+// value yields 0: an unreported quantum contributes nothing to the session
+// total, never an error.
+func tokenUsageFromResult(res *models.TaskResult, side string) int {
+	if res == nil || len(res.Metadata) == 0 {
+		return 0
+	}
+	v, ok := res.Metadata[side+"_tokens"]
+	if !ok {
+		return 0
+	}
+	switch n := v.(type) {
+	case int:
+		return n
+	case int64:
+		return int(n)
+	case float64:
+		return int(n)
+	default:
+		return 0
 	}
 }
 

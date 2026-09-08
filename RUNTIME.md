@@ -89,11 +89,11 @@ task Create 盖章 strategy_id (agent.go:996)
 ```
 短板：evidence 默认内存存储（provide_new_evolution.go:138）→ 重启清零；shadow 打分用 ReplayScorer 历史窗口对比，非候选特异 A/B。
 
-**经验环 ⚠️ 半闭合**：
+**经验环 ✅ 闭合（M4 二批）**：
 - 蒸馏→GA 突变 hints ✅（provide_distillation.go:90）
 - 蒸馏→RAG prompt 注入 ✅（retriever_wiring.go:80）
-- ExperiencePrior→CognitiveState **只写不读**（lifecycle.go:116 写入后，L2 路径无读方）
-- skill 经验→调度置信 **只读不写**（recorder 的事件形状无生产发射方，bootstrap.go:317 自认"starved"）
+- ExperiencePrior→CognitiveState 读侧 ✅（M4.3：executing_agent_id 盖章→planner 注入先验 system 消息）
+- skill 经验→调度置信 ✅ 写读闭环（M4.4：taskfabric 终态事件 capability 键→skillOutcomeWriter→Experience；读侧 ConfidenceForMeasured 去遮蔽——tracker 中性 1.0 不再挤掉先验，测量值恒胜先验）
 
 **恢复环 ✅ 闭合**：租约过期 → CheckExpiredLeases 回 READY → 恢复循环按死亡快照原地复活（终身 5 次）或 `recovery-<task>-<ts>` 替身绑定 → 终态解绑。
 
@@ -139,9 +139,9 @@ SUSPENDED─(下轮 drain re-acquire)→LEASED；过期租约→CheckExpiredLeas
 | 3 | **生产并发度=1** | agent.go:1063, scheduler.go drainLimit | ✅ 已修：auto 模式取 max(静态注册表, fabric 空闲候选数)；新增 `kernel.max_concurrent` 配置 |
 | 4 | 事件不持久：serve 用 compactableStore（内存+归档，非裸 MemoryEventStore）→ 重启丢事件流与 fitness 证据 | serve.go:189 | 开放（M4 接 PostgresEventStore） |
 | 5 | answer 任务终态失败不释放会话 | l2graph.go | ✅ 已修：`task.failed`(state=FAILED, capability=ares/answer) 事件订阅即释放，reaper 正常收割 |
-| 6 | answer 无合成器：内容自持或报"no answer content"，不综合前驱输出 | l2graph.go:374 TODO | 开放（M4） |
-| 7 | 经验→spawn 先验只写不读 | lifecycle.go:116 | 开放 |
-| 8 | skill 置信只读不写（recorder 饿死） | bootstrap.go:317 | 开放：饿死 recorder 已随 M3.2 删除（TODO 留痕），缺口仍在——需先有合规 sub_task.result 发射方才有写侧 |
+| 6 | answer 无合成器：内容自持或报"no answer content"，不综合前驱输出 | l2graph.go:374 TODO | ✅ 已修（M4.2，e1ae5ebc）：answerSynthesizer 复用 assembleContext 前驱历史 + 无工具 LLM 调用合成终答，失败降级 gap body 不烧重试预算 |
+| 7 | 经验→spawn 先验只写不读 | lifecycle.go:116 | ✅ 已修（M4.3，e1ae5ebc）：executing_agent_id 盖章→planner 经验先验读侧（experiencePriorSystemMessage，注入先导 system 消息，4096 rune 截断） |
+| 8 | skill 置信只读不写（recorder 饿死） | bootstrap.go:317 | ✅ 已修（M4.4，2026-09-08 二批）：老 recorder 双重死结（sub_task.result 无发射方 + task_desc pattern 读侧永不查询）→ 换 taskfabric 终态事件流（recordLocked 盖 capability 键）→ skillOutcomeWriter 写 `Experience.Record(capability, capability, rate)`；连带修读侧遮蔽（tracker 中性 1.0 挤掉先验）——scheduler 对未测量候选置零让 `Fabric.Schedule` 填先验，测量值恒胜先验。闭环测试 skill_outcome_writer_test |
 | 9 | distilled_memories 表零生产调用（schema 幽灵） | tool_deps.go:19 | 开放（M3 建议删） |
 | 10 | IPC 无重试/死信 | agentipc/deadletter.go 空挂 | 开放（弹性缺口，非死线） |
 | 11 | memory.finalize 事件：无发射方无订阅方 | types.go:70 | ✅ 已删（M3.3，含文档枚举清理） |

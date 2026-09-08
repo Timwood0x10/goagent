@@ -79,10 +79,11 @@ type AggregatorConfig struct {
 
 // The design doc's cost/latency penalty term is applied at the OBSERVER
 // (sample production): completed-task scores already carry the multiplicative
-// latency penalty (see observer.go latencyPenalty), so the aggregate inherits
-// it through the window mean — no subtraction here. A cost (USD/token)
-// penalty remains unimplemented pending a per-call cost data source in the
-// EventStore payloads.
+// latency penalty (see observer.go latencyPenalty) and the token-spend cost
+// penalty (observer.go costPenalty — the envelope's cumulative usage rides
+// terminal task.completed events since schema v4), so the aggregate inherits
+// both through the window mean — no subtraction here. A true USD cost term
+// still needs a per-model price table (see StrategySample.CostUSD).
 
 // DefaultAggregatorConfig returns sensible defaults matching the design doc.
 func DefaultAggregatorConfig() AggregatorConfig {
