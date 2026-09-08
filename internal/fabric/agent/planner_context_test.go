@@ -37,12 +37,12 @@ func (c *contextChat) Chat(_ context.Context, msgs []*core.LLMMessage, tools []c
 	return &core.GenerateResponse{Content: "final answer"}, nil
 }
 
-// TestM3_AssembleContextFromGraphPath verifies the context assembly:
+// TestAssembleContextFromGraphPath verifies the context assembly:
 // the planner reads predecessor tool outputs from the fabric envelopes by
 // node ID = task ID join, and assembles them into LLM messages along the
 // dependency chain. The first plan quantum has only the root prompt; the
 // second plan quantum has the root prompt + the first tool's output.
-func TestM3_AssembleContextFromGraphPath(t *testing.T) {
+func TestAssembleContextFromGraphPath(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -120,12 +120,12 @@ func TestM3_AssembleContextFromGraphPath(t *testing.T) {
 		"tool message links back to its assistant call")
 }
 
-// TestM3_FullCapabilityAdvertisement verifies the capability advertisement:
+// TestFullCapabilityAdvertisement verifies the capability advertisement:
 // when the DAG execution gate is open, a peer agent declares the full
 // capability set (ares/root, ares/plan, ares/answer, tool/<name>) so the
 // scheduler can route every L2 node type to it. This test validates the
 // capability list construction logic without requiring a full peer spawn.
-func TestM3_FullCapabilityAdvertisement(t *testing.T) {
+func TestFullCapabilityAdvertisement(t *testing.T) {
 	// Build the full capability set the same way peer_mode.go does
 	// (every peer advertises the single L2 set).
 	binder := &plannerTestBinder{}
@@ -151,12 +151,12 @@ func TestM3_FullCapabilityAdvertisement(t *testing.T) {
 		"legacy path must NOT advertise L2 capabilities")
 }
 
-// TestM3_ContextIsChronological pins observation ORDER on the context path:
+// TestContextIsChronological pins observation ORDER on the context path:
 // with two tool nodes, the LLM must see the older output before the newer one
 // — the same order ReAct's Messages[] presented. The predecessor walk is
 // newest-first, so an un-reversed append would invert the history and change
 // what the model concludes, breaking the dual-path acceptance.
-func TestM3_ContextIsChronological(t *testing.T) {
+func TestContextIsChronological(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

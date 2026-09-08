@@ -95,9 +95,9 @@ func TestPrometheusMetrics_EvolutionCompileCount(t *testing.T) {
 	}
 }
 
-// TestPrometheusMetrics_NilSafeC5 verifies the compile metric setters are
+// TestPrometheusMetrics_CompileSettersNilSafe verifies the compile metric setters are
 // nil-safe (matching the existing convention for all metrics methods).
-func TestPrometheusMetrics_NilSafeC5(t *testing.T) {
+func TestPrometheusMetrics_CompileSettersNilSafe(t *testing.T) {
 	var m *PrometheusMetrics // nil
 
 	// None of these should panic.

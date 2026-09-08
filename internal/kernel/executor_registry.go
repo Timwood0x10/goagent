@@ -117,11 +117,53 @@ func (s *Scheduler) UnregisterExecutor(agentID string) {
 	}
 }
 
-// HasCapableExecutor reports whether a registered, unbound executor can
-// execute taskID (capability overlap > 0). The recovery loop calls this for
-// each requeued task to decide whether a replacement executor is needed:
-// when an existing executor can already resume the task, no spawn is
-// required and the task simply returns to READY.
+// buildCandidates returns the candidate pool for taskID on the unbound path:
+// every registered, unbound static executor (only when no fabric is wired — in
+// peer mode the fabric population is the single candidate source), plus every
+// live IDLE executable fabric agent. It is the single source of truth for "who
+// can run this task": Schedule scores from it and HasCapableExecutor derives
+// its boolean from the same list, so the schedulability predicate can never
+// drift from what the dispatcher actually offers. Candidates carry the live
+// tracker values (agent-level Confidence, Load, Priority) exactly like the
+// scheduling path.
+func (s *Scheduler) buildCandidates(taskID string) []taskfabric.Candidate {
+	execs := s.allExecutors()
+	cands := make([]taskfabric.Candidate, 0, len(execs))
+	for agentID, agent := range execs {
+		if agent == nil {
+			continue
+		}
+		if s.isBoundToAnyTask(agentID) {
+			continue
+		}
+		// With the fabric wired (peer mode), the fabric's live population is
+		// the SINGLE candidate source: static registrations have a managed
+		// fabric copy, so a chaos kill reflects on the next drain. Only
+		// recovery-bound executors stay in the static pool.
+		if s.agents != nil {
+			continue
+		}
+		cands = append(cands, taskfabric.Candidate{
+			AgentID:      agentID,
+			Capabilities: []string{string(agent.Type())},
+			Load:         s.tracker.Load(agentID),
+			Confidence:   s.tracker.Confidence(agentID),
+			Priority:     s.tracker.Priority(agentID),
+		})
+	}
+	return s.appendFabricCandidates(cands, execs)
+}
+
+// HasCapableExecutor reports whether a capable executor can resume taskID
+// (capability overlap > 0). The recovery loop calls this for each requeued task
+// to decide whether a replacement executor is needed: when an existing executor
+// can already resume the task, no spawn is required and the task simply returns
+// to READY.
+//
+// It sources candidates from buildCandidates — the same list Schedule uses —
+// instead of re-deriving them, so this predicate stays in sync with the actual
+// candidate pool. A recovery-bound executor counts as capable regardless of
+// scoring.
 func (s *Scheduler) HasCapableExecutor(taskID string) bool {
 	tk, err := s.fabric.Task(taskID)
 	if err != nil {
@@ -130,54 +172,9 @@ func (s *Scheduler) HasCapableExecutor(taskID string) bool {
 	if _, ok := s.boundFor(taskID); ok {
 		return true
 	}
-	execs := s.allExecutors()
-	for agentID, agent := range execs {
-		if agent == nil {
-			continue
-		}
-		if s.isBoundToAnyTask(agentID) {
-			continue
-		}
-		// Same single-source rule as executeUnbound — with the fabric
-		// wired, unbound static registrations are managed fabric agents.
-		// (isBoundToAnyTask already checked above, so this is just s.agents != nil)
-		if s.agents != nil {
-			continue
-		}
-		cand := taskfabric.Candidate{
-			Capabilities: []string{string(agent.Type())},
-			Confidence:   s.tracker.ConfidenceFor(agentID, tk.Capability),
-			Load:         s.tracker.Load(agentID),
-		}
+	for _, cand := range s.buildCandidates(taskID) {
 		if taskfabric.Score(tk.Capability, cand) > 0 {
 			return true
-		}
-	}
-	// A live, IDLE, executable fabric agent can also resume the task.
-	if s.agents != nil {
-		for _, id := range s.agents.Agents() {
-			// No `execs[id]` skip here: in peer mode a same-id static
-			// registration does NOT mask the managed fabric copy, which is
-			// exactly what appendFabricCandidates offers to Schedule. This
-			// predicate previously excluded those agents while the dispatcher
-			// still selected them, so a dual-registered agent made recovery
-			// report "no candidate" for a task that was in fact schedulable.
-			// Recovery-bound executors stay excluded because
-			// appendFabricCandidates excludes them too (checked below).
-			if s.isBoundToAnyTask(id) {
-				continue
-			}
-			if !s.agents.IsIdle(id) {
-				continue
-			}
-			a, err := s.agents.Get(id)
-			if err != nil || a == nil || !a.Executable() {
-				continue
-			}
-			cand := taskfabric.Candidate{Capabilities: a.Capabilities}
-			if taskfabric.Score(tk.Capability, cand) > 0 {
-				return true
-			}
 		}
 	}
 	return false

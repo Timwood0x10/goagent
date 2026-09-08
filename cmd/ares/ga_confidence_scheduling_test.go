@@ -11,27 +11,27 @@ import (
 	"github.com/Timwood0x10/ares/internal/fabric/task"
 )
 
-// f1CountingExecutor is a same-capability executor whose execution is counted.
+// countingExecutor is a same-capability executor whose execution is counted.
 // Two of them differ only in their scheduler-visible confidence, so the test
 // can observe WHICH one the scheduler picks.
-type f1CountingExecutor struct {
+type countingExecutor struct {
 	id       string
 	typ      models.AgentType
 	executed atomic.Int64
 }
 
-func (e *f1CountingExecutor) ID() string { return e.id }
-func (e *f1CountingExecutor) Type() models.AgentType {
+func (e *countingExecutor) ID() string { return e.id }
+func (e *countingExecutor) Type() models.AgentType {
 	return e.typ
 }
-func (e *f1CountingExecutor) ExecuteStep(_ context.Context, task *models.Task) (*sub.StepOutcome, error) {
+func (e *countingExecutor) ExecuteStep(_ context.Context, task *models.Task) (*sub.StepOutcome, error) {
 	e.executed.Add(1)
 	res := models.NewTaskResult(task.TaskID, task.AgentType)
 	res.SetSuccess(nil, "done by "+e.id)
 	return &sub.StepOutcome{Done: true, Result: res}, nil
 }
 
-// TestF1_GAConfidenceChangesNextSchedule is the acceptance
+// TestGAConfidenceChangesNextSchedule is the acceptance
 // (证明 GA 进化结果确实改变了下一轮的调度选择 — 目前
 // 只有 spawn 可执行体的测试，没有调度行为变化的测试). Two executors with the
 // SAME capability differ only in their scheduler-visible confidence (the
@@ -39,13 +39,13 @@ func (e *f1CountingExecutor) ExecuteStep(_ context.Context, task *models.Task) (
 // matches the capability must be scheduled to the HIGH-confidence executor,
 // and a confidence override that swaps the ranking must swap the selection —
 // the GA's derived confidence directly drives the next Schedule.
-func TestF1_GAConfidenceChangesNextSchedule(t *testing.T) {
+func TestGAConfidenceChangesNextSchedule(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	fabric := taskfabric.NewFabric()
-	a := &f1CountingExecutor{id: "agent-A", typ: models.AgentType("code")}
-	b := &f1CountingExecutor{id: "agent-B", typ: models.AgentType("code")}
+	a := &countingExecutor{id: "agent-A", typ: models.AgentType("code")}
+	b := &countingExecutor{id: "agent-B", typ: models.AgentType("code")}
 	tracker := newLoadTracker()
 	execs := map[string]CapabilityExecutor{"agent-A": a, "agent-B": b}
 

@@ -8,7 +8,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/storage/postgres/models"
 )
 
-// TestG1_FullLoopDistillToSpawnPrior verifies the acceptance
+// TestFullLoopDistillToSpawnPrior verifies the acceptance
 // (Memory Distill 挂到 agent 生命周期 — 蒸馏异步产出 →
 // 经验仓库查询 → spawn 注入) end to end at the wiring layer: once distillation
 // has asynchronously produced an experience for an agent (here: a repo query
@@ -17,7 +17,7 @@ import (
 // cognitive context — not a blank slate. The Distiller's own
 // event→experience production is covered by internal/ares_memory; this test
 // closes the write→read loop through the production wiring function.
-func TestG1_FullLoopDistillToSpawnPrior(t *testing.T) {
+func TestFullLoopDistillToSpawnPrior(t *testing.T) {
 	ctx := context.Background()
 
 	// Distillation has produced an experience for the ffi-expert agent

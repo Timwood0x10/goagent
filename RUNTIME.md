@@ -141,14 +141,16 @@ SUSPENDED─(下轮 drain re-acquire)→LEASED；过期租约→CheckExpiredLeas
 | 5 | answer 任务终态失败不释放会话 | l2graph.go | ✅ 已修：`task.failed`(state=FAILED, capability=ares/answer) 事件订阅即释放，reaper 正常收割 |
 | 6 | answer 无合成器：内容自持或报"no answer content"，不综合前驱输出 | l2graph.go:374 TODO | 开放（M4） |
 | 7 | 经验→spawn 先验只写不读 | lifecycle.go:116 | 开放 |
-| 8 | skill 置信只读不写（recorder 饿死） | bootstrap.go:317 | 开放 |
+| 8 | skill 置信只读不写（recorder 饿死） | bootstrap.go:317 | 开放：饿死 recorder 已随 M3.2 删除（TODO 留痕），缺口仍在——需先有合规 sub_task.result 发射方才有写侧 |
 | 9 | distilled_memories 表零生产调用（schema 幽灵） | tool_deps.go:19 | 开放（M3 建议删） |
 | 10 | IPC 无重试/死信 | agentipc/deadletter.go 空挂 | 开放（弹性缺口，非死线） |
-| 11 | memory.finalize 事件：无发射方无订阅方 | types.go:70 | 开放（M3 删） |
+| 11 | memory.finalize 事件：无发射方无订阅方 | types.go:70 | ✅ 已删（M3.3，含文档枚举清理） |
 | 12 | ~~死旋钮 dispatch_timeout~~ | — | ✅ 已删（常量+字段+解析+默认值） |
 | 13 | CanRetry 语义矛盾 | task.go | ✅ 已修：`Attempts < MaxRetries`，0/负=不重试；CompilePlan 未设预算默认 2 |
 | 14 | RestartPolicy.Backoff 从不 sleep | recovery.go | ✅ 已修：`min(Backoff<<attempts, MaxBackoff)`，ctx 可取消，sleeper 可注入 |
 | 15 | 孤儿符号 ErrAgentNotIdle / EventTaskStolen / StateDeclared | — | ✅ 已删（含 ares_events/introspect 联动清理） |
+| 16 | ~~flushAppends 无 deadline~~（**误报**，2026-09-08 核实） | fabric.go:693/697 `flushAppendTimeout=10s`、`flushOrderWaitTimeout=30s` 均已存在；排序屏障超时→跳过、must-persist 失败→记 divergence 日志，丢/重试语义已被代码行为定义 | ✅ 已具备，非缺陷（DEEP_CODE_REVIEW 误报；grep 的 `\|` 字面量误判） |
+| 17 | **HasCapableExecutor 与派发器"能否调度"双实现** | executor_registry.go `buildCandidates`；fabric_executor.go `appendFabricCandidates` | ✅ 已修（2026-09-08）：新增共享 `buildCandidates(taskID)`，`HasCapableExecutor` 与调度共用同一候选源，谓词=对共享候选 `Score(task.Capability, cand)>0`。**连带修复隐藏 bug**：旧 fabric 分支构造候选不带 Confidence → `Score` 恒 0 → 该分支实为死代码（fabric-only 能力 agent 被判"无候选"）；`TestHasCapableExecutorSourcesFabricCandidates` 锁死新行为 |
 
 另（深审 DEEP_CODE_REVIEW 对账补充）：restore.go 持久化恢复的未检查断言已修（坏 payload 拒绝折叠）；10 处类型断言/11 处 nilnil/4 处无目标 nolint 已处置；arena 四个弃用成员确认为"仅测试调用"，已留 `TODO(tech-debt)` 痕。**api/ 有 91 个文件仍在 import——"下葬"不可行，必须先迁引用（M5 口径修正）**。
 

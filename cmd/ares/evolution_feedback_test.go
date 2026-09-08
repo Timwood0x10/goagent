@@ -10,7 +10,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/fabric/task"
 )
 
-// TestW4EvolutionFeedbackChangesSchedulerBehavior verifies the evolution feedback
+// TestEvolutionFeedbackChangesSchedulerBehavior verifies the evolution feedback
 // loop: execution results (success/failure) are collected, fed back to the
 // scheduler's confidence scoring, and the next scheduling decision changes
 // as a result.
@@ -20,7 +20,7 @@ import (
 // The evolution feedback adapter reads the attribution and pushes the
 // confidence into the loadTracker. After the feedback, the scheduler must
 // prefer B over A (B's confidence is higher → higher score).
-func TestW4EvolutionFeedbackChangesSchedulerBehavior(t *testing.T) {
+func TestEvolutionFeedbackChangesSchedulerBehavior(t *testing.T) {
 	// Build the attribution store and the loadTracker.
 	attribution := aresrecovery.NewExecutionAttribution()
 	tracker := newLoadTracker()
@@ -113,11 +113,11 @@ func TestW4EvolutionFeedbackChangesSchedulerBehavior(t *testing.T) {
 	}
 }
 
-// TestW4CapabilityConfidenceAttribution verifies the per-capability
+// TestCapabilityConfidenceAttribution verifies the per-capability
 // attribution: an agent that succeeds on "code" but fails on "rust" has
 // different confidence values per capability. The attribution store tracks
 // the capability dimension, not just the aggregate.
-func TestW4CapabilityConfidenceAttribution(t *testing.T) {
+func TestCapabilityConfidenceAttribution(t *testing.T) {
 	attr := aresrecovery.NewExecutionAttribution()
 
 	// Agent A: 3/3 success on "code", 0/2 success on "rust".
@@ -145,7 +145,7 @@ func TestW4CapabilityConfidenceAttribution(t *testing.T) {
 	}
 }
 
-// TestW4CapabilityFeedbackConsumedByScheduler verifies the per-capability
+// TestCapabilityFeedbackConsumedByScheduler verifies the per-capability
 // feedback path end-to-end: execution results recorded per capability are fed
 // back through Apply, and the scheduler scores the SAME agent differently for
 // two capabilities (design-fix: per-capability data is consumed, not just
@@ -155,7 +155,7 @@ func TestW4CapabilityConfidenceAttribution(t *testing.T) {
 // Apply, the scheduler's ConfidenceFor must return 1.0 on "code" and 0.0 on
 // "rust" for the same agent, and the task-level Score must prefer a
 // high-confidence rival on "rust".
-func TestW4CapabilityFeedbackConsumedByScheduler(t *testing.T) {
+func TestCapabilityFeedbackConsumedByScheduler(t *testing.T) {
 	attribution := aresrecovery.NewExecutionAttribution()
 	tracker := newLoadTracker()
 
@@ -204,10 +204,10 @@ func TestW4CapabilityFeedbackConsumedByScheduler(t *testing.T) {
 	}
 }
 
-// TestW4CapabilityFeedbackClearedByNegative verifies that a negative
+// TestCapabilityFeedbackClearedByNegative verifies that a negative
 // confidence clears the capability-specific override (falls back to the
 // aggregate), matching SetAgentConfidence semantics.
-func TestW4CapabilityFeedbackClearedByNegative(t *testing.T) {
+func TestCapabilityFeedbackClearedByNegative(t *testing.T) {
 	tracker := newLoadTracker()
 	tracker.SetCapabilityConfidence("agent-A", "code", 0.25)
 	tracker.SetCapabilityConfidence("agent-A", "code", -1.0)
@@ -216,10 +216,10 @@ func TestW4CapabilityFeedbackClearedByNegative(t *testing.T) {
 	}
 }
 
-// TestW4FeedbackAdapterApplyIsIdempotent verifies that calling Apply multiple
+// TestFeedbackAdapterApplyIsIdempotent verifies that calling Apply multiple
 // times with no new results is harmless — the confidence values are the same
 // after the second call.
-func TestW4FeedbackAdapterApplyIsIdempotent(t *testing.T) {
+func TestFeedbackAdapterApplyIsIdempotent(t *testing.T) {
 	attr := aresrecovery.NewExecutionAttribution()
 	tracker := newLoadTracker()
 
@@ -236,9 +236,9 @@ func TestW4FeedbackAdapterApplyIsIdempotent(t *testing.T) {
 	}
 }
 
-// TestW4FeedbackAdapterNilSafe verifies the adapter and loop handle nil
+// TestFeedbackAdapterNilSafe verifies the adapter and loop handle nil
 // gracefully without panicking.
-func TestW4FeedbackAdapterNilSafe(t *testing.T) {
+func TestFeedbackAdapterNilSafe(t *testing.T) {
 	// nil adapter → Apply is a no-op.
 	var nilAdapter *aresrecovery.EvolutionFeedbackAdapter
 	if got := nilAdapter.Apply(context.Background()); got != 0 {

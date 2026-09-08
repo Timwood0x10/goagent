@@ -4,7 +4,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -288,13 +287,13 @@ func init() {
 // messages — "Evolution decides; Kernel enforces", same as the spawn gate and
 // quota manager.
 //
-// The peer registry (internal/agents/peer) is the production agent-messaging
-// channel: agents register SendMessage delivery functions and send directly
-// without routing through the leader. Instead of replacing that channel, this
-// wiring interposes the evolution-aware IPC bus between the registry and the
-// agents' send functions, so every peer message passes through the policy
+// The peer registry (internal/agents/peer) is retained as the agent-messaging
+// surface: sends route through the evolution-aware IPC bus so the wire policy
 // (plain json by default — backward compatible — or json+gzip when the
-// evolution strategy deploys it).
+// evolution strategy deploys it) shapes them. Peer DIRECT delivery was
+// removed with the sub.Agent message queue (non-collaboration topics now
+// fail loud with peerMessagingRemoved); the live paths through the bus are
+// the kernel-session collaboration topics.
 
 // peerTopic is the bus topic used for peer-channel messages routed through the
 // evolution-aware IPC bus.
@@ -360,17 +359,18 @@ func wireEvolutionIPC(subAgents []sub.Agent, store evolution.StrategyStore, trac
 	ipc := aresrecovery.NewEvolutionAwareIPC(bus, ares_bootstrap.NewIPCProtocolPolicySource(store))
 	reg := peer.NewRegistry()
 
-	register := func(agentID string, send func(context.Context, *ahp.AHPMessage) error, execute func(context.Context, *models.Task) (*models.TaskResult, error)) {
-		if agentID == "" || send == nil {
+	register := func(agentID string, execute func(context.Context, *models.Task) (*models.TaskResult, error)) {
+		if agentID == "" {
 			return
 		}
 		targetID := agentID
-		// Bus handler: dispatch by topic. Peer messages (the production
-		// channel) are decoded and delivered to the agent unchanged;
-		// collaboration topics (delegate/pipeline/orchestrate) are executed on
-		// the target agent via its Execute capability, with the result
-		// returned as the request/reply reply. This closes the
-		// "library-ready, not wired" gap for collaboration.
+		// Bus handler: dispatch by topic. Collaboration topics
+		// (delegate/pipeline/orchestrate) are executed on the target agent
+		// via its Execute capability, with the result returned as the
+		// request/reply reply. This closes the "library-ready, not wired"
+		// gap for collaboration. Every other topic is peer direct
+		// messaging, which was removed with the sub.Agent message queue —
+		// it fails loud instead of silently dropping.
 		_ = bus.Register(targetID, func(ctx context.Context, msg *agentipc.Message) (*agentipc.Message, error) {
 			switch msg.Topic {
 			case topicDelegateTask, topicPipelineStage, topicOrchestrateWrk:
@@ -385,7 +385,7 @@ func wireEvolutionIPC(subAgents []sub.Agent, store evolution.StrategyStore, trac
 				}
 				return executeCollaboration(ctx, targetID, msg, execute)
 			default:
-				return deliverPeer(ctx, msg, send)
+				return nil, peerMessagingRemoved(targetID)
 			}
 		})
 		// Peer registry entry: route the peer send through the evolution-aware
@@ -404,41 +404,27 @@ func wireEvolutionIPC(subAgents []sub.Agent, store evolution.StrategyStore, trac
 		})
 	}
 
-	// SendMessage is exposed via interface assertion (same discovery as
-	// buildPeerRegistry); agents that do not implement it are skipped, not an
-	// error. Sub-agents additionally expose Execute — the capability that
-	// lets collaboration topics (delegate/pipeline/orchestrate) run a task on
-	// them and return the result.
+	// Every sub agent registers through its Execute capability — the
+	// capability that lets collaboration topics (delegate/pipeline/
+	// orchestrate) run a task on it and return the result. Registration no
+	// longer requires a SendMessage surface: peer direct messaging was
+	// removed with the sub.Agent message queue.
 	for _, sa := range subAgents {
-		if sender, ok := sa.(interface {
-			SendMessage(context.Context, *ahp.AHPMessage) error
-		}); ok {
-			// sa is already sub.Agent (the wireEvolutionIPC signature types it
-			// as such), so its Execute capability is directly available.
-			register(sa.ID(), sender.SendMessage, sa.Execute)
+		if sa == nil {
+			continue
 		}
+		register(sa.ID(), sa.Execute)
 	}
 	return &evolutionIPCBridge{ipc: ipc, reg: reg}, nil
 }
 
-// deliverPeer decodes the wire payload and delivers it to the agent unchanged
-// (the production peer path). Plain json sends pass through unchanged; json+
-// gzip sends are restored here so the agent always sees the original message.
-func deliverPeer(ctx context.Context, msg *agentipc.Message, send func(context.Context, *ahp.AHPMessage) error) (*agentipc.Message, error) {
-	payload, err := aresrecovery.Decode(msg.Payload)
-	if err != nil {
-		return nil, fmt.Errorf("evolution IPC decode: %w", err)
-	}
-	ahpMsg, err := toAHPMessage(payload)
-	if err != nil {
-		return nil, err
-	}
-	if err := send(ctx, ahpMsg); err != nil {
-		return nil, err
-	}
-	// agentipc.Handler contract: a nil reply + nil error means the message
-	// was delivered and no reply is expected (fire-and-forget peer delivery).
-	return nil, nil //nolint:nilnil // documented Handler "no reply" contract.
+// peerMessagingRemoved is the bus handler's reply for every
+// non-collaboration topic: peer direct messaging (the sub.Agent message
+// queue / SendMessage path) was removed as dead — production peers were
+// built with a nil queue, so delivery never succeeded. Callers must use the
+// collaboration topics, which execute through kernel sessions.
+func peerMessagingRemoved(targetID string) error {
+	return fmt.Errorf("agentipc: peer direct messaging removed for agent %s; use collaboration topics (delegate-task, pipeline-stage, orchestrate-worker)", targetID)
 }
 
 // executeCollaboration runs a collaboration request (delegate/pipeline/
@@ -639,42 +625,6 @@ func sessionAnswerContent(tk *taskfabric.Task) (string, error) {
 		return "", fmt.Errorf("agentipc: answer items unreadable, got %T", raw)
 	}
 	return items[0].Content, nil
-}
-
-// toAHPMessage restores an *ahp.AHPMessage from a decoded payload. Plain
-// sends deliver the original pointer unchanged; json+gzip sends round-trip
-// through JSON, so the decoded value is a map that must be re-hydrated.
-//
-// KNOWN LIMITATION (JSON round-trip): under the json+gzip wire policy the
-// payload is serialized to JSON, so values inside AHPMessage.Payload that
-// JSON cannot represent faithfully are type-drifted on delivery — e.g. int
-// becomes float64, non-string map keys are coerced, and custom structs are
-// flattened to plain maps. This is a JSON wire-format limitation, not a bug
-// in this function; the plain-json policy (the default) delivers the original
-// pointer unchanged and has no such drift. Payload values should therefore be
-// JSON-friendly (string/float64/bool/arrays/maps with string keys) when the
-// evolution strategy enables json+gzip compression.
-//
-// Args:
-//   - payload: the decoded payload (either *ahp.AHPMessage or a JSON map).
-//
-// Returns:
-//   - *ahp.AHPMessage: the restored message.
-//   - error: when the payload is not an AHPMessage or cannot be re-hydrated.
-func toAHPMessage(payload any) (*ahp.AHPMessage, error) {
-	if m, ok := payload.(*ahp.AHPMessage); ok {
-		return m, nil
-	}
-	// Re-hydrate from the JSON map produced by a json+gzip round-trip.
-	raw, err := json.Marshal(payload)
-	if err != nil {
-		return nil, fmt.Errorf("evolution IPC re-marshal: %w", err)
-	}
-	var m ahp.AHPMessage
-	if err := json.Unmarshal(raw, &m); err != nil {
-		return nil, fmt.Errorf("evolution IPC re-hydrate: %w", err)
-	}
-	return &m, nil
 }
 
 // strategyScoreAdapter bridges the aresrecovery.StrategyScoreWriter interface

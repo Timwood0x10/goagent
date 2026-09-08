@@ -69,6 +69,18 @@
 ### 2.4 其他
 - `panic(` 14 处：8 在 `examples/_fixtures/*`（demo）、1 `testdata/gen_pdf.go`、1 `arena.go:127`（混沌注入）、3 `sdk/*.go`（init fail-fast）、1 `examples/...`——**均非生产核心**，安全。
 - `TODO(tech-debt)` 11 处：kernel.go:364（agentipc）、scheduler.go:439（ready-queue）、l2graph.go:374（answer 合成器）、bootstrap_steps.go:155、shadow_sampler.go:230、observer.go:49、fitness_aggregator.go:80/304、lifecycle.go:1257、provide_new_evolution.go:155、goleak_test.go:20。
+### 2.5 本轮新增核查结论（goroutine / 资源清理 / 日志规范）
+
+**✅ 资源面整体健康（52 处 `go func` + 70 处 ticker/timer + 70 处 rows 扫描，抽查全部闭合）：**
+- **goroutine 无泄漏**：`cmd/ares` 4 处 `go func` 均带 ctx 取消 + 信号量 + recover 边界（`kernel.go:940` 用 `sweepCtx` timeout + `defer cancel`；`:990` `sem` + `<-ctx.Done()`；`serve.go:140` 是**故意不归 ctx 管的二次信号 watcher**，注释明示；`serve.go:2783` 一次性子流，close+recover）。`recovery.go:557` `realSleeper`、`agentipc/primitives.go:192` 死信 timer 均 `defer Stop()` + select 双读 ctx。
+- **ticker/timer 全部成对 Stop + 含 `<-ctx.Done()` 分支**：抽查 `bootstrap_steps.go:596`(suggestTicker)、`serve.go:2437`(pollSurvival)、`sliding_window.go`、`recovery.go:57` 均 `defer ticker.Stop()` 且写在 select 循环内。
+- **postgres `rows.Close` 全程覆盖**：70 处 Close/Next/defer，无裸 Rows 泄漏。
+- **`serve.go` 的 28 处 `fmt.Print*` 均为 CLI/console/arena UX 输出**（132/672-677 console banner、1992+ 场景校验、2204 arena server），非服务端业务日志——可接受。
+
+**🟡 新发现：日志规范不一致——`log.Printf` 112 处（非测试/非 examples）**
+仓库主线用 `log/slog`（结构化/级别/采样），但 `cmd/ares/*.go` 大量混用标准库 `log.Printf`（`kernel.go:207/302/340/689/732/742/779/785/872/911` 等）。→ **可观测性一致性问题**：`log.Printf` 无级别、无结构化字段、不可采样。建议批量为 kernel/serve 的运行时日志统一到 `slog`（`os.Exit`/二次信号等 CLI 路径除外）。
+
+---
 ---
 
 ## 3. 架构级问题（重构后状态）

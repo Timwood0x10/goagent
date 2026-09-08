@@ -52,7 +52,6 @@ Core files:
 | `internal/taskfabric/events.go` | Task lifecycle EventType + TaskEvent |
 | `internal/taskfabric/fabric.go` | Event recording / persistence / restore logic |
 | `internal/ares_flight/replay.go` | ReplaySession for step-by-step replay (see series #16) |
-| `internal/ares_skills/outcome_recorder.go` | SkillOutcomeRecorder: read-only subscriber |
 
 ---
 
@@ -110,7 +109,7 @@ EventSubTaskScheduled = "sub_task.scheduled"
 EventSubTaskStarted   = "sub_task.started"
 EventSubTaskResult    = "sub_task.result"
 EventSubAgentFailed   = "sub_agent.failed"
-// others: step.* / handoff / memory.finalize / discovery.* / component.failed
+// others: step.* / handoff / discovery.* / component.failed
 ```
 
 ### 2.3 EventStore Interface

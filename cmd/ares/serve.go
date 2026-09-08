@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"log/slog"
 	"net"
 	"net/http"
@@ -49,6 +48,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/knowledge/compiler"
 	akf_mcp "github.com/Timwood0x10/ares/internal/knowledge/mcp"
 	"github.com/Timwood0x10/ares/internal/llm/output"
+	"github.com/Timwood0x10/ares/internal/logger"
 	"github.com/Timwood0x10/ares/internal/runtime"
 	"github.com/Timwood0x10/ares/internal/runtime/archive"
 	arena "github.com/Timwood0x10/ares/internal/runtime/arena"
@@ -56,8 +56,12 @@ import (
 	flight "github.com/Timwood0x10/ares/internal/runtime/observability/flight"
 	"github.com/Timwood0x10/ares/internal/runtime/protocol/ahp"
 	"github.com/Timwood0x10/ares/internal/runtime/protocol/skills"
+	"github.com/Timwood0x10/ares/internal/storage/postgres"
 	core_tools "github.com/Timwood0x10/ares/internal/tools/resources/core"
 )
+
+// log is the package-level structured logger for the ares serve command.
+var log = logger.Module("ares")
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
@@ -172,7 +176,7 @@ func runServe() error {
 		// Record the pre-shutdown component snapshot for shutdown diagnostics
 		// (which components were still running before background exit).
 		if snapJSON, snapErr := comp.Snapshot().JSON(); snapErr == nil {
-			log.Printf("system_runtime snapshot (shutdown): %s", string(snapJSON))
+			log.Info("system_runtime snapshot (shutdown)", "snap_json", string(snapJSON))
 		}
 		// Wait for Bootstrap's background goroutines (distillation subscriber,
 		// GA evolution ticker, LLM suggestion ticker) to exit after the
@@ -181,14 +185,18 @@ func runServe() error {
 		return nil
 	})
 
-	// --- EventStore (archive-enabled, shared pipeline) ---
-	// Build the archive-enabled store once and inject it into Bootstrap so
-	// `ares serve` uses the same construction path as `ares start`
-	// (archive.NewCompactableStoreWithArchive is the single source).
-	// Archive defaults to on; disable via memory.archive.enabled: false.
-	// The raw *MemoryEventStore is unused here — serve consumes the store via
-	// the EventStore interface only — so it is discarded.
-	compactableStore, _, err := archive.NewCompactableStoreWithArchive(cfg.Memory.Archive)
+	// --- EventStore (Postgres when storage is configured, archive-enabled
+	// memory otherwise) ---
+	// Persistence contract (M4.1): when cfg.Storage points at Postgres, the
+	// serve event stream is the durable events table via PostgresEventStore —
+	// fitness evidence and the task.* log survive restarts, and the Task
+	// Fabric folds them back on boot (createPeerAgents → RestoreFromStore).
+	// PG construction failures are FATAL, mirroring Bootstrap's evidence-pool
+	// posture: silently falling back to the in-memory store would make the
+	// persistence feature lie about durability. Memory mode keeps the
+	// archive-enabled compactable store (round_N.json archive +
+	// compaction/trim) unchanged.
+	serveStore, closeStore, err := newServeEventStore(cfg)
 	if err != nil {
 		return fmt.Errorf("create event store: %w", err)
 	}
@@ -197,11 +205,17 @@ func runServe() error {
 	// Uses internal/ares_bootstrap for EventStore, Runtime, Memory.
 	// MCP setup is handled separately below for registry bridging. The store
 	// is passed via deps so Bootstrap wires Runtime/Memory against the real
-	// archive-enabled store instead of creating a throwaway MemoryEventStore.
+	// serve store instead of creating a throwaway MemoryEventStore. On
+	// success the store's shutdown is owned by the System Runtime (the
+	// eventstore stop hook closes it in reverse-topological order).
 	comp, err := ares_bootstrap.Bootstrap(ctx, cfg, &ares_bootstrap.BootstrapDeps{
-		EventStore: compactableStore,
+		EventStore: serveStore,
 	})
 	if err != nil {
+		// Bootstrap ran its own cleanups; the store came from serve, so its
+		// resources (the PG pool) are released here — mirroring Bootstrap's
+		// cleanup of its evidence pool on partial failure.
+		_ = closeStore() // best-effort cleanup on the failure path
 		return fmt.Errorf("bootstrap: %w", err)
 	}
 	// Publish the assembled components to the signal goroutine via the atomic
@@ -211,7 +225,7 @@ func runServe() error {
 	// (potentially long) Bootstrap, abort the startup instead of proceeding
 	// to wire components and start the runtime on a canceled context.
 	if err := ctx.Err(); err != nil {
-		log.Printf("serve: shutdown was requested during assembly (%v); aborting startup", err)
+		log.Info("serve: shutdown was requested during assembly; aborting startup", "err", err)
 		return normalizeShutdownErr(err)
 	}
 	store := comp.EventStore
@@ -243,9 +257,9 @@ func runServe() error {
 	// (names, modes, lifecycle states) so operators can confirm which
 	// components were assembled and reached Ready at startup.
 	if snapJSON, snapErr := comp.Snapshot().JSON(); snapErr == nil {
-		log.Printf("system_runtime snapshot (startup): %s", string(snapJSON))
+		log.Info("system_runtime snapshot (startup)", "snap_json", string(snapJSON))
 	} else {
-		log.Printf("system_runtime snapshot unavailable: %v", snapErr)
+		log.Warn("system_runtime snapshot unavailable", "err", snapErr)
 	}
 
 	// --- LLM adapter with fallback ---
@@ -280,10 +294,10 @@ func runServe() error {
 			t := akfTool // capture
 			adapted := &akfToolAdapter{name: t.Name, desc: t.Description, fn: t.Execute}
 			if err := internalReg.Register(adapted); err != nil {
-				log.Printf("AKF: failed to register tool %q: %v", t.Name, err)
+				log.Warn("AKF: failed to register tool", "name", t.Name, "err", err)
 			}
 		}
-		log.Printf("AKF tools registered with shared KnowledgeRuntime: %d", len(akfSvc.Tools()))
+		log.Info("AKF tools registered with shared KnowledgeRuntime", "count", len(akfSvc.Tools()))
 	}
 
 	// --- ToolBinder for agents ---
@@ -312,19 +326,19 @@ func runServe() error {
 	if comp.SkillCatalog != nil {
 		for _, t := range ares_skills.CatalogTools(comp.SkillCatalog) {
 			if err := internalReg.Register(t); err != nil {
-				log.Printf("serve: register skill tool %q skipped: %v", t.Name(), err)
+				log.Warn("serve: register skill tool skipped", "tool", t.Name(), "err", err)
 			}
 		}
-		log.Printf("serve: skill catalog tools registered (progressive disclosure active)")
+		log.Info("serve: skill catalog tools registered (progressive disclosure active)")
 	}
 
 	toolBinder := newToolBinder(internalReg)
-	log.Printf("tools registered: %d", len(toolBinder.ListTools()))
+	log.Info("tools registered", "count", len(toolBinder.ListTools()))
 
 	// --- Capability Planner bridge for agent tool fallback ---
 	if bridge := newPlannerBridge(internalReg); bridge != nil {
 		toolBinder.WithPlannerBridge(bridge)
-		log.Println("planner bridge: attached")
+		log.Info("planner bridge: attached")
 	}
 
 	// Step Y.3: arm the tool-call perception channel. The decorator wraps the
@@ -335,7 +349,7 @@ func runServe() error {
 	// recorder (channel not armed — the default) returns the binder untouched.
 	if comp.NewEvolution != nil && comp.NewEvolution.ChannelFeedback.ToolCallsArmed() {
 		toolBinder = sub.ObserveToolCalls(toolBinder, comp.NewEvolution.ChannelFeedback)
-		log.Printf("serve: tool-call feedback channel armed (evolution reads tool outcomes)")
+		log.Info("serve: tool-call feedback channel armed (evolution reads tool outcomes)")
 	}
 
 	// --- ChatClient for native tool calling ---
@@ -343,7 +357,7 @@ func runServe() error {
 	if err != nil {
 		return fmt.Errorf("create chat client: %w", err)
 	}
-	log.Printf("chat client created: provider=%s model=%s", cfg.LLM.Provider, cfg.LLM.Model)
+	log.Info("chat client created", "provider", cfg.LLM.Provider, "model", cfg.LLM.Model)
 
 	// --- Create + register agents with the runtime manager ---
 	subAgents, peerKernel, err := createAndServeAgents(ctx, cfg, internalReg, llmAdapter, chatClient, toolBinder, comp, mgr)
@@ -362,7 +376,7 @@ func runServe() error {
 	}
 	if peerKernel != nil {
 		peerKernel.peerRegistry = reg
-		log.Printf("serve: peer registry retained on kernel (%d agents)", len(reg.IDs()))
+		log.Info("serve: peer registry retained on kernel (agents)", "count", len(reg.IDs()))
 	}
 
 	// --- Runtime introspection control plane:
@@ -410,6 +424,63 @@ func normalizeShutdownErr(err error) error {
 		return nil
 	}
 	return err
+}
+
+// newServeEventStore builds the serve event store plus a cleanup function.
+//
+// Postgres mode — cfg.Storage.Enabled && cfg.Storage.Host != "", the exact
+// predicate Bootstrap uses for its evidence pool so one storage config drives
+// every durable subsystem consistently — the event stream persists in the
+// events table via PostgresEventStore, so fitness evidence, the task.* log
+// and thus the restore path survive restarts. Construction fail-loudly
+// rejects an unreachable database instead of silently degrading to memory: a
+// silent fallback would make the persistence feature lie (the operator
+// believes events survive restarts while they evaporate on exit).
+//
+// TODO(tech-debt): PG mode consciously drops the memory-mode archive
+// (round_N.json) and compaction/trim. Archive: the compactable wrapper's
+// round/lastArchivedVersion boundaries are in-memory and would re-archive the
+// whole restored history over existing round files after a restart; and the
+// archive exists to preserve rounds before TRIM deletes them, which never
+// happens in PG mode (the table itself is the durable history). Compaction:
+// PostgresEventStore implements no TrimAwareStore and no PG
+// SummaryRepository exists, so the wrapper would summarize into a repo that
+// dies on restart while never trimming — pure overhead on the append path.
+// Follow-up: a TTL/retention cleaner for the events table (the evidence
+// store's ExpiryCleaners pattern) and durable archive boundaries if round
+// files are wanted in PG mode.
+//
+// Returns:
+//   - store: the event store to inject via BootstrapDeps.EventStore.
+//   - close: releases the store's resources (PG pool); never nil.
+//   - err: wrapped construction failure.
+func newServeEventStore(cfg *ares_config.Config) (ares_events.EventStore, func() error, error) {
+	if cfg.Storage.Enabled && cfg.Storage.Host != "" {
+		pgCfg := &postgres.Config{
+			Host:     cfg.Storage.Host,
+			Port:     cfg.Storage.Port,
+			User:     cfg.Storage.Username,
+			Password: cfg.Storage.Password,
+			Database: cfg.Storage.Database,
+			SSLMode:  cfg.Storage.SSLMode,
+		}
+		pool, err := postgres.NewPool(pgCfg)
+		if err != nil {
+			return nil, nil, fmt.Errorf("event store: create postgres pool: %w", err)
+		}
+		store, err := ares_events.NewPostgresEventStore(pool)
+		if err != nil {
+			_ = pool.Close() // best-effort: the pool must not leak when store construction fails
+			return nil, nil, fmt.Errorf("event store: create postgres store: %w", err)
+		}
+		log.Info("serve: event store = postgres (task/event stream persists across restarts; task fabric restores on boot)")
+		return store, store.Close, nil
+	}
+	compactable, _, err := archive.NewCompactableStoreWithArchive(cfg.Memory.Archive)
+	if err != nil {
+		return nil, nil, err
+	}
+	return compactable, compactable.Close, nil
 }
 
 // akfToolAdapter adapts an AKF MCP tool (func(ctx, input string) -> string)
@@ -480,8 +551,7 @@ func setupServeControlPlane(
 	// dedicated goroutine below, migrated from dashboard.EventBridge) to
 	// score health / detect anomalies.
 	intelEngine := introspect.NewEngine(nil)
-	log.Printf("intelligence engine started: system=%s anomalies=%d",
-		intelEngine.SystemHealth().Level, len(intelEngine.Anomalies()))
+	log.Info("intelligence engine started", "level", intelEngine.SystemHealth().Level, "count", len(intelEngine.Anomalies()))
 
 	// Feed the intelligence engine from the shared event store. Independent of
 	// the introspect panel sink: this subscription only powers
@@ -491,7 +561,7 @@ func setupServeControlPlane(
 		g.Go(func() error {
 			ch, err := store.Subscribe(ctx, ares_events.EventFilter{})
 			if err != nil {
-				log.Printf("[intel] event subscribe failed: %v", err)
+				log.Warn("[intel] event subscribe failed", "err", err)
 				return nil
 			}
 			for {
@@ -613,9 +683,7 @@ func startServeHTTPAndHooks(
 	// Fail-safe posture: warn loudly (do not block startup) so operators who
 	// deliberately opt into 0.0.0.0 without auth still see the exposure.
 	if isWildcardHost(cfg.Server.Host) && !cfg.Security.AuthEnabled {
-		log.Printf("WARNING: server.host %q binds all interfaces while security.auth_enabled is false — "+
-			"the unauthenticated introspect read API (/api/v1/introspect/*) is reachable from the network; "+
-			"set security.auth_enabled or bind localhost", cfg.Server.Host)
+		log.Info("WARNING: server.host binds all interfaces while security.auth_enabled is false — the unauthenticated introspect read API (/api/v1/introspect/*) is reachable from the network; set security.auth_enabled or bind localhost", "host", cfg.Server.Host)
 	}
 
 	// API key for destructive endpoints (agents/chaos/tools). When empty,
@@ -728,7 +796,7 @@ func loadServeConfig() (*ares_config.Config, error) {
 		if servePort > 0 {
 			cfg.Server.Port = servePort
 		}
-		log.Printf("serve: minimal config (llm-url only); runtime defaults for all subsystems")
+		log.Info("serve: minimal config (llm-url only); runtime defaults for all subsystems")
 		return cfg, nil
 	}
 
@@ -795,10 +863,10 @@ func createLLMAdapterWithFallback(cfg *ares_config.Config) (output.LLMAdapter, e
 
 	adapter, err := factory.Create(cfg.LLM.Provider, primaryCfg)
 	if err == nil {
-		log.Printf("LLM adapter created: provider=%s model=%s", cfg.LLM.Provider, cfg.LLM.Model)
+		log.Info("LLM adapter created", "provider", cfg.LLM.Provider, "model", cfg.LLM.Model)
 		return adapter, nil
 	}
-	log.Printf("primary LLM failed, trying fallbacks: %v", err)
+	log.Warn("primary LLM failed, trying fallbacks", "err", err)
 
 	// Try fallbacks from config
 	for _, fb := range cfg.LLM.Fallbacks {
@@ -815,14 +883,13 @@ func createLLMAdapterWithFallback(cfg *ares_config.Config) (output.LLMAdapter, e
 		}
 		adapter, err = factory.Create(fbCfg.Provider, fbCfg)
 		if err == nil {
-			log.Printf("LLM fallback adapter created: provider=%s model=%s", fbCfg.Provider, fbCfg.Model)
+			log.Info("LLM fallback adapter created", "provider", fbCfg.Provider, "model", fbCfg.Model)
 			return adapter, nil
 		}
-		log.Printf("fallback LLM failed: provider=%s error=%v", fbCfg.Provider, err)
+		log.Warn("fallback LLM failed", "provider", fbCfg.Provider, "err", err)
 	}
-
 	// Last resort: ollama local
-	log.Print("all remote LLMs failed, falling back to local ollama")
+	log.Info("all remote LLMs failed, falling back to local ollama")
 	ollamaCfg := &output.Config{
 		Provider:  "ollama",
 		BaseURL:   "http://localhost:11434",
@@ -836,7 +903,7 @@ func createLLMAdapterWithFallback(cfg *ares_config.Config) (output.LLMAdapter, e
 		// while still retaining the underlying adapter-creation error.
 		return nil, fmt.Errorf("no LLM adapter available: %w (last attempt: %v)", ErrNoLLMAdapter, err)
 	}
-	log.Printf("LLM fallback to ollama: model=llama3.2")
+	log.Info("LLM fallback to ollama: model=llama3.2")
 	return adapter, nil
 }
 
@@ -923,7 +990,7 @@ func createAndServeAgents(
 	if comp.NewEvolution != nil {
 		strategySrc = ares_bootstrap.NewStrategySource(comp.NewEvolution.StrategyStore)
 		if strategySrc != nil {
-			log.Printf("serve: evolution strategy source wired into agents (GA deploy → runtime read)")
+			log.Info("serve: evolution strategy source wired into agents (GA deploy → runtime read)")
 		}
 	}
 
@@ -943,7 +1010,7 @@ func createAndServeAgents(
 		factory := func() base.Agent { return sa }
 		mgr.RegisterAgent(sa, factory)
 	}
-	log.Printf("serve: %d peer agents registered directly to Kernel", len(subAgents))
+	log.Info("serve: peer agents registered directly to Kernel", "count", len(subAgents))
 
 	// Live-DAG injection (closes the evolution structure-patch loop): the
 	// configured agent population IS the live workflow topology. Register it
@@ -957,9 +1024,9 @@ func createAndServeAgents(
 		case dagErr == nil:
 			mgr.RegisterAgentDAG(runtime.AgentDAGLiveKey, liveDAG)
 			if err := comp.NewEvolution.UpdateLiveDAG(liveDAG); err != nil {
-				log.Printf("serve: live DAG injection failed (evolution keeps placeholder): %v", err)
+				log.Warn("serve: live DAG injection failed (evolution keeps placeholder)", "err", err)
 			} else {
-				log.Printf("serve: live agent DAG injected into evolution executors (%d nodes)", len(liveDAG.Steps()))
+				log.Info("serve: live agent DAG injected into evolution executors (nodes)", "count", len(liveDAG.Steps()))
 			}
 
 			// Wire the compile coordinator so DAG mutations
@@ -973,9 +1040,9 @@ func createAndServeAgents(
 					peerKernel.fabric, comp.EventStore,
 				)
 				if _, err := peerKernel.compileCoord.CompileDAG(ctx, liveDAG); err != nil {
-					log.Printf("serve: initial DAG compile failed: %v", err)
+					log.Warn("serve: initial DAG compile failed", "err", err)
 				} else {
-					log.Printf("serve: live DAG compiled into task fabric")
+					log.Info("serve: live DAG compiled into task fabric")
 				}
 				peerKernel.compileCoord.SubscribeGraphEvents(ctx, liveDAG)
 
@@ -992,9 +1059,9 @@ func createAndServeAgents(
 				}
 			}
 		case errors.Is(dagErr, errNoLiveAgentDAG):
-			log.Printf("serve: no peers configured; evolution keeps placeholder DAG")
+			log.Info("serve: no peers configured; evolution keeps placeholder DAG")
 		default:
-			log.Printf("serve: live agent DAG build failed (evolution keeps placeholder): %v", dagErr)
+			log.Warn("serve: live agent DAG build failed (evolution keeps placeholder)", "err", dagErr)
 		}
 	}
 
@@ -1014,7 +1081,7 @@ func createAndServeAgents(
 				runKernelQuotaLoop(loopCtx, quotaMgr, parseKernelLoopConfig(cfg))
 				return nil
 			})
-			log.Printf("serve: evolution quota loop wired (GA budget → fabric P5 admission)")
+			log.Info("serve: evolution quota loop wired (GA budget → fabric P5 admission)")
 		}
 
 		// Evolution-aware spawn gate: "Evolution decides; Kernel enforces". The GA strategy store publishes
@@ -1030,7 +1097,7 @@ func createAndServeAgents(
 			if spawnSrc != nil {
 				spawner := aresrecovery.NewEvolutionAwareSpawner(peerKernel.agents, spawnSrc)
 				peerKernel.recovery.WithSpawner(spawner)
-				log.Printf("serve: evolution spawn gate wired (GA policy → recovery spawn enforcement)")
+				log.Info("serve: evolution spawn gate wired (GA policy → recovery spawn enforcement)")
 			}
 		}
 
@@ -1050,7 +1117,7 @@ func createAndServeAgents(
 				aresrecovery.RunKernelEvolutionLoop(loopCtx, popAdapter, 0, 0)
 				return nil
 			})
-			log.Printf("serve: evolution population loop wired (GA topology → fabric spawn/retire)")
+			log.Info("serve: evolution population loop wired (GA topology → fabric spawn/retire)")
 		}
 	}
 
@@ -1103,7 +1170,7 @@ func createAndServeAgents(
 				}
 			}
 		})
-		log.Printf("serve: introspect panel wired (GET /introspect)")
+		log.Info("serve: introspect panel wired (GET /introspect)")
 	}
 
 	// Wire the chaos subsystem. Default is shadow sandbox
@@ -1133,6 +1200,13 @@ func createAndServeAgents(
 // through a privileged orchestrator (primitive 2: peer-to-peer agent
 // messaging). Agents that do not expose SendMessage (interface assertion) are
 // skipped, not an error.
+//
+// TODO(tech-debt): no production agent exposes the SendMessage surface any
+// more — it was removed with the sub.Agent message queue — so this registry
+// is always empty and non-evolution ask_agent sends fail loud with "not
+// registered" (equivalent to the previous always-failing nil-queue
+// delivery). Kept for the discovery contract; removing it means
+// restructuring the non-evolution ask_agent branch.
 func buildPeerRegistry(subAgents []sub.Agent) *peer.Registry {
 	reg := peer.NewRegistry()
 	for _, sa := range subAgents {
@@ -1169,7 +1243,7 @@ func setupPeerRegistry(
 		// (channel not armed — the default) leaves the bus unobserved.
 		if rec := comp.NewEvolution.ChannelFeedback; rec.CollaborationArmed() {
 			bridge.ipc.Bus().WithCollaborationObserver(rec)
-			log.Printf("serve: collaboration feedback channel armed (evolution reads collaboration receipts)")
+			log.Info("serve: collaboration feedback channel armed (evolution reads collaboration receipts)")
 		}
 		// Wire ask_agent to ipc.Send. The syscall Kernel is built
 		// in peer_mode before the bridge exists, so the collaboration primitive
@@ -1182,9 +1256,9 @@ func setupPeerRegistry(
 			kernel.syscalls.SetAskAgent(func(ctx context.Context, from, to, topic string, payload any) error {
 				return ipc.Send(ctx, from, to, topic, payload)
 			})
-			log.Printf("serve: ask_agent syscall wired to evolution-aware IPC (%d collaboration path)", len(reg.IDs()))
+			log.Info("serve: ask_agent syscall wired to evolution-aware IPC (collaboration path)", "count", len(reg.IDs()))
 		}
-		log.Printf("peer registry wired through evolution-aware IPC: %d agents registered", len(reg.IDs()))
+		log.Info("peer registry wired through evolution-aware IPC: agents registered", "count", len(reg.IDs()))
 	default:
 		reg = buildPeerRegistry(subAgents)
 		// The ask_agent tool is advertised on the binder in every serve
@@ -1205,9 +1279,9 @@ func setupPeerRegistry(
 				msg := ahp.NewTaskMessage(from, to, "", "", body)
 				return plainReg.Send(ctx, to, msg)
 			})
-			log.Printf("serve: ask_agent syscall wired to plain peer registry (%d agents)", len(reg.IDs()))
+			log.Info("serve: ask_agent syscall wired to plain peer registry (agents)", "count", len(reg.IDs()))
 		}
-		log.Printf("peer registry wired: %d agents registered", len(reg.IDs()))
+		log.Info("peer registry wired: agents registered", "count", len(reg.IDs()))
 	}
 	// Retain the registry on the kernel handle at construction time (the
 	// return value was previously discarded by callers). serve.go also assigns
@@ -1233,11 +1307,11 @@ func injectToolClassDAG(comp *ares_bootstrap.Components, toolBinder sub.ToolBind
 	switch {
 	case err == nil:
 		comp.NewEvolution.SetToolClassDAG(l1DAG)
-		log.Printf("serve: L1 ToolClass DAG injected into evolution (%d nodes)", len(l1DAG.Steps()))
+		log.Info("serve: L1 ToolClass DAG injected into evolution (nodes)", "count", len(l1DAG.Steps()))
 	case errors.Is(err, errNoToolSchemas):
-		log.Printf("serve: no tool schemas; L1 ToolClass DAG skipped (constraints default to permissive)")
+		log.Info("serve: no tool schemas; L1 ToolClass DAG skipped (constraints default to permissive)")
 	default:
-		log.Printf("serve: L1 ToolClass DAG build failed (constraints default to permissive): %v", err)
+		log.Warn("serve: L1 ToolClass DAG build failed (constraints default to permissive)", "err", err)
 	}
 }
 
@@ -1284,14 +1358,12 @@ func shadowSandboxLoop(ctx context.Context, interval time.Duration, status *intr
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-
-	log.Printf("serve: shadow sandbox loop started (interval=%s, production agents untouched)",
-		interval.String())
+	log.Info("serve: shadow sandbox loop started (production agents untouched)", "interval", interval.String())
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("serve: shadow sandbox loop stopping (context cancelled)")
+			log.Info("serve: shadow sandbox loop stopping (context cancelled)")
 			return
 		case <-ticker.C:
 			runShadowSandbox(ctx, status)
@@ -1327,7 +1399,7 @@ func runShadowSandbox(ctx context.Context, status *introspect.ChaosReporter) {
 
 	outcomes, err := sandbox.Replay(ctx, events)
 	if err != nil {
-		log.Printf("serve: shadow sandbox replay failed: %v (recovery verification inconclusive)", err)
+		log.Info("serve: shadow sandbox replay failed: (recovery verification inconclusive)", "err", err)
 		if status != nil {
 			status.RecordShadow(introspect.ShadowResult{
 				LastRun:   time.Now(),
@@ -1346,7 +1418,7 @@ func runShadowSandbox(ctx context.Context, status *introspect.ChaosReporter) {
 	// recover.all outcome's Detail. A missing/empty outcome list is treated
 	// as inconclusive.
 	if len(outcomes) == 0 {
-		log.Printf("serve: shadow sandbox replay produced no outcomes (recovery verification inconclusive)")
+		log.Info("serve: shadow sandbox replay produced no outcomes (recovery verification inconclusive)")
 		if status != nil {
 			status.RecordShadow(introspect.ShadowResult{
 				LastRun:   time.Now(),
@@ -1360,10 +1432,9 @@ func runShadowSandbox(ctx context.Context, status *introspect.ChaosReporter) {
 	last := outcomes[len(outcomes)-1]
 	recovered, _ := last.Detail["recovered"].(int)
 	recoveredOK := recovered > 0
-	log.Printf("serve: shadow sandbox completed (events=%d, final_task_state=%s, recovered=%d)",
-		len(outcomes), last.TaskState, recovered)
+	log.Info("serve: shadow sandbox completed", "events", len(outcomes), "final_task_state", last.TaskState, "recovered", recovered)
 	if !recoveredOK {
-		log.Printf("serve: shadow sandbox WARNING — recovery chain did not recover the requeued task; chain may be degraded")
+		log.Info("serve: shadow sandbox WARNING — recovery chain did not recover the requeued task; chain may be degraded")
 	}
 	if status != nil {
 		status.RecordShadow(introspect.ShadowResult{
@@ -1397,7 +1468,7 @@ func wireChaos(ctx context.Context, comp *ares_bootstrap.Components, cfg *ares_c
 		}
 	}
 	if !cfg.Kernel.Chaos.Enabled {
-		log.Printf("serve: chaos subsystem disabled (kernel.chaos.enabled=false)")
+		log.Info("serve: chaos subsystem disabled (kernel.chaos.enabled=false)")
 		return
 	}
 
@@ -1420,7 +1491,7 @@ func wireChaos(ctx context.Context, comp *ares_bootstrap.Components, cfg *ares_c
 
 	case "live":
 		if !cfg.Kernel.Chaos.AllowLive {
-			log.Printf("serve: chaos mode=live but allow_live=false — falling back to shadow mode")
+			log.Info("serve: chaos mode=live but allow_live=false — falling back to shadow mode")
 			startShadow()
 			return
 		}
@@ -1430,13 +1501,13 @@ func wireChaos(ctx context.Context, comp *ares_bootstrap.Components, cfg *ares_c
 		// eligible_capabilities list must disable injection entirely rather
 		// than default to "everything is a target".
 		if len(cfg.Kernel.Chaos.EligibleCapabilities) == 0 {
-			log.Printf("serve: live chaos requested but eligible_capabilities is empty — refusing to arm (falling back to shadow)")
+			log.Info("serve: live chaos requested but eligible_capabilities is empty — refusing to arm (falling back to shadow)")
 			startShadow()
 			return
 		}
 		if peerKernel != nil && peerKernel.agents != nil && peerKernel.recovery != nil {
 			if cfg.Kernel.Chaos.StopToken == "" {
-				log.Printf("serve: live chaos requested but stop_token is empty — refusing to arm without an emergency-stop credential")
+				log.Info("serve: live chaos requested but stop_token is empty — refusing to arm without an emergency-stop credential")
 				startShadow()
 				return
 			}
@@ -1446,15 +1517,14 @@ func wireChaos(ctx context.Context, comp *ares_bootstrap.Components, cfg *ares_c
 				liveChaosLoop(loopCtx, chaos, peerKernel.agents, interval, cfg.Kernel.Chaos, gaActive, status)
 				return nil
 			})
-			log.Printf("serve: LIVE chaos mode enabled — agents WILL be killed (interval=%s, rate=%d/min enforced, whitelist=%v)",
-				interval.String(), cfg.Kernel.Chaos.RatePerMin, cfg.Kernel.Chaos.EligibleCapabilities)
+			log.Warn("serve: LIVE chaos mode enabled — agents WILL be killed", "interval", interval.String(), "rate_per_min", cfg.Kernel.Chaos.RatePerMin, "eligible_capabilities", cfg.Kernel.Chaos.EligibleCapabilities)
 		} else {
-			log.Printf("serve: live chaos requested but kernel handle incomplete — falling back to shadow")
+			log.Info("serve: live chaos requested but kernel handle incomplete — falling back to shadow")
 			startShadow()
 		}
 
 	default:
-		log.Printf("serve: unknown chaos mode %q — defaulting to shadow", mode)
+		log.Info("serve: unknown chaos mode — defaulting to shadow", "mode", mode)
 		startShadow()
 	}
 }
@@ -1584,14 +1654,12 @@ func liveChaosLoop(ctx context.Context, chaos *aresrecovery.Chaos, fabric *agent
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-
-	log.Printf("serve: live chaos loop started (interval=%s, rate_limit=%d/min ENFORCED, cooldown=%s ENFORCED, fail_safe=latch, whitelist=%v, ga_pause=%t)",
-		interval.String(), ratePerMin, cooldown.String(), cfg.EligibleCapabilities, cfg.PauseDuringGA)
+	log.Info("serve: live chaos loop started (rate limit and cooldown enforced)", "interval", interval.String(), "rate_per_min", ratePerMin, "cooldown", cooldown.String(), "eligible_capabilities", cfg.EligibleCapabilities, "pause_during_ga", cfg.PauseDuringGA)
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("serve: live chaos loop stopping (context cancelled)")
+			log.Info("serve: live chaos loop stopping (context cancelled)")
 			if status != nil {
 				status.SetLive(introspect.LiveChaosState{Active: false})
 			}
@@ -1600,7 +1668,7 @@ func liveChaosLoop(ctx context.Context, chaos *aresrecovery.Chaos, fabric *agent
 			// Emergency stop: POST /api/chaos/stop trips
 			// this permanently — the loop exits rather than idles.
 			if liveChaosCtl.Stopped() {
-				log.Printf("serve: live chaos loop stopped by emergency stop endpoint")
+				log.Info("serve: live chaos loop stopped by emergency stop endpoint")
 				if status != nil {
 					status.SetLive(introspect.LiveChaosState{
 						Active:           false,
@@ -1610,7 +1678,7 @@ func liveChaosLoop(ctx context.Context, chaos *aresrecovery.Chaos, fabric *agent
 				return
 			}
 			if guard.isStopped() {
-				log.Printf("serve: live chaos loop stopped by fail-safe latch (earlier recovery verification failed)")
+				log.Info("serve: live chaos loop stopped by fail-safe latch (earlier recovery verification failed)")
 				if status != nil {
 					status.SetLive(introspect.LiveChaosState{
 						Active:          false,
@@ -1625,7 +1693,7 @@ func liveChaosLoop(ctx context.Context, chaos *aresrecovery.Chaos, fabric *agent
 			if cfg.PauseDuringGA && gaActive != nil && gaActive() {
 				if !pausedForGA {
 					pausedForGA = true
-					log.Printf("serve: live chaos paused — GA generation in flight (quiet window)")
+					log.Info("serve: live chaos paused — GA generation in flight (quiet window)")
 					if status != nil {
 						status.SetLive(introspect.LiveChaosState{Active: true, PausedForGA: true})
 					}
@@ -1634,7 +1702,7 @@ func liveChaosLoop(ctx context.Context, chaos *aresrecovery.Chaos, fabric *agent
 			}
 			if pausedForGA {
 				pausedForGA = false
-				log.Printf("serve: live chaos resumed — GA generation finished")
+				log.Info("serve: live chaos resumed — GA generation finished")
 				if status != nil {
 					status.SetLive(introspect.LiveChaosState{Active: true, PausedForGA: false})
 				}
@@ -1655,13 +1723,13 @@ func liveChaosLoop(ctx context.Context, chaos *aresrecovery.Chaos, fabric *agent
 func runLiveChaosInjection(ctx context.Context, chaos *aresrecovery.Chaos, fabric *agentfabric.Fabric, guard *liveChaosGuard, eligible []string, status *introspect.ChaosReporter) {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("serve: live chaos injection panicked (recovered): %v", r)
+			log.Error("serve: live chaos injection panicked (recovered)", "panic", r)
 		}
 	}()
 
 	agents := fabric.Agents()
 	if len(agents) == 0 {
-		log.Printf("serve: live chaos — no agents available for injection")
+		log.Info("serve: live chaos — no agents available for injection")
 		return
 	}
 
@@ -1683,19 +1751,19 @@ func runLiveChaosInjection(ctx context.Context, chaos *aresrecovery.Chaos, fabri
 		break
 	}
 	if target == "" {
-		log.Printf("serve: live chaos — no eligible target (cooldown or whitelist), skipping cycle")
+		log.Info("serve: live chaos — no eligible target (cooldown or whitelist), skipping cycle")
 		return
 	}
 
 	// Enforced rate limit: the token bucket admits at most RatePerMin
 	// injections per minute regardless of ticker cadence.
 	if allowed, err := guard.limiter.Allow(ctx); err != nil || !allowed {
-		log.Printf("serve: live chaos — rate limited (%v), skipping injection on %s", err, target)
+		log.Info("serve: live chaos — rate limited, skipping injection on", "err", err, "target", target)
 		return
 	}
 
 	if err := chaos.InjectFailure(ctx, target, aresrecovery.FailureKill); err != nil {
-		log.Printf("serve: live chaos inject kill %s failed: %v", target, err)
+		log.Warn("serve: live chaos inject kill failed", "target", target, "err", err)
 		return
 	}
 	guard.markInjected(target, now)
@@ -1711,7 +1779,7 @@ func runLiveChaosInjection(ctx context.Context, chaos *aresrecovery.Chaos, fabri
 	recovered := chaos.VerifyRecovery(ctx)
 	if recovered == 0 {
 		guard.stop()
-		log.Printf("serve: live chaos — recovery verification FAILED for %s (0 agents recovered); FURTHER INJECTIONS STOPPED by fail-safe latch", target)
+		log.Info("serve: live chaos — recovery verification FAILED for (0 agents recovered); FURTHER INJECTIONS STOPPED by fail-safe latch", "target", target)
 		if status != nil {
 			status.SetLive(introspect.LiveChaosState{
 				Active:          true,
@@ -1720,8 +1788,7 @@ func runLiveChaosInjection(ctx context.Context, chaos *aresrecovery.Chaos, fabri
 		}
 		return
 	}
-
-	log.Printf("serve: live chaos — agent %s killed and recovered (%d agents recovered)", target, recovered)
+	log.Info("serve: live chaos — agent killed and recovered (agents recovered)", "target", target, "recovered", recovered)
 }
 
 // parseChaosInterval parses the chaos interval string, returning the default
@@ -2658,13 +2725,13 @@ func buildArenaInjector() (*arena.Injector, *runtime.Manager) {
 	// appearing to act on agents that are not running.
 	var rt arena.RuntimeProvider
 	if err := mgr.Start(context.Background()); err != nil {
-		log.Printf("arena serve: demo agent pool start failed (%v); agent injections disabled", err)
+		log.Info("arena serve: demo agent pool start failed; agent injections disabled", "err", err)
 	} else {
 		rt = &arenaRuntimeProvider{mgr: mgr}
 	}
 	dag, err := engine.NewMutableDAG(nil)
 	if err != nil {
-		log.Printf("arena serve: mutable DAG unavailable (%v); DAG injections disabled", err)
+		log.Info("arena serve: mutable DAG unavailable; DAG injections disabled", "err", err)
 		return arena.NewInjector(rt, nil), mgr
 	}
 	return arena.NewInjector(rt, &arenaDAGProvider{dag: dag}), mgr
@@ -2709,7 +2776,7 @@ func (a *arenaDemoAgent) ProcessStream(ctx context.Context, input any) (<-chan b
 		defer func() {
 			close(ch)
 			if r := recover(); r != nil {
-				log.Printf("arena: demo agent stream panicked (recovered): %v", r)
+				log.Error("arena: demo agent stream panicked (recovered)", "panic", r)
 			}
 		}()
 		out, _ := a.Process(ctx, input)

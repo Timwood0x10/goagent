@@ -4,13 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/Timwood0x10/ares/api/tools"
+	"github.com/Timwood0x10/ares/internal/logger"
 	"github.com/Timwood0x10/ares/internal/runtime/ares_evolution/genome"
 	"github.com/Timwood0x10/ares/internal/runtime/ares_evolution/mutation"
 )
+
+// log is the package-level structured logger for the sdk package.
+var log = logger.Module("sdk")
 
 // Evolvable strategy parameter keys. Shared across base strategy creation,
 // mutator ranges, scoring, and application so the dimension names stay
@@ -42,7 +45,7 @@ func (r *Runtime) Evolve(ctx context.Context, agent *Agent, task string) (string
 	}
 
 	if r.trace {
-		log.Printf("[ares:evolve] evolving agent %q on task: %s", agent.name, task)
+		log.Info("[ares:evolve] evolving agent on task", "name", agent.name, "task", task)
 	}
 
 	// Create base strategy with two actionable dimensions: tool selection
@@ -110,8 +113,7 @@ func (r *Runtime) Evolve(ctx context.Context, agent *Agent, task string) (string
 
 	if r.trace {
 		stats := pop.Stats()
-		log.Printf("[ares:evolve] GA evolution complete: gen=%d, best=%.1f, avg=%.1f, strategy=%v",
-			stats.Generation, stats.BestScore, stats.AvgScore, best.Params)
+		log.Info("[ares:evolve] GA evolution complete", "generation", stats.Generation, "best_score", stats.BestScore, "avg_score", stats.AvgScore, "params", best.Params)
 	}
 
 	// Apply the evolved strategy's params to the agent.
@@ -178,7 +180,7 @@ func executeAndScore(ctx context.Context, r *Runtime, agent *Agent, task string,
 	duration := time.Since(start)
 
 	if err != nil {
-		log.Printf("[ares:evolve] execution failed: %v", err)
+		log.Warn("[ares:evolve] execution failed", "err", err)
 		return 10.0
 	}
 
@@ -231,12 +233,12 @@ func applyEvolvedParams(agent *Agent, params map[string]any) {
 	if v, ok := params[paramToolSelector]; ok {
 		if selector, isString := v.(string); isString {
 			agent.tools = applyToolSelector(agent.tools, map[string]any{paramToolSelector: selector})
-			log.Printf("[ares:evolve] applied tool_selector=%v (%d tools after filtering)", v, len(agent.tools))
+			log.Info("[ares:evolve] applied tool_selector (tools after filtering)", "selector", selector, "count", len(agent.tools))
 		}
 	}
 	agent.maxIter = applySearchDepth(agent.maxIter, params)
 	if v, ok := params[paramSearchDepth]; ok {
-		log.Printf("[ares:evolve] applied search_depth=%v (maxIter=%d)", v, agent.maxIter)
+		log.Info("[ares:evolve] applied search_depth", "depth", v, "max_iter", agent.maxIter)
 	}
 }
 

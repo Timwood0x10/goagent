@@ -2,231 +2,49 @@ package main
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/Timwood0x10/ares/internal/agentipc"
-	"github.com/Timwood0x10/ares/internal/agents/peer"
-	"github.com/Timwood0x10/ares/internal/aresrecovery"
+	"github.com/Timwood0x10/ares/internal/agents/base"
+	"github.com/Timwood0x10/ares/internal/agents/sub"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	"github.com/Timwood0x10/ares/internal/runtime/protocol/ahp"
 )
 
-// fakeMessageAgent implements the SendMessage surface (interface assertion
-// used by wireEvolutionIPC) with a recording delivery function.
-type fakeMessageAgent struct {
-	id  string
-	mu  sync.Mutex
-	got []*ahp.AHPMessage
-}
-
-func (a *fakeMessageAgent) ID() string { return a.id }
-
-func (a *fakeMessageAgent) SendMessage(_ context.Context, msg *ahp.AHPMessage) error {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	a.got = append(a.got, msg)
-	return nil
-}
-
-func (a *fakeMessageAgent) messages() []*ahp.AHPMessage {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	out := make([]*ahp.AHPMessage, len(a.got))
-	copy(out, a.got)
-	return out
-}
-
-// stubIPCProtocolSource returns a fixed IPC policy.
-type stubIPCProtocolSource struct {
-	policy aresrecovery.IPCProtocolPolicy
-}
-
-func (s *stubIPCProtocolSource) ActiveIPCProtocolPolicy(context.Context) (aresrecovery.IPCProtocolPolicy, error) {
-	return s.policy, nil
-}
-
-// buildBridge mirrors wireEvolutionIPC's registration logic on a fresh bus so
-// the test can exercise the full json+gzip round trip without constructing
-// the large leader.Agent / sub.Agent interfaces. It creates the bus AND the
-// policy-aware IPC on the SAME bus, so the peer send reaches the registered
-// handler. A non-nil tracer records each peer send as a message span, exactly
-// like the production wiring (TraceMessage was once library-only).
-func buildBridge(target *fakeMessageAgent, policy aresrecovery.IPCProtocolPolicy, tracer *aresrecovery.GlobalTracer) *peer.Registry {
-	bus := agentipc.NewBus()
-	ipc := aresrecovery.NewEvolutionAwareIPC(bus, &stubIPCProtocolSource{policy: policy})
-	_ = bus.Register(target.ID(), func(ctx context.Context, msg *agentipc.Message) (*agentipc.Message, error) {
-		payload, err := aresrecovery.Decode(msg.Payload)
-		if err != nil {
-			return nil, err
-		}
-		ahpMsg, err := toAHPMessage(payload)
-		if err != nil {
-			return nil, err
-		}
-		return nil, target.SendMessage(ctx, ahpMsg)
-	})
-	reg := peer.NewRegistry()
-	_ = reg.Register(target.ID(), func(ctx context.Context, m *ahp.AHPMessage) error {
-		if tracer != nil {
-			tracer.TraceMessage(m.MessageID, "sent", m.TaskID, map[string]any{
-				"from": m.AgentID,
-				"to":   target.ID(),
-			})
-		}
-		return ipc.Send(ctx, m.AgentID, target.ID(), peerTopic, m)
-	})
-	return reg
-}
-
-// TestEvolutionIPCBridgeRoundTrip verifies the full round trip under
-// json+gzip: the peer send is compressed on the wire and the target agent
-// receives the original message content (proving Decode in the bus handler).
-func TestEvolutionIPCBridgeRoundTrip(t *testing.T) {
-	ctx := context.Background()
-	target := &fakeMessageAgent{id: "sub-1"}
-
-	reg := buildBridge(target, aresrecovery.IPCProtocolPolicy{
-		Encoding: aresrecovery.WireJSONGzip, MinCompressSize: 1,
-	}, nil)
-
-	msg := &ahp.AHPMessage{
-		MessageID: "m-roundtrip",
-		AgentID:   "leader",
-		Method:    ahp.AHPMethodACK,
-		Payload:   map[string]any{"compressed": true, "n": 42},
-	}
-	if err := reg.Send(ctx, "sub-1", msg); err != nil {
-		t.Fatalf("peer send: %v", err)
-	}
-	got := target.messages()
-	if len(got) != 1 {
-		t.Fatalf("want 1 delivered message, got %d", len(got))
-	}
-	if got[0].MessageID != "m-roundtrip" || got[0].Payload["compressed"] != true || got[0].Payload["n"] != float64(42) {
-		t.Fatalf("round-trip content mismatch: %+v", got[0])
-	}
-}
-
-// TestEvolutionIPCBridgePlainJSON verifies the default plain-json policy
-// delivers the original message unchanged (backward compatible with the
-// direct peer channel).
-func TestEvolutionIPCBridgePlainJSON(t *testing.T) {
-	ctx := context.Background()
-	target := &fakeMessageAgent{id: "sub-1"}
-
-	reg := buildBridge(target, aresrecovery.IPCProtocolPolicy{Encoding: aresrecovery.WireJSON}, nil)
-
-	msg := &ahp.AHPMessage{
-		MessageID: "m-plain",
-		AgentID:   "leader",
-		Method:    ahp.AHPMethodTask,
-		Payload:   map[string]any{"hello": "world"},
-	}
-	if err := reg.Send(ctx, "sub-1", msg); err != nil {
-		t.Fatalf("peer send: %v", err)
-	}
-	got := target.messages()
-	if len(got) != 1 {
-		t.Fatalf("want 1 delivered message, got %d", len(got))
-	}
-	if got[0].MessageID != "m-plain" || got[0].Payload["hello"] != "world" {
-		t.Fatalf("unexpected delivered message %+v", got[0])
-	}
-}
-
-// TestToAHPMessage verifies both decode paths: the original pointer passes
-// through, and a json+gzip round-trip map is re-hydrated.
-func TestToAHPMessage(t *testing.T) {
-	original := &ahp.AHPMessage{MessageID: "m1", AgentID: "a", Method: ahp.AHPMethodACK}
-
-	// Path 1: original pointer unchanged.
-	got, err := toAHPMessage(original)
-	if err != nil {
-		t.Fatalf("toAHPMessage(original): %v", err)
-	}
-	if got != original {
-		t.Fatal("original pointer must pass through unchanged")
-	}
-
-	// Path 2: a decoded json+gzip payload is a map; re-hydrate it.
-	mapPayload := map[string]any{
-		"message_id": "m1",
-		"agent_id":   "a",
-		"method":     "ACK",
-		"payload":    map[string]any{"k": "v"},
-	}
-	got2, err := toAHPMessage(mapPayload)
-	if err != nil {
-		t.Fatalf("toAHPMessage(map): %v", err)
-	}
-	if got2.MessageID != "m1" || got2.AgentID != "a" || got2.Method != ahp.AHPMethodACK {
-		t.Fatalf("re-hydrated message mismatch: %+v", got2)
-	}
-	if got2.Payload["k"] != "v" {
-		t.Fatalf("payload lost in re-hydration: %+v", got2.Payload)
-	}
-}
-
-// TestToAHPMessageRejectsGarbage verifies a non-AHPMessage payload surfaces
-// as an error instead of silently producing an empty message.
-func TestToAHPMessageRejectsGarbage(t *testing.T) {
-	if _, err := toAHPMessage(42); err == nil {
-		t.Fatal("non-message payload must error")
-	}
-}
-
-// TestEvolutionIPCBridgeTracesMessage verifies the tracing wiring: every
-// peer send through the evolution-aware bus also records a cross-Fabric
-// message span on the shared GlobalTracer (TraceMessage's production path,
-// previously library-only). The span is keyed by the message id and links to
-// the task it serves.
-func TestEvolutionIPCBridgeTracesMessage(t *testing.T) {
-	ctx := context.Background()
-	target := &fakeMessageAgent{id: "sub-1"}
-	tracer := aresrecovery.NewGlobalTracer()
-	reg := buildBridge(target, aresrecovery.IPCProtocolPolicy{Encoding: aresrecovery.WireJSON}, tracer)
-
-	msg := &ahp.AHPMessage{
-		MessageID: "m-trace",
-		TaskID:    "t1",
-		AgentID:   "leader",
-		Method:    ahp.AHPMethodTask,
-		Payload:   map[string]any{"hello": "world"},
-	}
-	if err := reg.Send(ctx, "sub-1", msg); err != nil {
-		t.Fatalf("peer send: %v", err)
-	}
-
-	span := tracer.Span("m-trace")
-	if span == nil {
-		t.Fatalf("peer send must open a message span for %q", msg.MessageID)
-	}
-	if span.Kind != aresrecovery.SpanMessage || span.ParentID != "t1" {
-		t.Fatalf("span must be a message span linked to task t1, got %+v", span)
-	}
-	if len(span.Events) != 1 || span.Events[0].Name != "sent" {
-		t.Fatalf("want a single 'sent' event, got %+v", span.Events)
-	}
-	if span.Events[0].Detail["from"] != "leader" || span.Events[0].Detail["to"] != "sub-1" {
-		t.Fatalf("span detail must carry from/to, got %+v", span.Events[0].Detail)
-	}
-}
-
-// ── Collaboration wiring (delegate/pipeline/orchestrate) ────────────────
-
-// fakeExecuteAgent implements both the SendMessage surface (peer delivery) and
-// sub.Agent Execute (collaboration execution), so wireEvolutionIPC wires it
-// with an execute capability.
+// fakeExecuteAgent satisfies sub.Agent with a recording Execute capability —
+// the surface wireEvolutionIPC registers for collaboration topics. (The peer
+// SendMessage surface was removed with the sub.Agent message queue; only
+// collaboration topics deliver.)
 type fakeExecuteAgent struct {
-	*fakeMessageAgent
+	id       string
+	mu       sync.Mutex
+	executed []string
 }
 
-// Execute satisfies sub.Agent: records the task and returns a canned result.
+func (a *fakeExecuteAgent) ID() string                    { return a.id }
+func (a *fakeExecuteAgent) Type() models.AgentType        { return "specialist" }
+func (a *fakeExecuteAgent) Start(_ context.Context) error { return nil }
+func (a *fakeExecuteAgent) Stop(_ context.Context) error  { return nil }
+func (a *fakeExecuteAgent) Status() models.AgentStatus    { return models.AgentStatusReady }
+func (a *fakeExecuteAgent) Process(_ context.Context, _ any) (any, error) {
+	return nil, nil
+}
+func (a *fakeExecuteAgent) ProcessStream(_ context.Context, _ any) (<-chan base.AgentEvent, error) {
+	return nil, nil
+}
+func (a *fakeExecuteAgent) ExecuteStep(_ context.Context, _ *models.Task) (*sub.StepOutcome, error) {
+	return nil, nil
+}
+
+// Execute satisfies the collaboration execute capability: records the task
+// and returns a canned result.
 func (a *fakeExecuteAgent) Execute(_ context.Context, task *models.Task) (*models.TaskResult, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	a.executed = append(a.executed, task.TaskID)
 	return &models.TaskResult{
 		TaskID:    task.TaskID,
 		AgentType: task.TaskType,
@@ -235,13 +53,21 @@ func (a *fakeExecuteAgent) Execute(_ context.Context, task *models.Task) (*model
 	}, nil
 }
 
+func (a *fakeExecuteAgent) executions() []string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	out := make([]string, len(a.executed))
+	copy(out, a.executed)
+	return out
+}
+
 // TestExecuteCollaboration_RunsTaskAndReturnsReply verifies the core helper
 // behind the collaboration wiring: a delegate/pipeline/orchestrate message
 // is bridged into a *models.Task, executed on the target agent, and the result
 // is returned as the request/reply reply with the correlation id preserved.
 func TestExecuteCollaboration_RunsTaskAndReturnsReply(t *testing.T) {
 	ctx := context.Background()
-	agent := &fakeExecuteAgent{fakeMessageAgent: &fakeMessageAgent{id: "specialist-1"}}
+	agent := &fakeExecuteAgent{id: "specialist-1"}
 
 	reply, err := executeCollaboration(ctx, agent.id, &agentipc.Message{
 		From:          "leader",
@@ -278,7 +104,7 @@ func TestExecuteCollaboration_RunsTaskAndReturnsReply(t *testing.T) {
 // request without the task id is rejected, not silently executed.
 func TestExecuteCollaboration_RejectsMissingTaskID(t *testing.T) {
 	ctx := context.Background()
-	agent := &fakeExecuteAgent{fakeMessageAgent: &fakeMessageAgent{id: "specialist-1"}}
+	agent := &fakeExecuteAgent{id: "specialist-1"}
 
 	_, err := executeCollaboration(ctx, agent.id, &agentipc.Message{
 		Topic:   topicDelegateTask,
@@ -293,7 +119,7 @@ func TestExecuteCollaboration_RejectsMissingTaskID(t *testing.T) {
 // collaboration payload (e.g. a raw string) is rejected.
 func TestExecuteCollaboration_RejectsNonMapPayload(t *testing.T) {
 	ctx := context.Background()
-	agent := &fakeExecuteAgent{fakeMessageAgent: &fakeMessageAgent{id: "specialist-1"}}
+	agent := &fakeExecuteAgent{id: "specialist-1"}
 
 	_, err := executeCollaboration(ctx, agent.id, &agentipc.Message{
 		Topic:   topicPipelineStage,
@@ -309,7 +135,7 @@ func TestExecuteCollaboration_RejectsNonMapPayload(t *testing.T) {
 // of silently dropping them.
 func TestExecuteCollaboration_NoExecuteCapability(t *testing.T) {
 	ctx := context.Background()
-	target := &fakeMessageAgent{id: "leader"}
+	target := &fakeExecuteAgent{id: "leader"}
 
 	_, err := executeCollaboration(ctx, target.id, &agentipc.Message{
 		Topic:   topicDelegateTask,
@@ -321,30 +147,20 @@ func TestExecuteCollaboration_NoExecuteCapability(t *testing.T) {
 }
 
 // TestWireEvolutionIPC_CollaborationExecutedOnSub verifies the end-to-end
-// wiring: a DelegateToSpecialist request sent through a bus that mirrors the
-// production wireEvolutionIPC registration (topic dispatch + Execute) reaches
-// the sub agent's Execute capability and the result round-trips back as the
-// reply. This proves collaboration is no longer library-only — a bus
-// handler for the delegate topic executes on the target agent.
+// production wiring: wireEvolutionIPC registers every sub agent's Execute
+// capability, so a delegate request through the wired bridge executes on the
+// target agent and the result round-trips as the reply. No kernel fabric is
+// wired here, so the direct executeCollaboration fallback path runs.
 func TestWireEvolutionIPC_CollaborationExecutedOnSub(t *testing.T) {
 	ctx := context.Background()
-	sub := &fakeExecuteAgent{fakeMessageAgent: &fakeMessageAgent{id: "specialist-1"}}
+	agent := &fakeExecuteAgent{id: "specialist-1"}
 
-	// Mirror wireEvolutionIPC's registration for a sub agent: register a bus
-	// handler that dispatches collaboration topics to executeCollaboration.
-	bus := agentipc.NewBus()
-	_ = bus.Register(sub.id, func(ctx context.Context, msg *agentipc.Message) (*agentipc.Message, error) {
-		switch msg.Topic {
-		case topicDelegateTask, topicPipelineStage, topicOrchestrateWrk:
-			return executeCollaboration(ctx, sub.id, msg, sub.Execute)
-		default:
-			return deliverPeer(ctx, msg, sub.SendMessage)
-		}
-	})
+	bridge, err := wireEvolutionIPC([]sub.Agent{agent}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("wireEvolutionIPC: %v", err)
+	}
 
-	// A caller (leader) delegates via the request/reply primitive — exactly
-	// what DelegateToSpecialist does under the hood.
-	reply, err := bus.Request(ctx, "leader", "specialist-1", topicDelegateTask,
+	reply, err := bridge.ipc.Bus().Request(ctx, "leader", "specialist-1", topicDelegateTask,
 		map[string]any{
 			taskIDKey:        "t-delegate-e2e",
 			"payload":        map[string]any{"question": "q1"},
@@ -363,35 +179,38 @@ func TestWireEvolutionIPC_CollaborationExecutedOnSub(t *testing.T) {
 	if !res.Success || res.TaskID != "t-delegate-e2e" {
 		t.Fatalf("result mismatch: %+v", res)
 	}
+	if got := agent.executions(); len(got) != 1 || got[0] != "t-delegate-e2e" {
+		t.Fatalf("executed tasks = %v, want [t-delegate-e2e]", got)
+	}
 }
 
-// TestWireEvolutionIPC_CollaborationNotInterferesWithPeer verifies a peer
-// topic message still goes through the peer delivery path (not executed as a
-// task) when collaboration topics share the same bus handler.
-func TestWireEvolutionIPC_CollaborationNotInterferesWithPeer(t *testing.T) {
+// TestWireEvolutionIPC_PeerTopicRejectedNotExecuted locks the topic boundary
+// after peer direct messaging was removed: a peer-topic message through the
+// wired bridge fails loud with peerMessagingRemoved and is never executed as
+// a task — only the collaboration topics execute.
+func TestWireEvolutionIPC_PeerTopicRejectedNotExecuted(t *testing.T) {
 	ctx := context.Background()
-	sub := &fakeExecuteAgent{fakeMessageAgent: &fakeMessageAgent{id: "specialist-1"}}
+	agent := &fakeExecuteAgent{id: "specialist-1"}
 
-	bus := agentipc.NewBus()
-	_ = bus.Register(sub.id, func(ctx context.Context, msg *agentipc.Message) (*agentipc.Message, error) {
-		switch msg.Topic {
-		case topicDelegateTask, topicPipelineStage, topicOrchestrateWrk:
-			return executeCollaboration(ctx, sub.id, msg, sub.Execute)
-		default:
-			return deliverPeer(ctx, msg, sub.SendMessage)
-		}
-	})
+	bridge, err := wireEvolutionIPC([]sub.Agent{agent}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("wireEvolutionIPC: %v", err)
+	}
 
-	// A peer message (AHPMessage) on the peer topic must be delivered via
-	// SendMessage, not executed as a task.
-	_ = bus.Send(ctx, "leader", sub.id, peerTopic, &ahp.AHPMessage{
+	err = bridge.ipc.Bus().Send(ctx, "leader", "specialist-1", peerTopic, &ahp.AHPMessage{
 		MessageID: "m-peer",
 		TaskID:    "t-peer",
 		AgentID:   "leader",
 		Method:    ahp.AHPMethodTask,
 		Payload:   map[string]any{"k": "v"},
 	})
-	if got := sub.messages(); len(got) != 1 {
-		t.Fatalf("peer messages = %d, want 1 (delivered via SendMessage)", len(got))
+	if err == nil {
+		t.Fatal("peer-topic send must fail (peer direct messaging removed)")
+	}
+	if !strings.Contains(err.Error(), "peer direct messaging removed") {
+		t.Fatalf("error must name the removal, got: %v", err)
+	}
+	if got := agent.executions(); len(got) != 0 {
+		t.Fatalf("peer-topic message must not execute a task, executed: %v", got)
 	}
 }

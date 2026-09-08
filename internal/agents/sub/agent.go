@@ -133,7 +133,6 @@ type subAgent struct {
 	executor     TaskExecutor
 	handler      MessageHandler
 	tools        map[string]func(ctx context.Context, args map[string]any) (any, error)
-	messageQueue *ahp.MessageQueue
 	heartbeatMon *ahp.HeartbeatMonitor
 	eventStore   ares_events.EventStore
 	// actionLog, when non-nil, records every executed task as an
@@ -152,12 +151,16 @@ type SubAgentConfig struct {
 }
 
 // New creates a new SubAgent instance.
+//
+// TODO(tech-debt): the msgQueue parameter (and the SendMessage/
+// ReceiveMessage surface it backed) was removed as dead: production peers
+// were always constructed with a nil queue, so peer direct messaging never
+// delivered — only the kernel-session collaboration topics are live.
 func New(
 	id string,
 	agentType models.AgentType,
 	executor TaskExecutor,
 	handler MessageHandler,
-	msgQueue *ahp.MessageQueue,
 	hbMon *ahp.HeartbeatMonitor,
 	cfg *SubAgentConfig,
 	opts ...SubAgentOption,
@@ -176,7 +179,6 @@ func New(
 		executor:     executor,
 		handler:      handler,
 		tools:        make(map[string]func(ctx context.Context, args map[string]any) (any, error)),
-		messageQueue: msgQueue,
 		heartbeatMon: hbMon,
 	}
 
@@ -307,22 +309,6 @@ func (a *subAgent) Process(ctx context.Context, input any) (any, error) {
 	}
 
 	return a.executor.Execute(ctx, task)
-}
-
-// SendMessage sends a message to another agent.
-func (a *subAgent) SendMessage(ctx context.Context, msg *ahp.AHPMessage) error {
-	if a.messageQueue == nil {
-		return errors.ErrQueueNotInitialized
-	}
-	return a.messageQueue.Enqueue(ctx, msg)
-}
-
-// ReceiveMessage receives a message from the message queue.
-func (a *subAgent) ReceiveMessage(ctx context.Context) (*ahp.AHPMessage, error) {
-	if a.messageQueue == nil {
-		return nil, errors.ErrQueueNotInitialized
-	}
-	return a.messageQueue.Dequeue(ctx)
 }
 
 // Heartbeat sends a heartbeat signal.

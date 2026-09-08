@@ -77,13 +77,12 @@ type AggregatorConfig struct {
 	Weights FitnessWeights `json:"weights"`
 }
 
-// TODO(tech-debt): the design doc specifies a cost/latency penalty term
-// subtracted from the aggregate
-// fitness (penalty(cost, latency)). It is not implemented because task
-// events carry no cost or latency data today — see the observer.go
-// tech-debt note. Wire it once flight-trace cost/latency reaches the
-// EventStore payloads; do not reintroduce a config struct before a real
-// data source exists (no dead config fields).
+// The design doc's cost/latency penalty term is applied at the OBSERVER
+// (sample production): completed-task scores already carry the multiplicative
+// latency penalty (see observer.go latencyPenalty), so the aggregate inherits
+// it through the window mean — no subtraction here. A cost (USD/token)
+// penalty remains unimplemented pending a per-call cost data source in the
+// EventStore payloads.
 
 // DefaultAggregatorConfig returns sensible defaults matching the design doc.
 func DefaultAggregatorConfig() AggregatorConfig {
@@ -301,9 +300,9 @@ func (a *RuntimeFitnessAggregator) WindowAt(ctx context.Context, strategyID stri
 
 	mean := weightedSum / weightSum
 
-	// TODO(tech-debt): subtract the cost/latency penalty term here once a
-	// real cost/latency data source reaches the EventStore (see the
-	// tech-debt note on AggregatorConfig above).
+	// No explicit penalty subtraction: the latency penalty is already folded
+	// into the completed-task samples the observer produces (see observer.go
+	// latencyPenalty), so the window mean inherits it.
 
 	// Clamp to [0,1].
 	if mean < 0 {

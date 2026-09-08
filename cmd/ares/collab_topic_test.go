@@ -14,7 +14,6 @@ import (
 	"github.com/Timwood0x10/ares/internal/fabric/agent"
 	"github.com/Timwood0x10/ares/internal/fabric/planprojection"
 	"github.com/Timwood0x10/ares/internal/fabric/task"
-	"github.com/Timwood0x10/ares/internal/runtime/protocol/ahp"
 )
 
 // collabStubAgent satisfies sub.Agent minimally: the session-routed
@@ -42,9 +41,6 @@ func (a *collabStubAgent) Execute(_ context.Context, _ *models.Task) (*models.Ta
 }
 func (a *collabStubAgent) ExecuteStep(_ context.Context, _ *models.Task) (*sub.StepOutcome, error) {
 	return nil, nil // session-routed path never calls this on the stub
-}
-func (a *collabStubAgent) SendMessage(_ context.Context, _ *ahp.AHPMessage) error {
-	return nil // session-routed path never sends FROM the stub
 }
 
 // errChat is a ChatClient that always fails (drives the plan task to FAILED).

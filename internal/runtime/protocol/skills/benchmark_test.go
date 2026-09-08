@@ -85,7 +85,8 @@ func BenchmarkCatalogSearch100Skills(b *testing.B) {
 }
 
 // BenchmarkExperienceBestMatch100 measures the relevance-prior lookup over
-// 100 recorded patterns (the SkillOutcomeRecorder closed loop read side).
+// 100 recorded patterns (the experience read side consumed by taskfabric
+// scheduling confidence).
 func BenchmarkExperienceBestMatch100(b *testing.B) {
 	cat := buildCatalog100(b)
 	exp := cat.Experience()

@@ -67,7 +67,7 @@ func (e *resumeExecutor) resumed() any {
 	return e.resumedFrom
 }
 
-// TestSDKH2_ChaosRecoveryChain is the chaos-recovery acceptance (no
+// TestSDKChaosRecoveryChain is the chaos-recovery acceptance (no
 // SDK→scheduler→chaos→recovery whole-chain existed — only fabric-level tests
 // did). It exercises the full loop through the SDK runtime:
 //
@@ -80,7 +80,7 @@ func (e *resumeExecutor) resumed() any {
 // (taskfabric.Fabric) are the SAME instances the production kernel would use;
 // the aresrecovery recovery runs on them too. Only a controllable clock is
 // injected so the lease ages deterministically without real sleeping.
-func TestSDKH2_ChaosRecoveryChain(t *testing.T) {
+func TestSDKChaosRecoveryChain(t *testing.T) {
 	var mu sync.Mutex
 	now := time.Now()
 	clock := func() time.Time {

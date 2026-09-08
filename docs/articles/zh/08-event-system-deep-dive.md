@@ -52,7 +52,6 @@ graph LR
 | `internal/fabric/task/events.go` | Task 生命周期 EventType + TaskEvent |
 | `internal/fabric/task/fabric.go` | 事件记录 / 持久化 / 恢复逻辑 |
 | `internal/runtime/observability/flight/replay.go` | ReplaySession 逐步重放（见系列第 16 篇） |
-| `internal/runtime/protocol/skills/outcome_recorder.go` | SkillOutcomeRecorder：只读订阅者 |
 
 ---
 
@@ -110,7 +109,7 @@ EventSubTaskScheduled = "sub_task.scheduled"
 EventSubTaskStarted   = "sub_task.started"
 EventSubTaskResult    = "sub_task.result"
 EventSubAgentFailed   = "sub_agent.failed"
-// 其他：step.* / handoff / memory.finalize / discovery.* / component.failed
+// 其他：step.* / handoff / discovery.* / component.failed
 ```
 
 ### 2.3 EventStore 接口

@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"sync/atomic"
 	"time"
 
@@ -204,7 +203,7 @@ func (k *kernelHandle) adopt(ctx context.Context, orch *kernel.Orchestrator) err
 		return nil
 	}
 	if orch == nil {
-		log.Printf("serve: system runtime not wired; kernel components not adopted (unmanaged lifecycle)")
+		log.Info("serve: system runtime not wired; kernel components not adopted (unmanaged lifecycle)")
 		return nil
 	}
 
@@ -299,7 +298,7 @@ func (k *kernelHandle) adopt(ctx context.Context, orch *kernel.Orchestrator) err
 			return fmt.Errorf("serve: adopt kernel component %q: %w", c.name, err)
 		}
 	}
-	log.Printf("serve: kernel components adopted into system runtime (scheduler/taskfabric/agentfabric/recovery/dispatcher/pluginbus)")
+	log.Info("serve: kernel components adopted into system runtime (scheduler/taskfabric/agentfabric/recovery/dispatcher/pluginbus)")
 	return nil
 }
 
@@ -337,7 +336,7 @@ func (k *kernelHandle) componentPresent(name string) bool {
 // unmanaged goroutine.
 func runBackground(ctx context.Context, comp *ares_bootstrap.Components, name string, fn func(ctx context.Context) error) {
 	if comp == nil {
-		log.Printf("serve: background loop %q skipped (no component container)", name)
+		log.Info("serve: background loop skipped (no component container)", "name", name)
 		return
 	}
 	if comp.SystemRuntime != nil {
@@ -686,7 +685,7 @@ func newRecoveryKick() (<-chan string, func(taskID string)) {
 		default:
 			// Buffer full: drop rather than block the drain. The task stays
 			// READY and is picked up as soon as any capable executor appears.
-			log.Printf("kernel recovery loop: nomination buffer full, dropping %q", taskID)
+			log.Warn("kernel recovery loop: nomination buffer full, dropping task", "task_id", taskID)
 		}
 	}
 }
@@ -729,7 +728,7 @@ func parseKernelLoopConfig(cfg *ares_config.Config) kernelLoopConfig {
 		}
 		d, err := time.ParseDuration(raw)
 		if err != nil {
-			log.Printf("kernel: invalid duration %q, using default %s: %v", raw, fallback, err)
+			log.Info("kernel: invalid duration, using default", "raw", raw, "fallback", fallback, "err", err)
 			return fallback
 		}
 		return d
@@ -739,7 +738,7 @@ func parseKernelLoopConfig(cfg *ares_config.Config) kernelLoopConfig {
 		if d, err := time.ParseDuration(raw); err == nil && d > 0 {
 			leaseTTL = d
 		} else {
-			log.Printf("kernel: invalid lease_ttl %q, using scheduler default", raw)
+			log.Info("kernel: invalid lease_ttl, using scheduler default", "raw", raw)
 		}
 	}
 	return kernelLoopConfig{
@@ -776,13 +775,13 @@ func runKernelQuotaLoop(ctx context.Context, mgr *aresrecovery.EvolutionAwareQuo
 		// running.
 		defer func() {
 			if r := recover(); r != nil {
-				log.Printf("kernel: quota apply (%s) panic: %v", phase, r)
+				log.Error("kernel: quota apply panic", "phase", phase, "panic", r)
 			}
 		}()
 		applyCtx, cancel := context.WithTimeout(ctx, cfg.QuotaApplyTimeout)
 		defer cancel()
 		if err := mgr.Apply(applyCtx); err != nil {
-			log.Printf("kernel: quota apply (%s): %v", phase, err)
+			log.Warn("kernel: quota apply failed", "phase", phase, "err", err)
 		}
 	}
 	apply("startup")
@@ -869,7 +868,7 @@ func runKernelRecoveryLoop(
 		if err == nil {
 			events = ch
 		} else {
-			log.Printf("kernel recovery loop: subscribe failed, periodic sweep only: %v", err)
+			log.Warn("kernel recovery loop: subscribe failed, periodic sweep only", "err", err)
 		}
 	}
 	ticker := time.NewTicker(cfg.RecoverySweepInterval)
@@ -908,22 +907,22 @@ func runKernelRecoveryLoop(
 					exec := executorFactory(revived.Identity, rt.Capability)
 					if exec != nil {
 						registerExecutor(taskID, revived.Identity, exec)
-						log.Printf("kernel recovery loop: revived %q in place (cognition restored) for task %q", revived.Identity, taskID)
+						log.Info("kernel recovery loop: revived agent in place (cognition restored)", "identity", revived.Identity, "task_id", taskID)
 						continue
 					}
 				} else {
-					log.Printf("kernel recovery loop: in-place revival of %q unavailable (%v); using replacement", snapID, err)
+					log.Info("kernel recovery loop: in-place revival unavailable; using replacement", "snap_id", snapID, "err", err)
 				}
 			}
 
 			replacementID := fmt.Sprintf("recovery-%s-%d", taskID, time.Now().UnixNano())
 			executor := executorFactory(replacementID, rt.Capability)
 			if executor == nil {
-				log.Printf("kernel recovery loop: executor factory returned nil for %s (%s)", replacementID, rt.Capability)
+				log.Warn("kernel recovery loop: executor factory returned nil", "replacement_id", replacementID, "capability", rt.Capability)
 				continue
 			}
 			registerExecutor(taskID, replacementID, executor)
-			log.Printf("kernel recovery loop: replacement executor %q bound to task %q", replacementID, taskID)
+			log.Info("kernel recovery loop: replacement executor bound", "replacement_id", replacementID, "task_id", taskID)
 		}
 	}
 	// sem (capacity 1) guards against overlapping sweeps: a sweep that is
@@ -941,7 +940,7 @@ func runKernelRecoveryLoop(
 			defer func() { <-sem }()
 			defer func() {
 				if r := recover(); r != nil {
-					log.Printf("kernel recovery loop: panic in recovery sweep: %v", r)
+					log.Error("kernel recovery loop: panic in recovery sweep", "panic", r)
 				}
 			}()
 			sweepCtx, cancel := context.WithTimeout(ctx, cfg.RecoverySweepTimeout)
@@ -961,7 +960,7 @@ func runKernelRecoveryLoop(
 			if len(requeued) == 0 {
 				return
 			}
-			log.Printf("kernel recovery loop: requeued %d expired task(s)", len(requeued))
+			log.Info("kernel recovery loop: requeued expired task(s)", "count", len(requeued))
 			bindReplacements(requeued)
 		}()
 	}
@@ -990,7 +989,7 @@ func runKernelRecoveryLoop(
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
-					log.Printf("kernel recovery loop: panic binding nominated task %q: %v", taskID, r)
+					log.Error("kernel recovery loop: panic binding nominated task", "task_id", taskID, "panic", r)
 				}
 			}()
 			select {
@@ -1041,7 +1040,7 @@ func parseKernelPollInterval(raw string) time.Duration {
 	}
 	d, err := time.ParseDuration(raw)
 	if err != nil || d <= 0 {
-		log.Printf("kernel: invalid poll_interval %q, using scheduler default", raw)
+		log.Info("kernel: invalid poll_interval, using scheduler default", "raw", raw)
 		return 0
 	}
 	return d
@@ -1223,7 +1222,7 @@ func (h *pluginBusHook) driveLoopRound(ctx context.Context) {
 	// scheduler") airtight.
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("kernel loop: round-end processing panicked (recovered): %v", r)
+			log.Error("kernel loop: round-end processing panicked (recovered)", "panic", r)
 		}
 	}()
 	h.loop.OnRoundEnd(ctx, int(round), executionID)
@@ -1231,8 +1230,7 @@ func (h *pluginBusHook) driveLoopRound(ctx context.Context) {
 	vars := map[string]any{"round": int(round)}
 	if !h.loop.ShouldExecuteRound(int(round)+1, vars) {
 		h.loopStop.Store(true)
-		log.Printf("kernel loop: round budget exhausted (max_iterations=%d) after round %d; "+
-			"round clock stopped (scheduler task flow unaffected)", h.maxRounds, round)
+		log.Info("kernel loop: round budget exhausted; round clock stopped (scheduler task flow unaffected)", "max_rounds", h.maxRounds, "round", round)
 	}
 }
 
@@ -1280,17 +1278,17 @@ func startPluginBus(ctx context.Context, store ares_events.EventStore, sched *ke
 		// assertion — the round budget is the only stop condition.
 	})
 	if err := bus.Register(loop); err != nil {
-		// Downgrade to log + continue scheduling: a registration metadata
-		// problem must never block the kernel.
-		log.Printf("peer mode: loop plugin registration skipped (scheduling continues without the round clock): %v", err)
+		log.
+			// Downgrade to log + continue scheduling: a registration metadata
+			// problem must never block the kernel.
+			Info("peer mode: loop plugin registration skipped (scheduling continues without the round clock):", "err", err)
 		loop = nil
 	}
 	if err := bus.Start(ctx); err != nil {
-		log.Printf("peer mode: plugin bus start failed (scheduling continues without plugins): %v", err)
+		log.Warn("peer mode: plugin bus start failed (scheduling continues without plugins)", "err", err)
 		return nil
 	}
 	sched.WithQuantumHook(newPluginBusHook(bus, loop, loopCfg))
-	log.Printf("peer mode: plugin bus wired to kernel quantum boundary (loop clock: quanta/round=%d max_iterations=%d)",
-		loopCfg.LoopRoundQuanta, loopCfg.LoopMaxIterations)
+	log.Info("peer mode: plugin bus wired to kernel quantum boundary (loop clock)", "loop_round_quanta", loopCfg.LoopRoundQuanta, "loop_max_iterations", loopCfg.LoopMaxIterations)
 	return bus
 }

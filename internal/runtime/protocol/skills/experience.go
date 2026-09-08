@@ -73,9 +73,8 @@ func NewExperienceWithStore(ctx context.Context, store ExperienceStore) *Experie
 //
 // maxPatternLength caps stored experience task patterns (in runes) so an
 // overlong precise task description cannot bloat experience.json or slow down
-// BestMatch matching. It is the single length standard shared with the
-// outcome recorder's skillTaskPattern (256 chars ≈ 256 runes for typical
-// text; rune-safe truncation never breaks UTF-8).
+// BestMatch matching (256 chars ≈ 256 runes for typical text; rune-safe
+// truncation never breaks UTF-8).
 const maxPatternLength = 256
 
 // capPatternLength truncates a task pattern to maxPatternLength runes,

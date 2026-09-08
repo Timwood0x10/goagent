@@ -565,7 +565,7 @@ func (a *checkpointStubAgent) getCheckpoint() any {
 	return a.checkpoint
 }
 
-// TestW1RecoveryClosureE2E verifies the production-grade recovery闭环:
+// TestRecoveryClosureE2E verifies the production-grade recovery闭环:
 //
 //	Task → executor A executes quantum#1 (writes checkpoint) → A crashes
 //	(lease expiry) → recovery loop → replacement executor A' registered →
@@ -577,7 +577,7 @@ func (a *checkpointStubAgent) getCheckpoint() any {
 //  3. The task completes via the new executor.
 //  4. RequeueExpiredLeases → bound replacement registration have a caller
 //     through the real recovery loop.
-func TestW1RecoveryClosureE2E(t *testing.T) {
+func TestRecoveryClosureE2E(t *testing.T) {
 	// Build a fabric with one task.
 	f := taskfabric.NewFabric()
 	if err := f.Create(&taskfabric.Task{
@@ -694,10 +694,10 @@ func TestW1RecoveryClosureE2E(t *testing.T) {
 	}
 }
 
-// TestW1RegisterExecutorDynamic verifies the scheduler's dynamic executor
+// TestRegisterExecutorDynamic verifies the scheduler's dynamic executor
 // registration: a task that was unschedulable (no capable candidate) becomes
 // schedulable after RegisterExecutor injects a matching executor.
-func TestW1RegisterExecutorDynamic(t *testing.T) {
+func TestRegisterExecutorDynamic(t *testing.T) {
 	f := taskfabric.NewFabric()
 	if err := f.Create(&taskfabric.Task{
 		ID:          "reg-task",
@@ -741,9 +741,9 @@ func TestW1RegisterExecutorDynamic(t *testing.T) {
 	}
 }
 
-// TestW1UnregisterExecutor verifies that unregistering an executor removes it
+// TestUnregisterExecutor verifies that unregistering an executor removes it
 // from the scheduling candidate pool.
-func TestW1UnregisterExecutor(t *testing.T) {
+func TestUnregisterExecutor(t *testing.T) {
 	f := taskfabric.NewFabric()
 	executor := &stubAgent{id: "removable", typ: models.AgentType("code")}
 	sched := NewKernelScheduler(f, map[string]CapabilityExecutor{"removable": executor}, nil)

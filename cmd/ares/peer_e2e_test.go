@@ -18,9 +18,9 @@ import (
 	kctx "github.com/Timwood0x10/ares/internal/kernel/ctx"
 )
 
-// w2StubAgent is a minimal sub.Agent for E2E testing. It implements
+// peerStubAgent is a minimal sub.Agent for E2E testing. It implements
 // ExecuteStep to produce deterministic results that the test can assert on.
-type w2StubAgent struct {
+type peerStubAgent struct {
 	id         string
 	typ        models.AgentType
 	executed   atomic.Int64
@@ -28,23 +28,23 @@ type w2StubAgent struct {
 	stepResult func(task *models.Task) *sub.StepOutcome
 }
 
-func (a *w2StubAgent) ID() string                  { return a.id }
-func (a *w2StubAgent) Type() models.AgentType      { return a.typ }
-func (a *w2StubAgent) Status() models.AgentStatus  { return models.AgentStatusReady }
-func (a *w2StubAgent) Start(context.Context) error { return nil }
-func (a *w2StubAgent) Stop(context.Context) error  { return nil }
-func (a *w2StubAgent) Process(_ context.Context, _ any) (any, error) {
+func (a *peerStubAgent) ID() string                  { return a.id }
+func (a *peerStubAgent) Type() models.AgentType      { return a.typ }
+func (a *peerStubAgent) Status() models.AgentStatus  { return models.AgentStatusReady }
+func (a *peerStubAgent) Start(context.Context) error { return nil }
+func (a *peerStubAgent) Stop(context.Context) error  { return nil }
+func (a *peerStubAgent) Process(_ context.Context, _ any) (any, error) {
 	return struct{}{}, nil
 }
-func (a *w2StubAgent) ProcessStream(_ context.Context, _ any) (<-chan base.AgentEvent, error) {
+func (a *peerStubAgent) ProcessStream(_ context.Context, _ any) (<-chan base.AgentEvent, error) {
 	return make(chan base.AgentEvent), nil
 }
-func (a *w2StubAgent) Execute(_ context.Context, task *models.Task) (*models.TaskResult, error) {
+func (a *peerStubAgent) Execute(_ context.Context, task *models.Task) (*models.TaskResult, error) {
 	res := models.NewTaskResult(task.TaskID, task.AgentType)
 	res.SetSuccess(nil, fmt.Sprintf("executed by %s", a.id))
 	return res, nil
 }
-func (a *w2StubAgent) ExecuteStep(_ context.Context, task *models.Task) (*sub.StepOutcome, error) {
+func (a *peerStubAgent) ExecuteStep(_ context.Context, task *models.Task) (*sub.StepOutcome, error) {
 	a.executed.Add(1)
 	if a.stepResult != nil {
 		out := a.stepResult(task)
@@ -57,15 +57,15 @@ func (a *w2StubAgent) ExecuteStep(_ context.Context, task *models.Task) (*sub.St
 	return &sub.StepOutcome{Done: true, Result: res}, nil
 }
 
-// TestW2Case1IndependentCompletion verifies Case 1: a single Agent with no
+// TestPeerCase1IndependentCompletion verifies Case 1: a single Agent with no
 // Leader and no Planner independently completes a task → COMPLETE. This is
 // the simplest Peer Agent scenario: one agent, one task, no decomposition.
-func TestW2Case1IndependentCompletion(t *testing.T) {
+func TestPeerCase1IndependentCompletion(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	fabric := taskfabric.NewFabric()
-	agent := &w2StubAgent{id: "agent-A", typ: models.AgentType("coder")}
+	agent := &peerStubAgent{id: "agent-A", typ: models.AgentType("coder")}
 	executors := map[string]CapabilityExecutor{"agent-A": agent}
 	tracker := newLoadTracker()
 	sched := NewKernelScheduler(fabric, executors, tracker)
@@ -108,12 +108,12 @@ func TestW2Case1IndependentCompletion(t *testing.T) {
 	t.Logf("Case 1 PASS: single agent independently completed task (state=%s)", tk.State)
 }
 
-// TestW2Case2AutonomousDecomposition verifies Case 2: an Agent autonomously
+// TestPeerCase2AutonomousDecomposition verifies Case 2: an Agent autonomously
 // decides to split a task by calling spawn_agent + create_task syscalls.
 // The spawned sub-tasks enter the fabric and are scheduled to other agents.
 // The parent agent synthesises the results — proving the decomposition is
 // the Agent's cognition product, not a framework pre-definition.
-func TestW2Case2AutonomousDecomposition(t *testing.T) {
+func TestPeerCase2AutonomousDecomposition(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -123,8 +123,8 @@ func TestW2Case2AutonomousDecomposition(t *testing.T) {
 	fabric = fabric.WithEventStore(store)
 
 	// Two agents: A (orchestrator) and B (worker).
-	agentA := &w2StubAgent{id: "agent-A", typ: models.AgentType("orchestrator")}
-	agentB := &w2StubAgent{id: "agent-B", typ: models.AgentType("tool/coder")}
+	agentA := &peerStubAgent{id: "agent-A", typ: models.AgentType("orchestrator")}
+	agentB := &peerStubAgent{id: "agent-B", typ: models.AgentType("tool/coder")}
 	executors := map[string]CapabilityExecutor{
 		"agent-A": agentA,
 		"agent-B": agentB,
@@ -200,10 +200,10 @@ func TestW2Case2AutonomousDecomposition(t *testing.T) {
 	t.Logf("Case 2 PASS: agent autonomously created sub-task, scheduler assigned it to the capable agent")
 }
 
-// TestW2Case3ParentDeathChildContinues verifies Case 3: when a parent agent
+// TestPeerCase3ParentDeathChildContinues verifies Case 3: when a parent agent
 // dies, the tasks it spawned continue to run. The task fabric is durable —
 // task survival does not depend on the spawning agent's lifecycle.
-func TestW2Case3ParentDeathChildContinues(t *testing.T) {
+func TestPeerCase3ParentDeathChildContinues(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -240,7 +240,7 @@ func TestW2Case3ParentDeathChildContinues(t *testing.T) {
 	}
 
 	// Register a worker agent that can execute the "coder" task.
-	worker := &w2StubAgent{id: "worker-B", typ: models.AgentType("tool/coder")}
+	worker := &peerStubAgent{id: "worker-B", typ: models.AgentType("tool/coder")}
 	executors := map[string]CapabilityExecutor{"worker-B": worker}
 	tracker := newLoadTracker()
 	sched := NewKernelScheduler(fabric, executors, tracker)
@@ -276,10 +276,10 @@ func TestW2Case3ParentDeathChildContinues(t *testing.T) {
 	t.Logf("Case 3 PASS: parent died, child task continued and completed")
 }
 
-// TestW2Case4TrueCollaboration verifies Case 4: A → B request, B → A reply,
+// TestPeerCase4TrueCollaboration verifies Case 4: A → B request, B → A reply,
 // B → C spawn. All agents are peers (A ≡ B ≡ C) — no permission differences.
 // The test verifies that spawn establishes provenance, not hierarchy.
-func TestW2Case4TrueCollaboration(t *testing.T) {
+func TestPeerCase4TrueCollaboration(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -329,9 +329,9 @@ func TestW2Case4TrueCollaboration(t *testing.T) {
 
 	// The scheduler treats all agents equally — only capability matters.
 	executors := map[string]CapabilityExecutor{
-		"A": &w2StubAgent{id: "A", typ: models.AgentType("orchestrator")},
-		"B": &w2StubAgent{id: "B", typ: models.AgentType("coder")},
-		"C": &w2StubAgent{id: "C", typ: models.AgentType("reviewer")},
+		"A": &peerStubAgent{id: "A", typ: models.AgentType("orchestrator")},
+		"B": &peerStubAgent{id: "B", typ: models.AgentType("coder")},
+		"C": &peerStubAgent{id: "C", typ: models.AgentType("reviewer")},
 	}
 	tracker := newLoadTracker()
 	sched := NewKernelScheduler(fabric, executors, tracker)
@@ -380,7 +380,7 @@ func TestW2Case4TrueCollaboration(t *testing.T) {
 
 	// Verify each agent executed exactly its matching task.
 	for id, agent := range executors {
-		stub := agent.(*w2StubAgent)
+		stub := agent.(*peerStubAgent)
 		if stub.executed.Load() != 1 {
 			t.Fatalf("agent %s must have executed exactly 1 task, got %d", id, stub.executed.Load())
 		}
@@ -388,14 +388,14 @@ func TestW2Case4TrueCollaboration(t *testing.T) {
 	t.Logf("Case 4 PASS: A≡B≡C, capability-based scheduling, provenance not hierarchy")
 }
 
-// TestW2LongTaskStability verifies a long-running task scenario does not
+// TestPeerLongTaskStability verifies a long-running task scenario does not
 // crash the runtime. It creates a sustained stream of tasks over 2 seconds
 // with multiple agents executing concurrently, verifying:
 //   - No goroutine leak (scheduler stays alive)
 //   - No task stuck in LEASED forever
 //   - All tasks eventually complete or fail (no permanent SUSPENDED)
 //   - The scheduler's scheduled counter increases monotonically
-func TestW2LongTaskStability(t *testing.T) {
+func TestPeerLongTaskStability(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -405,10 +405,10 @@ func TestW2LongTaskStability(t *testing.T) {
 
 	// 4 agents with different capabilities.
 	executors := map[string]CapabilityExecutor{
-		"coder-1":      &w2StubAgent{id: "coder-1", typ: models.AgentType("coder")},
-		"coder-2":      &w2StubAgent{id: "coder-2", typ: models.AgentType("coder")},
-		"reviewer-1":   &w2StubAgent{id: "reviewer-1", typ: models.AgentType("reviewer")},
-		"researcher-1": &w2StubAgent{id: "researcher-1", typ: models.AgentType("researcher")},
+		"coder-1":      &peerStubAgent{id: "coder-1", typ: models.AgentType("coder")},
+		"coder-2":      &peerStubAgent{id: "coder-2", typ: models.AgentType("coder")},
+		"reviewer-1":   &peerStubAgent{id: "reviewer-1", typ: models.AgentType("reviewer")},
+		"researcher-1": &peerStubAgent{id: "researcher-1", typ: models.AgentType("researcher")},
 	}
 	tracker := newLoadTracker()
 	sched := NewKernelScheduler(fabric, executors, tracker)
@@ -504,7 +504,7 @@ func TestW2LongTaskStability(t *testing.T) {
 
 	totalExec := int64(0)
 	for _, agent := range executors {
-		stub := agent.(*w2StubAgent)
+		stub := agent.(*peerStubAgent)
 		totalExec += stub.executed.Load()
 	}
 	t.Logf("Long task stability PASS: %d tasks (%d completed, %d failed), %d total executions, scheduler scheduled=%d",

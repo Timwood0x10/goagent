@@ -32,11 +32,11 @@ func chainDAG(t *testing.T, ctx context.Context, n int) *engine.MutableDAG {
 	return dag
 }
 
-// TestM15_ReconcileCreatesTasksForMissedBurst pins the missed-burst
+// TestReconcileCreatesTasksForMissedBurst pins the missed-burst
 // compensation: a wholly-missed burst (no subscription was ever active)
 // converges in ONE Reconcile — root admission plus every node gets its task,
 // with dependencies intact.
-func TestM15_ReconcileCreatesTasksForMissedBurst(t *testing.T) {
+func TestReconcileCreatesTasksForMissedBurst(t *testing.T) {
 	ctx := context.Background()
 	fabric := taskfabric.NewFabric()
 	coord := NewCompileCoordinator(fabric, nil)
@@ -54,10 +54,10 @@ func TestM15_ReconcileCreatesTasksForMissedBurst(t *testing.T) {
 	require.Equal(t, []string{"n8"}, n9.Dependencies, "reconciled tasks keep their graph dependencies")
 }
 
-// TestM15_ReconcileAdoptsPreexistingTasks pins the restart case: tasks that
+// TestReconcileAdoptsPreexistingTasks pins the restart case: tasks that
 // predate the coordinator (batch-compiled outside the event path) are adopted
 // into the tracked set and refreshed — not failed on ErrTaskExists.
-func TestM15_ReconcileAdoptsPreexistingTasks(t *testing.T) {
+func TestReconcileAdoptsPreexistingTasks(t *testing.T) {
 	ctx := context.Background()
 	fabric := taskfabric.NewFabric()
 	coord := NewCompileCoordinator(fabric, nil)
@@ -81,12 +81,12 @@ func TestM15_ReconcileAdoptsPreexistingTasks(t *testing.T) {
 	require.ElementsMatch(t, []string{"root", "n1"}, sortedIDs(t, fabric))
 }
 
-// TestM15_ReconcileRefreshesAdoptedTaskFromGraph pins that adoption CONVERGES:
+// TestReconcileRefreshesAdoptedTaskFromGraph pins that adoption CONVERGES:
 // a task that predates the coordinator carrying a stale scheduling shape (no
 // dependencies — so it is READY and would run BEFORE its predecessor) is
 // rewritten from the graph, which is the source of truth. Adopting without
 // refreshing would leave the ordering violation the reconcile exists to fix.
-func TestM15_ReconcileRefreshesAdoptedTaskFromGraph(t *testing.T) {
+func TestReconcileRefreshesAdoptedTaskFromGraph(t *testing.T) {
 	ctx := context.Background()
 	fabric := taskfabric.NewFabric()
 	coord := NewCompileCoordinator(fabric, nil)
@@ -121,13 +121,13 @@ func TestM15_ReconcileRefreshesAdoptedTaskFromGraph(t *testing.T) {
 	require.Equal(t, "fresh", envelope.Payload["arg.q"], "payload is re-projected from the graph")
 }
 
-// TestM15_RedundantRemoveIsConvergenceNotRefusal pins the at-least-once
+// TestRedundantRemoveIsConvergenceNotRefusal pins the at-least-once
 // delete: a Reconcile that compensated a dropped event deletes the task
 // BEFORE the event is delivered, so the delivered ChangeRemoveNode finds
 // nothing to delete. The postcondition already holds, so the change is a
 // no-op — reporting it as Skipped would turn the compensation path into
 // permanent warn noise and make Complete report a failure that never happened.
-func TestM15_RedundantRemoveIsConvergenceNotRefusal(t *testing.T) {
+func TestRedundantRemoveIsConvergenceNotRefusal(t *testing.T) {
 	ctx := context.Background()
 	fabric := taskfabric.NewFabric()
 	coord := NewCompileCoordinator(fabric, nil)
@@ -154,11 +154,11 @@ func TestM15_RedundantRemoveIsConvergenceNotRefusal(t *testing.T) {
 	require.Empty(t, res.Removed, "this change removed nothing: the reconcile already did")
 }
 
-// TestM15_ReplaceNodeAdoptsTaskCreatedByReconcile pins the third at-least-once
+// TestReplaceNodeAdoptsTaskCreatedByReconcile pins the third at-least-once
 // site: the replacement task may already exist because a Reconcile
 // compensated the dropped ReplaceNode event first. The delivered event must
 // still migrate the successors instead of dying on ErrTaskExists.
-func TestM15_ReplaceNodeAdoptsTaskCreatedByReconcile(t *testing.T) {
+func TestReplaceNodeAdoptsTaskCreatedByReconcile(t *testing.T) {
 	ctx := context.Background()
 	fabric := taskfabric.NewFabric()
 	coord := NewCompileCoordinator(fabric, nil)
@@ -192,9 +192,9 @@ func TestM15_ReplaceNodeAdoptsTaskCreatedByReconcile(t *testing.T) {
 	require.ElementsMatch(t, []string{"root", "new", "succ"}, sortedIDs(t, fabric))
 }
 
-// TestM15_ReconcileDeletesStaleTrackedTasks pins the other direction: a task
+// TestReconcileDeletesStaleTrackedTasks pins the other direction: a task
 // the coordinator tracks but the graph no longer holds is deleted.
-func TestM15_ReconcileDeletesStaleTrackedTasks(t *testing.T) {
+func TestReconcileDeletesStaleTrackedTasks(t *testing.T) {
 	ctx := context.Background()
 	fabric := taskfabric.NewFabric()
 	coord := NewCompileCoordinator(fabric, nil)
@@ -215,11 +215,11 @@ func TestM15_ReconcileDeletesStaleTrackedTasks(t *testing.T) {
 	require.ErrorIs(t, err, taskfabric.ErrTaskNotFound)
 }
 
-// TestM15_IdleSubscriptionDoesNoWork pins that the tail drop check is armed by
+// TestIdleSubscriptionDoesNoWork pins that the tail drop check is armed by
 // delivery, not standing: a subscription with no graph activity must not
 // compile, reconcile, or otherwise touch the fabric — observed for well past
 // the poll interval, which a standing ticker would have fired several times.
-func TestM15_IdleSubscriptionDoesNoWork(t *testing.T) {
+func TestIdleSubscriptionDoesNoWork(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -237,12 +237,12 @@ func TestM15_IdleSubscriptionDoesNoWork(t *testing.T) {
 	require.Empty(t, fabric.IDs(), "and must not create tasks behind the caller's back")
 }
 
-// TestM15_BurstBeyondEventBufferConverges pins tail-drop compensation on the
+// TestBurstBeyondEventBufferConverges pins tail-drop compensation on the
 // projection seam: a burst far past the hub's event buffer is grown while the
 // subscription is live. Whether each node arrives by delivery or by the
 // reconcile the drop counter triggers, EVERY node must end up with a task
 // carrying its graph dependency — convergence is the contract, not the path.
-func TestM15_BurstBeyondEventBufferConverges(t *testing.T) {
+func TestBurstBeyondEventBufferConverges(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

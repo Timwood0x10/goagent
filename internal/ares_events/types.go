@@ -66,12 +66,6 @@ const (
 	EventTaskReleased     EventType = "task.released"
 	EventTaskExpired      EventType = "task.expired"
 
-	// EventMemoryFinalize requests async memory finalization (update task output,
-	// record assistant message, distill). Emitted by the leader after aggregating
-	// results; consumed by a dedicated memory worker so the leader loop does not
-	// perform memory writes itself (leader/sub decoupling).
-	EventMemoryFinalize EventType = "memory.finalize"
-
 	// Service discovery events (REVIEW #10 closure): forwarded by the
 	// bootstrap discovery bridge from the discovery Engine so detected MCP
 	// servers / agent runtimes are visible on the shared event bus (flight

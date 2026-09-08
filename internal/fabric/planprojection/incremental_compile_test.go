@@ -53,7 +53,7 @@ func sortedIDs(t *testing.T, fabric *taskfabric.Fabric) []string {
 
 // Assertion 1: one AddNode creates exactly one task, and every other
 // task keeps its CreatedAt — proving nothing was rebuilt.
-func TestM0_AddNodeCreatesExactlyOneTaskWithoutRebuilding(t *testing.T) {
+func TestAddNodeCreatesExactlyOneTaskWithoutRebuilding(t *testing.T) {
 	dag, err := engine.NewMutableDAG([]*engine.Step{
 		{ID: "plan", AgentType: "ares/plan"},
 		{ID: "grep", AgentType: "tool/grep", DependsOn: []string{"plan"}},
@@ -104,7 +104,7 @@ func TestM0_AddNodeCreatesExactlyOneTaskWithoutRebuilding(t *testing.T) {
 // Assertion 2: a node grown onto an already-COMPLETED task is READY
 // on the spot. This is the whole point of cross-batch dependency resolution
 // — without it CompilePlan rejects the dependency as unknown.
-func TestM0_NodeDependingOnCompletedTaskIsReadyImmediately(t *testing.T) {
+func TestNodeDependingOnCompletedTaskIsReadyImmediately(t *testing.T) {
 	dag, err := engine.NewMutableDAG([]*engine.Step{
 		{ID: "plan", AgentType: "ares/plan"},
 	})
@@ -149,7 +149,7 @@ func TestM0_NodeDependingOnCompletedTaskIsReadyImmediately(t *testing.T) {
 // Delete refuses a RUNNING task (ErrTaskUndeletable), the rebuild then hits
 // ErrTaskExists on the same id, and CompilePlan rolls the whole batch back —
 // so the newly grown node never became a task.
-func TestM0_AddNodeWithRunningTaskPresentLeavesItUntouched(t *testing.T) {
+func TestAddNodeWithRunningTaskPresentLeavesItUntouched(t *testing.T) {
 	dag, err := engine.NewMutableDAG([]*engine.Step{
 		{ID: "plan", AgentType: "ares/plan"},
 		{ID: "slow", AgentType: "tool/slow", DependsOn: []string{"plan"}},
@@ -204,7 +204,7 @@ func TestM0_AddNodeWithRunningTaskPresentLeavesItUntouched(t *testing.T) {
 
 // Assertion 4: SetNodeMetadata rewrites the payload in place — the
 // task is not recreated, but the new metadata is visible to the executor.
-func TestM0_SetNodeMetadataUpdatesPayloadWithoutRecreatingTask(t *testing.T) {
+func TestSetNodeMetadataUpdatesPayloadWithoutRecreatingTask(t *testing.T) {
 	dag, err := engine.NewMutableDAG([]*engine.Step{
 		{ID: "grep", AgentType: "tool/grep", Metadata: map[string]string{"budget": "3"}},
 	})
@@ -239,7 +239,7 @@ func TestM0_SetNodeMetadataUpdatesPayloadWithoutRecreatingTask(t *testing.T) {
 }
 
 // AddEdge / RemoveEdge move exactly one task's Dependencies.
-func TestM0_EdgeChangesRewriteOneTask(t *testing.T) {
+func TestEdgeChangesRewriteOneTask(t *testing.T) {
 	dag, err := engine.NewMutableDAG([]*engine.Step{
 		{ID: "a", AgentType: "x"},
 		{ID: "b", AgentType: "y"},
@@ -277,7 +277,7 @@ func TestM0_EdgeChangesRewriteOneTask(t *testing.T) {
 
 // RemoveNode deletes one task; a task that cannot be deleted is reported,
 // never silently dropped.
-func TestM0_RemoveNodeAndUndeletableIsReported(t *testing.T) {
+func TestRemoveNodeAndUndeletableIsReported(t *testing.T) {
 	dag, err := engine.NewMutableDAG([]*engine.Step{
 		{ID: "a", AgentType: "x"},
 		{ID: "b", AgentType: "y", DependsOn: []string{"a"}},
@@ -322,7 +322,7 @@ func TestM0_RemoveNodeAndUndeletableIsReported(t *testing.T) {
 
 // ReplaceNode with a new id: the replacement task is created, the successor
 // is migrated onto it, and the old task is deleted.
-func TestM0_ReplaceNodeMigratesSuccessors(t *testing.T) {
+func TestReplaceNodeMigratesSuccessors(t *testing.T) {
 	dag, err := engine.NewMutableDAG([]*engine.Step{
 		{ID: "a", AgentType: "x"},
 		{ID: "old", AgentType: "y", DependsOn: []string{"a"}},
@@ -364,7 +364,7 @@ func TestM0_ReplaceNodeMigratesSuccessors(t *testing.T) {
 }
 
 // ReplaceNode with the SAME id is an in-place rewrite: no create, no delete.
-func TestM0_ReplaceNodeSameIDRewritesInPlace(t *testing.T) {
+func TestReplaceNodeSameIDRewritesInPlace(t *testing.T) {
 	dag, err := engine.NewMutableDAG([]*engine.Step{
 		{ID: "a", AgentType: "x"},
 		{ID: "b", AgentType: "y", DependsOn: []string{"a"}},
@@ -407,7 +407,7 @@ func TestM0_ReplaceNodeSameIDRewritesInPlace(t *testing.T) {
 // A failed mutation changed nothing, so it must not produce a compile.
 // Reporting one would stamp the pre-change topology as the result of a
 // change that never happened.
-func TestM0_FailedMutationIsNotCompiled(t *testing.T) {
+func TestFailedMutationIsNotCompiled(t *testing.T) {
 	dag, err := engine.NewMutableDAG([]*engine.Step{
 		{ID: "a", AgentType: "x"},
 		{ID: "b", AgentType: "y", DependsOn: []string{"a"}},

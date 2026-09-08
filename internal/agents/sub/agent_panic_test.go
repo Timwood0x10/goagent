@@ -29,7 +29,7 @@ func TestSubAgent_ProcessStream_PanicDoesNotCrash(t *testing.T) {
 	exec := &panickingExecutor{}
 	handler := NewMessageHandler("sub-panic")
 
-	agent := New("sub-panic", models.AgentTypeTop, exec, handler, nil, nil, nil,
+	agent := New("sub-panic", models.AgentTypeTop, exec, handler, nil, nil,
 		WithEventStore(store))
 
 	require.NoError(t, agent.Start(context.Background()))
@@ -72,7 +72,7 @@ func TestSubAgent_ProcessStream_Panic_NilEventStore_NoCrash(t *testing.T) {
 	exec := &panickingExecutor{}
 	handler := NewMessageHandler("sub-panic2")
 
-	agent := New("sub-panic2", models.AgentTypeTop, exec, handler, nil, nil, nil)
+	agent := New("sub-panic2", models.AgentTypeTop, exec, handler, nil, nil)
 
 	require.NoError(t, agent.Start(context.Background()))
 

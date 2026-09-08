@@ -89,8 +89,10 @@ type ToolBinder interface {
 
 // ExecuteStep runs one quantum of cognitive work through the agent's injected
 // execution body (spawn → ExecuteStep 直接可执行). It delegates to the
-// Cognition produced by SpawnSpec.CognitionFactory. An agent spawned without
-// a factory returns ErrAgentNotExecutable — it is managed (spawn/kill/
+// Cognition produced by SpawnSpec.CognitionFactory, first stamping the task
+// payload with the agent's identity (executingAgentKey) so a Cognition shared
+// across agents can join the task back to its executor. An agent spawned
+// without a factory returns ErrAgentNotExecutable — it is managed (spawn/kill/
 // recover) but not schedulable.
 //
 // Args:
@@ -107,5 +109,33 @@ func (a *Agent) ExecuteStep(ctx context.Context, task *models.Task) (*StepOutcom
 	if c == nil {
 		return nil, ErrAgentNotExecutable
 	}
+	if task != nil {
+		task.Payload = withExecutingAgent(task.Payload, a.Identity)
+	}
 	return c.ExecuteStep(ctx, task)
+}
+
+// executingAgentKey is the reserved task-payload key carrying the identity of
+// the agent EXECUTING the current quantum. One shared Cognition (the L2
+// router/planner serves every agent), so the task is the only carrier of the
+// executor's identity — the join key for reading the executing agent's
+// cognitive state (the spawn-time experience prior, M4.3). Unprefixed like
+// session_id, so it rides the envelope namespace and never reaches tool args
+// (argsFromPayload extracts the arg. namespace only).
+const executingAgentKey = "executing_agent_id"
+
+// withExecutingAgent returns a copy of payload stamped with the executing
+// agent's identity. The copy is load-bearing: the payload map the scheduler
+// hands down is the SAME map referenced by the durable checkpoint envelope
+// (ToModelTask → DecodeCheckpoint does not copy), so an in-place write would
+// persist one quantum's executor into the envelope and mis-attribute later
+// quanta to a dead or preempted agent. The stamp is quantum-scoped by
+// construction: it lives only on the models.Task given to the Cognition.
+func withExecutingAgent(payload map[string]any, agentID string) map[string]any {
+	out := make(map[string]any, len(payload)+1)
+	for k, v := range payload {
+		out[k] = v
+	}
+	out[executingAgentKey] = agentID
+	return out
 }

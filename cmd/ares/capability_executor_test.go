@@ -33,13 +33,13 @@ func (e *minimalCapabilityExecutor) ExecuteStep(_ context.Context, task *models.
 // not sub.Agent.
 var _ CapabilityExecutor = (*minimalCapabilityExecutor)(nil)
 
-// TestW2_5CapabilityExecutorDecoupling verifies the scheduler accepts an
+// TestCapabilityExecutorDecoupling verifies the scheduler accepts an
 // executor that is NOT a sub.Agent — only a CapabilityExecutor. This is the
 // decoupling acceptance test: "移除 scheduler 对 sub.Agent 类型/角色的强绑定".
 // The minimalCapabilityExecutor implements only ID/Type/ExecuteStep; it has
 // no Execute, Start, Stop, Process, or ProcessStream methods. If the scheduler
 // still depended on sub.Agent, this would not compile.
-func TestW2_5CapabilityExecutorDecoupling(t *testing.T) {
+func TestCapabilityExecutorDecoupling(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -78,10 +78,10 @@ func TestW2_5CapabilityExecutorDecoupling(t *testing.T) {
 	}
 }
 
-// TestW2_5SubAgentSatisfiesCapabilityExecutor verifies that sub.Agent (the
+// TestSubAgentSatisfiesCapabilityExecutor verifies that sub.Agent (the
 // production executor type) still satisfies CapabilityExecutor — backward
 // compatibility. Every existing sub.Agent is automatically a CapabilityExecutor.
-func TestW2_5SubAgentSatisfiesCapabilityExecutor(t *testing.T) {
+func TestSubAgentSatisfiesCapabilityExecutor(t *testing.T) {
 	// Compile-time: the stubAgent type (declared in scheduler_test.go)
 	// implements sub.Agent. If it also satisfies CapabilityExecutor, then
 	// any sub.Agent is a CapabilityExecutor. This is the backward-compat

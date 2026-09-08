@@ -2,7 +2,7 @@
 
 > 0.3.x 更新：Skills 发现落地为代码仓内 `internal/runtime/protocol/skills` 的 **Capability Fabric**——框架原生的技能发现、索引、加载系统。`Catalog` 门面 + `SourceManager` 聚合四类声明源（project / user / registered / experience，其中 registered 又分 directory、git、http/oci 三类）。`CatalogTools` 暴露五件 catalog 工具（skill_search/load/activate/list/experience）。`ExperienceConfidenceSource` 把学习先验桥接为 `taskfabric.ConfidenceSource`，喂给 Kernel Scheduler 的 fabric。
 
-> 说明：本文基于实际代码（`internal/runtime/protocol/skills` 全部实现：source.go / indexer.go / discovery.go / resolver.go / loader.go / experience.go / experience_store.go / experience_confidence.go / outcome_recorder.go / git_source.go / http_source.go / changes.go / config.go / tools.go / types.go / fts5.go / catalog.go），是 docs 系列中 Capability Fabric 发现链路的专门篇。
+> 说明：本文基于实际代码（`internal/runtime/protocol/skills` 全部实现：source.go / indexer.go / discovery.go / resolver.go / loader.go / experience.go / experience_store.go / experience_confidence.go / git_source.go / http_source.go / changes.go / config.go / tools.go / types.go / fts5.go / catalog.go），是 docs 系列中 Capability Fabric 发现链路的专门篇。
 
 ## 一、Skills 发现：从"找"到"声明"
 
@@ -141,14 +141,13 @@ type ExperienceRecord struct {
 ```
 
 - **不是 LLM 生成 Skill**——只记录"哪个 skill 对哪个任务模式成功率高"；`BestMatch` 按关键词重叠打分（短模式走子串包含，长模式走 `patternMatchScore` 令牌重叠比，低于 `matchScoreThreshold = 0.5` 不判命中）。
-- **有界 + 可持久化**：`NewExperience` 上限 `maxRecords = 1000`（超限丢最老）；`taskPattern` 经 `capPatternLength` 截到 `maxPatternLength = 256` runes（与 outcome recorder 共享同一常量）。`Record` 同 (skill, pattern) 覆盖 success_rate。
+- **有界 + 可持久化**：`NewExperience` 上限 `maxRecords = 1000`（超限丢最老）；`taskPattern` 经 `capPatternLength` 截到 `maxPatternLength = 256` runes。`Record` 同 (skill, pattern) 覆盖 success_rate。
 - **JSON 持久化**（`experience_store.go`）：`JSONExperienceStore.Save` 原子写（`tmp → rename`，目录 0700、文件 0600）。生产路径该文件默认在 `~/.ares/experience.json`（`skills_wiring.go` 组装）。
-- **闭环观察**（`outcome_recorder.go`）：`SkillOutcomeRecorder.Start` 订阅 `EventSubTaskResult` 事件流（只读观察者）→ `consumeOne` 读 `task.UsedExperienceID` + `success/失败` → `skillTaskPattern`（优先 `task_desc`，回退 AgentType / subAgentID / `"default"`）→ `Experience.Record(skill, pattern, rate)`。录制是 best-effort，绝不影响任务路径；事件里没有 skill 关联就 `skipped`（离线模式 nil store 为 no-op）。
+- **写侧已删（死代码）**：原 `SkillOutcomeRecorder`（`outcome_recorder.go`）已删除——它唯一可能的发射方（已退役 tool loop 的 `EventSubTaskResult`）从未携带它读取的 payload 形状（`task.UsedExperienceID` + `success`），从第一天起就被饿死（RUNTIME.md 破损项 #8）。该闭环当前只读：在出现合规的 `sub_task.result` 发射方之前，生产没有任何写先验的路径。
 
 ```mermaid
 graph LR
-    SUB[Sub executor<br/>发出 EventSubTaskResult] --> R[SkillOutcomeRecorder.consumeOne]
-    R -->|task.UsedExperienceID + success| E[Experience.Record<br/>skill, pattern, rate]
+    REC[Experience.Record<br/>skill, pattern, rate<br/>写侧：生产无发射方] --> E[Experience<br/>先验，上限 1000 条]
     E --> STORE[JSON store<br/>原子 tmp→rename]
     E --> BM[Experience.BestMatch<br/>重叠打分 阈值 0.5]
     BM --> EXP[ExperienceConfidenceSource.Confidence]
@@ -186,7 +185,7 @@ func (c *Catalog) SeedRegistry(reg *skills.Registry) error   // 灌入 memoryMan
 3. `SetGitSources` / `SetHTTPSources`；挂 MCP 为 lazy connector；`SyncGitSources` 非致命（失败降级为本地检出索引）
 4. `catalog.Build()` —— 启动期只建一次；失败仅告警不阻断启动
 5. `SeedRegistry` 灌进 `skills.Registry` → `setter.SetSkillsRegistry(reg)` 挂到 memoryManager 常驻 "Available skills" 块
-6. `bootstrap.go` 再 `NewSkillOutcomeRecorder(catalog).Start(ctx, comp.EventStore)` 开启结果闭环
+6. `bootstrap.go` 原先在此 `NewSkillOutcomeRecorder(catalog).Start(ctx, comp.EventStore)` —— 已作为死代码删除（自始饿死，见第六节），接线点留 TODO(tech-debt)
 
 **② 工具暴露**（`cmd/ares/serve.go` / `tools.go`）：
 

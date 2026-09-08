@@ -13,7 +13,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/runtime/evolution/patch"
 )
 
-// TestC4_6_RecoveryPatchStrategy_VisibleInDAGSnapshot_NotInPlanStep verifies
+// TestRecoveryPatchStrategy_VisibleInDAGSnapshot_NotInPlanStep verifies
 // PatchChangeRecoveryStrategy modifies Step.RecoveryPolicy on the live
 // MutableDAG. The evidence of this change is visible in the
 // RecoveryPatchExecutor's DAG snapshot (SnapshotWithSteps), NOT in the
@@ -29,7 +29,7 @@ import (
 // The test also verifies the round-trip: after applying the patch, the
 // RecoveryPatchExecutor.Snapshot() returns the live DAG whose Steps()
 // carry the updated RecoveryPolicy.
-func TestC4_6_RecoveryPatchStrategy_VisibleInDAGSnapshot_NotInPlanStep(t *testing.T) {
+func TestRecoveryPatchStrategy_VisibleInDAGSnapshot_NotInPlanStep(t *testing.T) {
 	// Build a DAG with heterogeneous recovery policies.
 	steps := []*engine.Step{
 		{
@@ -125,11 +125,11 @@ func TestC4_6_RecoveryPatchStrategy_VisibleInDAGSnapshot_NotInPlanStep(t *testin
 		"step b policy must be removed on rollback (it had none before)")
 }
 
-// TestC4_6_RecoveryPatchMaxRetries_VisibleInDAGSnapshot verifies that
+// TestRecoveryPatchMaxRetries_VisibleInDAGSnapshot verifies that
 // PatchChangeMaxRetries is also visible in the DAG snapshot, not in PlanStep.
 // PlanStep carries MaxRetries from Step.RetryPolicy.MaxAttempts, which is a
 // DIFFERENT field from RecoveryPolicy.MaxAttempts. The two must not be confused.
-func TestC4_6_RecoveryPatchMaxRetries_VisibleInDAGSnapshot(t *testing.T) {
+func TestRecoveryPatchMaxRetries_VisibleInDAGSnapshot(t *testing.T) {
 	steps := []*engine.Step{
 		{
 			ID:        "a",
@@ -177,7 +177,7 @@ func TestC4_6_RecoveryPatchMaxRetries_VisibleInDAGSnapshot(t *testing.T) {
 	}
 }
 
-// TestC4_6_RecoveryPatchAndStructuralPatch_Independent verifies that a
+// TestRecoveryPatchAndStructuralPatch_Independent verifies that a
 // recovery patch and a structural patch can be applied independently and
 // their effects are visible in their respective projection surfaces:
 //   - Structural patch → PlanStep count changes.
@@ -185,7 +185,7 @@ func TestC4_6_RecoveryPatchMaxRetries_VisibleInDAGSnapshot(t *testing.T) {
 //
 // This is the separation contract: the two patch categories operate on
 // different fields and are verified through different assertion surfaces.
-func TestC4_6_RecoveryPatchAndStructuralPatch_Independent(t *testing.T) {
+func TestRecoveryPatchAndStructuralPatch_Independent(t *testing.T) {
 	dag, err := engine.NewMutableDAG([]*engine.Step{
 		{ID: "a", AgentType: "x"},
 		{ID: "b", AgentType: "y", DependsOn: []string{"a"}},

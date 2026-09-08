@@ -11,25 +11,25 @@ import (
 	"github.com/Timwood0x10/ares/internal/fabric/task"
 )
 
-// evolutionSpawnCognition is the execution body a GA/evolution policy would
+// evolutionSpawnBody is the execution body a GA/evolution policy would
 // inject into its spawned agents (GA spawn 真实执行体). It completes every
 // task in one quantum.
-type evolutionSpawnCognition struct{}
+type evolutionSpawnBody struct{}
 
-func (evolutionSpawnCognition) ExecuteStep(_ context.Context, task *models.Task) (*agentfabric.StepOutcome, error) {
+func (evolutionSpawnBody) ExecuteStep(_ context.Context, task *models.Task) (*agentfabric.StepOutcome, error) {
 	res := models.NewTaskResult(task.TaskID, task.AgentType)
 	res.SetSuccess(nil, "evolved by "+task.TaskID)
 	return &agentfabric.StepOutcome{Done: true, Result: res}, nil
 }
 
-// TestF1_EvolutionSpawnedAgentIsExecutableAndSchedulable verifies the F1
+// TestEvolutionSpawnedAgentIsExecutableAndSchedulable verifies the F1
 // acceptance (GA spawn 的 agent 能被真实调度执行，
 // 非 phantom): an evolution policy that spawns agents WITH their execution body
 // (CognitionFactory) produces REAL cognitive processes that
 // the kernel scheduler selects and executes, not empty shells. The chain is
 // exactly the production one: AdaptPopulation → agents.Spawn → scheduler
 // WithAgentFabric candidate → Schedule → Acquire → RunQuantum → COMPLETED.
-func TestF1_EvolutionSpawnedAgentIsExecutableAndSchedulable(t *testing.T) {
+func TestEvolutionSpawnedAgentIsExecutableAndSchedulable(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -48,7 +48,7 @@ func TestF1_EvolutionSpawnedAgentIsExecutableAndSchedulable(t *testing.T) {
 			Identity:     "evolved-reviewer",
 			Capabilities: []string{"reviewer"},
 			CognitionFactory: func([]string) agentfabric.Cognition {
-				return evolutionSpawnCognition{}
+				return evolutionSpawnBody{}
 			},
 		},
 	}, nil)
@@ -82,7 +82,7 @@ func TestF1_EvolutionSpawnedAgentIsExecutableAndSchedulable(t *testing.T) {
 	}
 }
 
-// TestF1GAInterventionChangesCandidateOrdering is the scheduling-weight
+// TestGAInterventionChangesCandidateOrdering is the scheduling-weight
 // acceptance (the spawn test only verified an agent CAN be selected, not
 // that GA intervention actually REORDERS candidates). Two equally-capable
 // agents, same task capability: before the GA intervention agent-A (higher
@@ -90,7 +90,7 @@ func TestF1_EvolutionSpawnedAgentIsExecutableAndSchedulable(t *testing.T) {
 // wins. The ordering change must be observable through the real scheduler
 // chain (candidate build → ConfidenceFor → Score → Schedule), not just a
 // unit-level Pick call.
-func TestF1GAInterventionChangesCandidateOrdering(t *testing.T) {
+func TestGAInterventionChangesCandidateOrdering(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

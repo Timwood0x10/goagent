@@ -76,7 +76,7 @@ The assembly order in `Bootstrap` is **meaningful** — downstream components ar
 | 2 | `ProvideRuntime(eventStore)` → `ares_runtime.New(nil, eventStore, nil)` | `Runtime` | always created |
 | 3 | `wireMemory(cfg, eventStore)` → `ProvideMemory(memCfg)`; `mem.SetEventStore(eventStore, "memory")` | `Memory` | gated by `cfg.Memory.IsEnabled()` |
 | 4 | `ProvideMCP(ctx, cfg.MCP)` → `ares_mcp.NewMCPManager` + `.Start(ctx)` | `MCP` | minimal when no servers |
-| 4b | `wireSkills(ctx, mem, mcp)`; `NewSkillOutcomeRecorder(catalog).Start` | `SkillsRegistry`, `SkillCatalog` | best-effort |
+| 4b | `wireSkills(ctx, mem, mcp)` | `SkillsRegistry`, `SkillCatalog` | best-effort |
 | 5 | `ProvideLLM(cfg.LLM)` (or `deps.LLMClient`) | `LLM` | callback registry + CostDashboard + Prometheus tracer |
 | 5b | `wireDistillation(...)` → `provideDistillation(...)` | `Distillation`, `ExpRepo` | gated by `Memory.DistillationEnabled()` + PG + Embedding |
 | 5c | `wireAKGLoop(cfg, deps, embClient)` | `KnowledgeStore`, `AKGBridge` | gated by `cfg.Knowledge.RetrievalEnabled` |
@@ -161,7 +161,7 @@ Step 4b in `bootstrap.go` — `wireSkills(ctx, comp.Memory, mcp)` — is a piece
 - `ares_skills.NewCatalog(CatalogConfig{...})` with declared sources `./.ares/skills` + `~/.ares/skills` plus directory/git/http sources from `LoadSkillSources("")`; `SetGitSources` / `SetHTTPSources`; `mcp != nil` → `SetMCPConnector(mcp)`.
 - `SyncGitSources(ctx)` → `Build()` builds the index → `SeedRegistry(reg)`, injecting a `skills.NewRegistry()` into the memory manager via `setter.SetSkillsRegistry(reg)`.
 - Returns `(*ares_skills.Catalog, *skills.Registry)`: the first gets a `Close` cleanup, the second is handed to the env-cap searcher so skills become searchable tool capabilities.
-- `ares_skills.NewSkillOutcomeRecorder(catalog).Start(ctx, comp.EventStore)` subscribes to `EventSubTaskResult` and persists skill usage/outcomes (W8).
+- The skill outcome recorder that used to subscribe to `EventSubTaskResult` here was removed as dead code (starved from the start — no emitter ever carried its expected payload shape, W8 / RUNTIME.md breakage #8); a TODO(tech-debt) marks the spot.
 - Entirely best-effort: memory disabled / memory not exposing `SetSkillsRegistry` / index-build failure all log-and-skip rather than blocking startup.
 
 > Note: earlier drafts of this article referenced `CatalogTools(skill_search/skill_load/...)`, `SetToolChangeHandler`, and `wireSkillCatalog` in `serve.go`. I could not verify those in `internal/ares_bootstrap` this time, so they're marked (unverified). The real skill-wiring entry is `wireSkills` above.

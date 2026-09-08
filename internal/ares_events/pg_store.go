@@ -27,12 +27,64 @@ const defaultEventReadLimit = 100
 // Compile-time interface compliance check.
 var _ EventStore = (*PostgresEventStore)(nil)
 
-// NewPostgresEventStore creates a PostgresEventStore backed by the given pool.
+// NewPostgresEventStore creates a PostgresEventStore backed by the given pool
+// and ensures the events table exists (see ensureEventsTable). Following the
+// evidence store's construction pattern, a schema that cannot be ensured
+// fails construction loudly — a store that only discovered a missing table on
+// the first Append would turn a setup problem into a mid-flight write
+// failure. Zero production callers before M4.1; serve wires it when
+// cfg.Storage points at Postgres.
 func NewPostgresEventStore(pool *postgres.Pool) (*PostgresEventStore, error) {
 	if pool == nil {
 		return nil, apperrors.New("pool must not be nil")
 	}
-	return &PostgresEventStore{pool: pool}, nil
+	s := &PostgresEventStore{pool: pool}
+	if err := s.ensureEventsTable(context.Background()); err != nil {
+		return nil, apperrors.Wrap(err, "ensure events table")
+	}
+	return s, nil
+}
+
+// Close releases the underlying pool. The sql.DB below it is idempotent, so
+// repeated Close calls are safe. Bootstrap's System Runtime registers this as
+// the eventstore stop hook: reverse-topological shutdown has already stopped
+// every dependent by the time it runs, so closing cannot cut a live writer.
+func (s *PostgresEventStore) Close() error {
+	if s == nil || s.pool == nil {
+		return nil
+	}
+	return s.pool.Close()
+}
+
+// ensureEventsTable creates the events table and its indexes when missing.
+// The DDL mirrors internal/storage/postgres/migrate.go's core migrations so
+// this constructor and `ares db migrate` converge on the same schema
+// regardless of which runs first. The extra created_at index backs
+// Subscribe's polling window (created_at >= cursor ORDER BY created_at) and
+// ReadAll's cross-stream ordering — without it every 1s poll is a sequential
+// scan.
+func (s *PostgresEventStore) ensureEventsTable(ctx context.Context) error {
+	stmts := []string{
+		`CREATE TABLE IF NOT EXISTS events (
+			id VARCHAR(255) NOT NULL,
+			stream_id VARCHAR(255) NOT NULL,
+			type VARCHAR(100) NOT NULL,
+			payload JSONB NOT NULL,
+			metadata JSONB DEFAULT '{}',
+			version BIGINT NOT NULL,
+			created_at TIMESTAMP DEFAULT NOW(),
+			PRIMARY KEY (id)
+		)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS uq_events_stream_version ON events(stream_id, version)`,
+		`CREATE INDEX IF NOT EXISTS idx_events_type ON events(type)`,
+		`CREATE INDEX IF NOT EXISTS idx_events_created ON events(created_at)`,
+	}
+	for i, stmt := range stmts {
+		if _, err := s.pool.Exec(ctx, stmt); err != nil {
+			return apperrors.Wrapf(err, "statement %d", i+1)
+		}
+	}
+	return nil
 }
 
 // Append persists events to the given stream with optimistic concurrency control.

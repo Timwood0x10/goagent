@@ -122,7 +122,20 @@ func registerSystemComponent(reg *kernel.Registry, name string, present bool, de
 func wireSystemRuntime(ctx context.Context, cfg *ares_config.Config, comp *Components) (*kernel.Orchestrator, *kernel.Registry, error) {
 	reg := kernel.NewRegistry()
 
-	registerSystemComponent(reg, sysCompEventStore, comp.EventStore != nil, nil, kernel.ModeRequired, nil, nil, nil)
+	// The eventstore is the dependency leaf: reverse-topological shutdown
+	// stops every dependent (runtime, memory, flight recorder, and the kernel
+	// pillars, which declare it as their edge) BEFORE this hook runs, so
+	// closing the store cannot cut a live writer. This is what releases the
+	// Postgres pool of a persistence-wired serve (PostgresEventStore.Close)
+	// and joins the compactable store's in-flight compaction workers; a plain
+	// memory store without Close is a no-op.
+	registerSystemComponent(reg, sysCompEventStore, comp.EventStore != nil, nil, kernel.ModeRequired,
+		func(context.Context) error {
+			if closer, ok := comp.EventStore.(interface{ Close() error }); ok {
+				return closer.Close()
+			}
+			return nil
+		}, nil, nil)
 	registerSystemComponent(reg, sysCompRuntime, comp.Runtime != nil, []string{sysCompEventStore}, kernel.ModeRequired,
 		func(ctx context.Context) error { return comp.Runtime.Stop() }, nil, nil)
 	registerSystemComponent(reg, sysCompMemory, comp.Memory != nil, []string{sysCompEventStore}, kernel.ModeRequired,

@@ -138,7 +138,7 @@ func (t *HTTPRequest) Execute(ctx context.Context, params map[string]interface{}
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			log.Error("failed to close response body: ", "error", err)
+			log.Error("failed to close response body", "error", err)
 		}
 	}()
 

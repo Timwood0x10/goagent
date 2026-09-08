@@ -183,6 +183,25 @@ func (k *Kernel) SetAskAgent(fn AskAgentFn) {
 	k.askAgent = fn
 }
 
+// SeedIDSeq advances the Kernel's shared ID sequence to at least min. Every
+// counter-derived ID family minted here (task-<capability>-N via CreateTask,
+// spawned-<capability>-N via SpawnAgent, plan-<origin>-N via create_plan)
+// resets to 1 on a fresh boot, while a Postgres-backed restore folds the
+// previous boot's tasks — with those exact IDs — back into the fabric. A
+// re-minted task-<capability>-N would fail Create with ErrTaskExists on the
+// agent's own decomposition syscall. serve seeds the sequence past the max N
+// found in restored task IDs right after restore. Grow-only via CAS: a min
+// below the current sequence is a no-op, so concurrent syscalls can never
+// move the counter backwards.
+func (k *Kernel) SeedIDSeq(min int64) {
+	for {
+		cur := k.idSeq.Load()
+		if min <= cur || k.idSeq.CompareAndSwap(cur, min) {
+			return
+		}
+	}
+}
+
 // NewKernel creates a syscall Kernel over the given fabrics. The factory and
 // register function are optional: without them, spawn creates the agent in
 // the fabric but cannot register it as an executor (the agent exists but

@@ -13,7 +13,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
 )
 
-// TestC6_1_KillAgentScenario verifies: after a structural patch
+// TestKillAgentScenario verifies: after a structural patch
 // (simulating a kill agent scenario — removing a node), the topology
 // changes, the compile count increments, and the attribution triplet
 // (generation, dag_version, compile_id) is queryable. No LLM is called.
@@ -22,7 +22,7 @@ import (
 // (the agent's node is removed from the workflow topology). This test
 // simulates that by directly removing a node and verifying the
 // recompile path fires.
-func TestC6_1_KillAgentScenario(t *testing.T) {
+func TestKillAgentScenario(t *testing.T) {
 	dag, err := engine.NewMutableDAG([]*engine.Step{
 		{ID: "planner", AgentType: "plan"},
 		{ID: "executor", AgentType: "exec", DependsOn: []string{"planner"}},
@@ -74,11 +74,11 @@ func TestC6_1_KillAgentScenario(t *testing.T) {
 	// here we assert by construction.)
 }
 
-// TestC6_2_TaskDistributionChange verifies: after a structural
+// TestTaskDistributionChange verifies: after a structural
 // patch that changes the task distribution (adding a new branch), the
 // topology changes and the attribution triplet is queryable. No LLM
 // is called.
-func TestC6_2_TaskDistributionChange(t *testing.T) {
+func TestTaskDistributionChange(t *testing.T) {
 	dag, err := engine.NewMutableDAG([]*engine.Step{
 		{ID: "a", AgentType: "x"},
 		{ID: "b", AgentType: "y", DependsOn: []string{"a"}},
@@ -124,12 +124,12 @@ func TestC6_2_TaskDistributionChange(t *testing.T) {
 	assert.GreaterOrEqual(t, len(events), 2, "at least 2 compile events (initial + recompile)")
 }
 
-// TestC6_3_DreamCycleDisabled verifies: the evolution loop operates
+// TestDreamCycleDisabled verifies: the evolution loop operates
 // with EnableDreamCycle=false. In the full system this is asserted via
 // the bootstrap config; here we assert that the projection/compile path
 // does not depend on DreamCycle — it works with a plain MutableDAG
 // and CompileCoordinator, no DreamCycle reference is needed.
-func TestC6_3_DreamCycleDisabled(t *testing.T) {
+func TestDreamCycleDisabled(t *testing.T) {
 	dag, err := engine.NewMutableDAG([]*engine.Step{
 		{ID: "a", AgentType: "x"},
 	})
@@ -148,7 +148,7 @@ func TestC6_3_DreamCycleDisabled(t *testing.T) {
 	assert.Equal(t, 0, rec.Generation)
 }
 
-// TestC6_4_FrozenItemsNotTriggered verifies: the frozen items
+// TestFrozenItemsNotTriggered verifies: the frozen items
 // (AKG, HITL, subgraph executor) are not triggered by the evolution
 // loop. This is asserted structurally: the projection/compile path
 // only imports engine.MutableDAG and taskfabric.Fabric — it does not
@@ -158,7 +158,7 @@ func TestC6_3_DreamCycleDisabled(t *testing.T) {
 //   - The PlanStep does not carry Interrupt (HITL field).
 //   - The PlanStep does not carry RecoveryPolicy (subgraph executor field).
 //   - The compile path does not reference AKG.
-func TestC6_4_FrozenItemsNotTriggered(t *testing.T) {
+func TestFrozenItemsNotTriggered(t *testing.T) {
 	dag, err := engine.NewMutableDAG([]*engine.Step{
 		{
 			ID:             "a",
@@ -197,7 +197,7 @@ func TestC6_4_FrozenItemsNotTriggered(t *testing.T) {
 // the deterministic scorer produces a non-constant score (proving it is
 // a real independent scorer, not a constant), which is what enables the
 // shadow gate registration in the full system.
-func TestC6_5_DeterministicScorerIsIndependent(t *testing.T) {
+func TestDeterministicScorerIsIndependent(t *testing.T) {
 	// This test is a structural proxy: it verifies the
 	// deterministic scorer (from aresrecovery) produces varying scores
 	// for different task distributions. The full assertion

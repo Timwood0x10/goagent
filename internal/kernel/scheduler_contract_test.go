@@ -266,6 +266,56 @@ func TestFabricAgentsAreTheSingleCandidateSource(t *testing.T) {
 	}
 }
 
+// TestHasCapableExecutorSourcesFabricCandidates locks the single-source
+// predicate: HasCapableExecutor must see a live IDLE executable fabric agent
+// as capable. Before the shared buildCandidates refactor, the fabric branch
+// built a candidate with no Confidence (Score always 0), so that branch was
+// dead and recovery reported "no candidate" for tasks a fabric agent could
+// actually resume.
+func TestHasCapableExecutorSourcesFabricCandidates(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	fabric := taskfabric.NewFabric()
+	agents := agentfabric.NewFabric()
+	if _, err := agents.Spawn(ctx, agentfabric.SpawnSpec{
+		Identity:     "fab-hce",
+		Capabilities: []string{"research"},
+		CognitionFactory: func([]string) agentfabric.Cognition {
+			return &countingCognition{}
+		},
+	}); err != nil {
+		t.Fatalf("Spawn: %v", err)
+	}
+
+	sched := New(fabric, map[string]CapabilityExecutor{}, NewLoadTracker())
+	sched.WithAgentFabric(agents)
+
+	// Capable fabric agent → predicate true (the previously-dead branch).
+	if err := fabric.Create(&taskfabric.Task{ID: "hce-1", Capability: "research", RetryPolicy: taskfabric.RetryPolicy{MaxRetries: 2}}); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if !sched.HasCapableExecutor("hce-1") {
+		t.Fatalf("live IDLE executable fabric agent with overlapping capability must be capable")
+	}
+
+	// Capability overlap must still gate the predicate.
+	if err := fabric.Create(&taskfabric.Task{ID: "hce-2", Capability: "trading", RetryPolicy: taskfabric.RetryPolicy{MaxRetries: 2}}); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if sched.HasCapableExecutor("hce-2") {
+		t.Fatalf("capability overlap must still gate HasCapableExecutor")
+	}
+
+	// Killing the agent removes it from the candidate pool.
+	if err := agents.Kill(ctx, "fab-hce"); err != nil {
+		t.Fatalf("Kill: %v", err)
+	}
+	if sched.HasCapableExecutor("hce-1") {
+		t.Fatalf("killed agent must not be reported capable")
+	}
+}
+
 // TestPreemptLowerPriorityHandsBackRunningTask locks the cooperative
 // preemption contract: a higher-priority READY task causes the running
 // lower-priority task to be handed back to READY (checkpoint preserved,

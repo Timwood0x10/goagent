@@ -77,7 +77,7 @@ func stopLogCapture() {
 	logCapture = nil
 }
 
-// TestW3MustPersistEventFailureIsLogged verifies the durability fix: when
+// TestMustPersistEventFailureIsLogged verifies the durability fix: when
 // the EventStore append fails for a must-persist event (TaskCreated,
 // TaskCheckpointed, TaskCompleted, TaskFailed, TaskExpired), the failure is
 // LOGGED — not silently swallowed. The old code did `_ = err`, which meant a
@@ -88,7 +88,7 @@ func stopLogCapture() {
 // the in-memory state stays authoritative within a process ("禁止
 // 静默吞错", but the transition is not rolled back). The gap is made visible
 // via the log.
-func TestW3MustPersistEventFailureIsLogged(t *testing.T) {
+func TestMustPersistEventFailureIsLogged(t *testing.T) {
 	store := newFailingEventStore()
 	f := NewFabric().WithEventStore(store)
 
@@ -119,11 +119,11 @@ func TestW3MustPersistEventFailureIsLogged(t *testing.T) {
 	}
 }
 
-// TestW3ObservabilityEventFailureIsSilent verifies that an append failure for
+// TestObservabilityEventFailureIsSilent verifies that an append failure for
 // an observability-only event (EventTaskReady) is NOT logged — the old
 // best-effort behavior is preserved for non-critical events. Only must-persist
 // events surface their failures.
-func TestW3ObservabilityEventFailureIsSilent(t *testing.T) {
+func TestObservabilityEventFailureIsSilent(t *testing.T) {
 	store := newFailingEventStore()
 	f := NewFabric().WithEventStore(store)
 
@@ -166,12 +166,12 @@ func TestW3ObservabilityEventFailureIsSilent(t *testing.T) {
 	}
 }
 
-// TestW3MustPersistEventClassification verifies that isMustPersistEvent
+// TestMustPersistEventClassification verifies that isMustPersistEvent
 // correctly classifies the events that the runtime's recovery/replay
 // correctness depends on. Must-persist events are: TaskCreated,
 // TaskCheckpointed, TaskCompleted, TaskFailed, TaskExpired. All others are
 // observability-only.
-func TestW3MustPersistEventClassification(t *testing.T) {
+func TestMustPersistEventClassification(t *testing.T) {
 	mustPersist := []EventType{
 		EventTaskCreated,
 		EventTaskCheckpointed,
@@ -199,12 +199,12 @@ func TestW3MustPersistEventClassification(t *testing.T) {
 	}
 }
 
-// TestW3CheckpointEnvelopeRoundTrip verifies the versioned checkpoint schema
+// TestCheckpointEnvelopeRoundTrip verifies the versioned checkpoint schema
 // (固化 checkpoint schema): a CheckpointEnvelope can be marshaled
 // to JSON and unmarshaled back, and DecodeCheckpoint extracts the fields
 // correctly from the round-tripped form. This is the cross-restart protocol
 // stability test.
-func TestW3CheckpointEnvelopeRoundTrip(t *testing.T) {
+func TestCheckpointEnvelopeRoundTrip(t *testing.T) {
 	original := &CheckpointEnvelope{
 		SchemaVersion:    CurrentCheckpointSchemaVersion,
 		Payload:          map[string]any{"task_desc": "analyze rust code"},
@@ -247,12 +247,12 @@ func TestW3CheckpointEnvelopeRoundTrip(t *testing.T) {
 	}
 }
 
-// TestW3DecodeCheckpointRejectsFutureVersion verifies that DecodeCheckpoint
+// TestDecodeCheckpointRejectsFutureVersion verifies that DecodeCheckpoint
 // returns ErrCheckpointSchemaVersion when the envelope carries a future
 // schema version. A future version means the code is talking to a newer
 // runtime — silent misinterpretation would corrupt the task state, so the
 // decode must reject explicitly.
-func TestW3DecodeCheckpointRejectsFutureVersion(t *testing.T) {
+func TestDecodeCheckpointRejectsFutureVersion(t *testing.T) {
 	future := &CheckpointEnvelope{
 		SchemaVersion: CurrentCheckpointSchemaVersion + 1,
 	}
@@ -271,11 +271,11 @@ func TestW3DecodeCheckpointRejectsFutureVersion(t *testing.T) {
 	}
 }
 
-// TestW3DecodeCheckpointHandlesNilAndRaw verifies DecodeCheckpoint handles
+// TestDecodeCheckpointHandlesNilAndRaw verifies DecodeCheckpoint handles
 // edge cases gracefully: nil checkpoint, a plain map (raw step checkpoint
 // without the schema_version key), and a non-map value (e.g. an int). These
 // represent legacy checkpoints or minimally-wrapped progress markers.
-func TestW3DecodeCheckpointHandlesNilAndRaw(t *testing.T) {
+func TestDecodeCheckpointHandlesNilAndRaw(t *testing.T) {
 	// nil → zero value.
 	dc, err := DecodeCheckpoint(nil)
 	if err != nil || dc.SchemaVersion != 0 {
@@ -305,11 +305,11 @@ func TestW3DecodeCheckpointHandlesNilAndRaw(t *testing.T) {
 	}
 }
 
-// TestW3EncodeDecodeRoundTrip verifies EncodeCheckpoint ∘ DecodeCheckpoint is
+// TestEncodeDecodeRoundTrip verifies EncodeCheckpoint ∘ DecodeCheckpoint is
 // idempotent: encoding a decoded checkpoint and decoding it again yields the
 // same fields. This is the contract the scheduler relies on when re-wrapping
 // a quantum's output (yield/done).
-func TestW3EncodeDecodeRoundTrip(t *testing.T) {
+func TestEncodeDecodeRoundTrip(t *testing.T) {
 	original := DecodedCheckpoint{
 		UserProfile:      "profile-data",
 		Payload:          map[string]any{"task_desc": "test"},
@@ -336,10 +336,10 @@ func TestW3EncodeDecodeRoundTrip(t *testing.T) {
 	}
 }
 
-// TestW3MarshalCheckpointWrapsRawValue verifies that MarshalCheckpoint wraps a
+// TestMarshalCheckpointWrapsRawValue verifies that MarshalCheckpoint wraps a
 // non-envelope value in a versioned envelope before serializing — the
 // serialized form always carries the schema version (固化协议).
-func TestW3MarshalCheckpointWrapsRawValue(t *testing.T) {
+func TestMarshalCheckpointWrapsRawValue(t *testing.T) {
 	raw, err := MarshalCheckpoint(map[string]any{"step": 5})
 	if err != nil {
 		t.Fatalf("MarshalCheckpoint: %v", err)
@@ -359,14 +359,14 @@ func TestW3MarshalCheckpointWrapsRawValue(t *testing.T) {
 	}
 }
 
-// TestW3StoreFailureDoesNotBreakStateMachine verifies that a store append
+// TestStoreFailureDoesNotBreakStateMachine verifies that a store append
 // failure does NOT break the in-memory state machine: the task still
 // transitions correctly (Create → Acquire → Start → Complete) even when every
 // store append fails. The in-memory state is authoritative within a process;
 // the store is for cross-restart replay. A store failure means the event log
 // diverges from memory — the operator is warned via the log (tested above),
 // but the runtime continues.
-func TestW3StoreFailureDoesNotBreakStateMachine(t *testing.T) {
+func TestStoreFailureDoesNotBreakStateMachine(t *testing.T) {
 	store := newFailingEventStore()
 	store.failAlways.Store(true)
 	f := NewFabric().WithEventStore(store)

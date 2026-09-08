@@ -2,7 +2,7 @@
 
 > 0.3.x update: Skills discovery has landed as the **Capability Fabric** in `internal/ares_skills` — the framework-native skill discovery, indexing, and loading system. The `Catalog` facade plus `SourceManager` aggregates four declared source kinds (project / user / registered / experience, where registered itself falls into directory, git, and http-oci). `CatalogTools` exposes a quintet of catalog tools (skill_search/load/activate/list/experience). `ExperienceConfidenceSource` adapts the learned prior into a `taskfabric.ConfidenceSource` and feeds it into the Kernel Scheduler's fabric.
 
-> Note: This article is grounded in the actual code (all of `internal/ares_skills`: source.go / indexer.go / discovery.go / resolver.go / loader.go / experience.go / experience_store.go / experience_confidence.go / outcome_recorder.go / git_source.go / http_source.go / changes.go / config.go / tools.go / types.go / fts5.go / catalog.go) — the dedicated Capability-Fabric discovery-chain article in the docs series.
+> Note: This article is grounded in the actual code (all of `internal/ares_skills`: source.go / indexer.go / discovery.go / resolver.go / loader.go / experience.go / experience_store.go / experience_confidence.go / git_source.go / http_source.go / changes.go / config.go / tools.go / types.go / fts5.go / catalog.go) — the dedicated Capability-Fabric discovery-chain article in the docs series.
 
 ## 1. Skills Discovery: From "Searching" to "Declaring"
 
@@ -141,14 +141,13 @@ type ExperienceRecord struct {
 ```
 
 - **Not LLM-generated skills** — it only records "which skill has high success on which task pattern"; `BestMatch` scores by keyword overlap (substring containment for short patterns, `patternMatchScore` token-overlap ratio for long ones, below `matchScoreThreshold = 0.5` no match).
-- **Bounded + persistable**: `NewExperience` caps `maxRecords = 1000` (drops the oldest); `taskPattern` is truncated by `capPatternLength` to `maxPatternLength = 256` runes (shared with the outcome recorder). Re-recording the same (skill, pattern) overwrites its rate.
+- **Bounded + persistable**: `NewExperience` caps `maxRecords = 1000` (drops the oldest); `taskPattern` is truncated by `capPatternLength` to `maxPatternLength = 256` runes. Re-recording the same (skill, pattern) overwrites its rate.
 - **JSON persistence** (`experience_store.go`): `JSONExperienceStore.Save` is atomic (`tmp → rename`, dir 0700, file 0600). In production the file defaults to `~/.ares/experience.json` (assembled in `skills_wiring.go`).
-- **Closed-loop observer** (`outcome_recorder.go`): `SkillOutcomeRecorder.Start` subscribes to the `EventSubTaskResult` stream (read-only observer) → `consumeOne` reads `task.UsedExperienceID` + `success`/failure → `skillTaskPattern` (prefers `task_desc`, falls back to AgentType / subAgentID / `"default"`) → `Experience.Record(skill, pattern, rate)`. Recording is best-effort and never blocks the task path; events without a skill association are `skipped` (a nil store is an offline no-op).
+- **Write side removed (dead code)**: the former `SkillOutcomeRecorder` (`outcome_recorder.go`) was deleted — its only potential emitter (`EventSubTaskResult` from the retired tool loop) never carried the payload shape it read (`task.UsedExperienceID` + `success`), so it was starved from the start (RUNTIME.md breakage #8). The loop is currently read-only: nothing in production writes priors until a conforming `sub_task.result` emitter exists.
 
 ```mermaid
 graph LR
-    SUB[Sub executor<br/>emits EventSubTaskResult] --> R[SkillOutcomeRecorder.consumeOne]
-    R -->|task.UsedExperienceID + success| E[Experience.Record<br/>skill, pattern, rate]
+    REC[Experience.Record<br/>skill, pattern, rate<br/>write side: no production emitter] --> E[Experience<br/>priors, max 1000 records]
     E --> STORE[JSON store<br/>atomic tmp→rename]
     E --> BM[Experience.BestMatch<br/>overlap, threshold 0.5]
     BM --> EXP[ExperienceConfidenceSource.Confidence]
@@ -186,7 +185,7 @@ The capability-catalog wiring is **not** done in one place in `serve.go` — it'
 3. `SetGitSources` / `SetHTTPSources`; MCP attached as the lazy connector; `SyncGitSources` is non-fatal (degrading to local-checkout indexing on failure)
 4. `catalog.Build()` — built exactly once at startup; failure is logged, not fatal
 5. `SeedRegistry` pours into `skills.Registry` → `setter.SetSkillsRegistry(reg)` attaches to the memoryManager resident "Available skills" block
-6. `bootstrap.go` then starts `NewSkillOutcomeRecorder(catalog).Start(ctx, comp.EventStore)` to close the outcome loop
+6. `bootstrap.go` used to start `NewSkillOutcomeRecorder(catalog).Start(ctx, comp.EventStore)` here — removed as dead code (starved from the start; see §6), leaving a TODO(tech-debt) at the wiring spot
 
 **② Tool exposure** (`cmd/ares/serve.go` / `tools.go`):
 

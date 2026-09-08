@@ -4,12 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,7 +37,6 @@ func getTestPool(t *testing.T) *postgres.Pool {
 		return nil
 	}
 
-	cfg := postgres.DefaultConfig()
 	// Override with the DSN from the environment.
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
@@ -52,16 +53,43 @@ func getTestPool(t *testing.T) *postgres.Pool {
 	// Create the events table for testing.
 	createEventsTable(t, db)
 
+	// Parse the DSN so the pool connects to the SAME server the test
+	// database lives on. DefaultConfig() hardcodes localhost:5432 with the
+	// postgres/ARES credentials — a DSN pointing anywhere else (different
+	// port, docker-mapped host, custom user) would create the table on one
+	// server and then talk to another, making every test fail or silently
+	// skip on the pool ping.
+	var poolCfg = postgres.DefaultConfig()
+	if cc, perr := pgx.ParseConfig(dsn); perr == nil {
+		poolCfg.Host = cc.Host
+		poolCfg.Port = int(cc.Port)
+		poolCfg.User = cc.User
+		poolCfg.Password = cc.Password
+		poolCfg.Database = cc.Database
+		poolCfg.SSLMode = sslModeFromDSN(dsn)
+	}
+
 	// Close the raw db and re-open through the pool constructor.
 	_ = db.Close()
 
-	pool, err := postgres.NewPool(cfg)
+	pool, err := postgres.NewPool(poolCfg)
 	if err != nil {
 		t.Skipf("failed to create test pool: %v", err)
 		return nil
 	}
 
 	return pool
+}
+
+// sslModeFromDSN extracts the sslmode query parameter, defaulting to the
+// postgres package default when absent.
+func sslModeFromDSN(dsn string) string {
+	if u, uerr := url.Parse(dsn); uerr == nil {
+		if m := u.Query().Get("sslmode"); m != "" {
+			return m
+		}
+	}
+	return postgres.DefaultSSLMode
 }
 
 // createEventsTable ensures the events table exists for tests.
@@ -153,23 +181,25 @@ func TestPostgresEventStore_VersionConflict(t *testing.T) {
 	ctx := context.Background()
 	streamID := fmt.Sprintf("test-version-conflict-%d", time.Now().UnixNano())
 
-	evt := newTestEvent(EventTaskCreated, "k", "v")
+	// Appending with wrong positive version must fail.
+	err := store.Append(ctx, streamID, []*Event{newTestEvent(EventTaskCreated, "k", "v")}, 99)
+	assert.ErrorIs(t, err, ErrVersionConflict)
 
-	// First append succeeds with expectedVersion 0.
-	err := store.Append(ctx, streamID, []*Event{evt}, 0)
+	// expectedVersion 0 is AUTO-DETECT (append after current version, no
+	// conflict) per the Append contract — it must succeed on both an empty
+	// stream and a non-empty one.
+	err = store.Append(ctx, streamID, []*Event{newTestEvent(EventTaskCreated, "k", "v")}, 0)
+	require.NoError(t, err)
+	err = store.Append(ctx, streamID, []*Event{newTestEvent(EventTaskCompleted, "k2", "v2")}, 0)
 	require.NoError(t, err)
 
-	// Appending again with expectedVersion 0 must fail (stream is not empty).
-	err = store.Append(ctx, streamID, []*Event{evt}, 0)
-	assert.ErrorIs(t, err, ErrVersionConflict)
-
-	// Appending with wrong version must fail.
-	err = store.Append(ctx, streamID, []*Event{evt}, 99)
-	assert.ErrorIs(t, err, ErrVersionConflict)
-
-	// Appending with correct version succeeds.
-	err = store.Append(ctx, streamID, []*Event{evt}, 1)
+	// Appending with the correct current version (2) succeeds.
+	err = store.Append(ctx, streamID, []*Event{newTestEvent(EventAgentStarted, "k3", "v3")}, 2)
 	assert.NoError(t, err)
+
+	// The stale version 1 is now a conflict.
+	err = store.Append(ctx, streamID, []*Event{newTestEvent(EventAgentStarted, "k4", "v4")}, 1)
+	assert.ErrorIs(t, err, ErrVersionConflict)
 }
 
 // TestPostgresEventStore_ReadWithFilters verifies FromVersion, Since, Limit, and Direction.

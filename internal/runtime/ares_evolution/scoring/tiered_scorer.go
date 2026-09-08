@@ -182,8 +182,8 @@ func (ts *TieredScorer) tryLLMScore(ctx context.Context, s *mutation.Strategy, h
 	func() {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Warn("tiered_scorer: LLM scorer panicked",
-					"hash", hash, "recovery", r)
+				log.Error("tiered_scorer: LLM scorer panicked",
+					"hash", hash, "panic", r)
 				ts.budget.RecordFallback()
 				ts.fallbacks.Add(1)
 				success = false

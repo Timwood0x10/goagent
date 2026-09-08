@@ -76,7 +76,7 @@ graph LR
 | 2 | `ProvideRuntime(eventStore)` → `runtime.New(nil, eventStore, nil)` | `Runtime` | 总是创建 |
 | 3 | `wireMemory(cfg, eventStore)` → `ProvideMemory(memCfg)`；`mem.SetEventStore(eventStore, "memory")` | `Memory` | 门控 `cfg.Memory.IsEnabled()` |
 | 4 | `ProvideMCP(ctx, cfg.MCP)` → `ares_mcp.NewMCPManager` + `.Start(ctx)` | `MCP` | 无服务可配时最小可用 |
-| 4b | `wireSkills(ctx, mem, mcp)`；`NewSkillOutcomeRecorder(catalog).Start` | `SkillsRegistry`, `SkillCatalog` | best-effort |
+| 4b | `wireSkills(ctx, mem, mcp)` | `SkillsRegistry`, `SkillCatalog` | best-effort |
 | 5 | `ProvideLLM(cfg.LLM)`（或 `deps.LLMClient`） | `LLM` | 回调注册表 + CostDashboard + Prometheus tracer |
 | 5b | `wireDistillation(...)` → `provideDistillation(...)` | `Distillation`，`ExpRepo` | 门控 `Memory.DistillationEnabled()` + PG + Embedding |
 | 5c | `wireAKGLoop(cfg, deps, embClient)` | `KnowledgeStore`, `AKGBridge` | 门控 `cfg.Knowledge.RetrievalEnabled` |
@@ -161,7 +161,7 @@ type Components struct {
 - `ares_skills.NewCatalog(CatalogConfig{...})` 声明源：`./.ares/skills` + `~/.ares/skills` + `LoadSkillSources("")` 返回的目录/git/http 源；`SetGitSources` / `SetHTTPSources`；`mcp != nil` 时 `SetMCPConnector(mcp)`。
 - `SyncGitSources(ctx)` → `Build()` 建立索引 → `SeedRegistry(reg)`，把 `skills.NewRegistry()` 经 `setter.SetSkillsRegistry(reg)` 注入 memory manager。
 - 返回 `(*ares_skills.Catalog, *skills.Registry)`：`[0]` 挂 `Close` 清理，`[1]` 交给 env-cap 搜索器让技能变成可检索的 tool 能力。
-- `ares_skills.NewSkillOutcomeRecorder(catalog).Start(ctx, comp.EventStore)` 订阅 `EventSubTaskResult`，把技能使用/结果持久化（W8）。
+- 此处原先订阅 `EventSubTaskResult` 的 skill outcome recorder 已作为死代码删除（从第一天起就被饿死——从未有发射方携带它期望的 payload 形状，W8 / RUNTIME.md 破损项 #8），接线点留有 TODO(tech-debt)。
 - 全程 best-effort：memory 禁用 / memory 不暴露 `SetSkillsRegistry` / 索引构建失败，都只 log + 跳过，不挡启动。
 
 > 注意：本文早期版本提到的 `CatalogTools(skill_search/skill_load/...)`、`SetToolChangeHandler`、`serve.go` 里 `wireSkillCatalog` 等符号，本次未在 `internal/ares_bootstrap` 中核实到，标记为（待核实）。真实的技能接线入口是上面的 `wireSkills`。

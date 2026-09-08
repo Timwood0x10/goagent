@@ -80,10 +80,10 @@ func buildTestL1DAG(t *testing.T, enabled string, budget string) *engine.Mutable
 	return dag
 }
 
-// TestM5_DisabledToolNotGrown pins the constraint point: when L1 has
+// TestL1DisabledToolNotGrown pins the constraint point: when L1 has
 // enabled="false" for a ToolClass, the planner skips growing that tool node
 // and instead grows an answer node (since no tool call was executed).
-func TestM5_DisabledToolNotGrown(t *testing.T) {
+func TestL1DisabledToolNotGrown(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -140,10 +140,10 @@ func TestM5_DisabledToolNotGrown(t *testing.T) {
 		"answer node must be grown when tool call is skipped by L1 constraint")
 }
 
-// TestM5_BudgetCapsInstances pins the budget: budget=1 means at most 1
+// TestL1BudgetCapsInstances pins the budget: budget=1 means at most 1
 // instance of the ToolClass in the L2 graph. The second grep call must be
 // skipped.
-func TestM5_BudgetCapsInstances(t *testing.T) {
+func TestL1BudgetCapsInstances(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -220,9 +220,9 @@ func TestM5_BudgetCapsInstances(t *testing.T) {
 		"second grep with budget=1 must not be grown")
 }
 
-// TestM5_NilL1DAGIsPermissive pins the default: when no L1 graph is
+// TestNilL1DAGIsPermissive pins the default: when no L1 graph is
 // provided, all tool calls pass through (no constraints).
-func TestM5_NilL1DAGIsPermissive(t *testing.T) {
+func TestNilL1DAGIsPermissive(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -275,12 +275,12 @@ func grepSchema(t *testing.T) resources.ToolSchema {
 	return schemas[0]
 }
 
-// TestM5_L1NodeIDMatchesWriterAndReader pins the ToolClass identity across the
+// TestL1NodeIDMatchesWriterAndReader pins the ToolClass identity across the
 // two sides that must agree: the L1 graph builder WRITES node IDs from the
 // declared schema, and the planner READS them back before growing an L2 node.
 // A call that omits an optional parameter must still resolve to the same
 // ToolClass — otherwise the lookup misses and enabled=false is ignored.
-func TestM5_L1NodeIDMatchesWriterAndReader(t *testing.T) {
+func TestL1NodeIDMatchesWriterAndReader(t *testing.T) {
 	schema := grepSchema(t)
 	written := resources.ToolClassID("grep", resources.ToolArgShape(schema))
 	require.Equal(t, "grep#limit,query", written,

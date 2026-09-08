@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
 )
@@ -255,7 +256,12 @@ type routerCognition struct {
 	// sessions is released by the answer body when the terminal node
 	// completes. Nil unless built with session wiring.
 	sessions *SessionRegistry
-	logger   *slog.Logger
+	// synthesis is the answer body's optional synthesizer (M4.2). It is
+	// derived from the planner at construction time — see
+	// NewRouterCognitionWithPlanner. Nil = no synthesis (tests, degraded
+	// wiring): the answer body emits the gap body.
+	synthesis *answerSynthesizer
+	logger    *slog.Logger
 }
 
 var _ Cognition = (*routerCognition)(nil)
@@ -275,8 +281,24 @@ func NewRouterCognition(binder ToolBinder, logger *slog.Logger) Cognition {
 // planner carries session-scoped dependencies (L2 graph registry, fabric
 // reader, LLM client) that the router itself does not own. sessions wires
 // session teardown into the answer body (nil = no release, test path).
+//
+// When planner is the concrete plannerCognition, the router also derives the
+// answer body's synthesizer from it (M4.2): a content-less terminal node
+// must synthesize its answer from the predecessor history, which is
+// reachable only through the planner's session registry + fabric reader.
+// Deriving it here keeps the Cognition interface unwidened (a Cognition's
+// only input stays its own task — the mainline invariant) and every
+// existing call site unchanged. Any other planner value (nil, a test
+// double) yields no synthesis; the answer body keeps its gap-body contract.
 func NewRouterCognitionWithPlanner(binder ToolBinder, planner Cognition, sessions *SessionRegistry, logger *slog.Logger) Cognition {
-	return &routerCognition{binder: binder, planner: planner, sessions: sessions, logger: logger}
+	r := &routerCognition{binder: binder, planner: planner, sessions: sessions, logger: logger}
+	if pc, ok := planner.(*plannerCognition); ok {
+		r.synthesis = &answerSynthesizer{
+			chat:     pc.chat,
+			assemble: pc.assembleAnswerMessages,
+		}
+	}
+	return r
 }
 
 // ExecuteStep routes by task.AgentType (the node's capability). Tool nodes
@@ -292,7 +314,11 @@ func (r *routerCognition) ExecuteStep(ctx context.Context, task *models.Task) (*
 		}
 		return (&toolCognition{tool: tool, binder: r.binder, logger: r.logger}).ExecuteStep(ctx, task)
 	case name == answerAgentType:
-		return (&answerCognition{logger: r.logger, sessions: r.sessions}).ExecuteStep(ctx, task)
+		return (&answerCognition{
+			logger:    r.logger,
+			sessions:  r.sessions,
+			synthesis: r.synthesis,
+		}).ExecuteStep(ctx, task)
 	case name == planAgentType:
 		// The planner cognition is injected by the session wiring (it
 		// carries the L2 graph + fabric handles); the router does not
@@ -367,39 +393,71 @@ const answerContentKey = "content"
 // be a constant masquerading as logic.
 const unansweredBody = "no answer content supplied"
 
-// answerCognition terminates the session on its terminal node. It does NOT
-// summarize: it emits the content its own node carries (the answerContentKey
-// arg) and says so plainly when the node carries none.
-//
-// TODO(tech-debt): no summarizer is wired here. Synthesizing an answer needs
-// the PREDECESSORS' outputs, which live in their fabric task envelopes
-// (node id = task id) — unreachable from a Cognition, whose only input is its
-// own task, and reachable only by widening the Cognition interface, which the
-// mainline invariant forbids. It therefore waits for the dedicated answer path
-// that assembles context along the graph path and calls the LLM. Until then a
-// content-less answer node reports the gap through the logger on every
-// execution instead of looking successful.
+// answerSynthesisInstruction is the closing instruction appended to the
+// assembled context on the synthesis call. It rides LAST, after the tool
+// history, as a user message (a system message after tool turns is
+// nonstandard for several providers). It tells the model to CLOSE the
+// session with a final answer — the call carries no tool schemas precisely
+// because a tool call here could never execute: its node would grow into a
+// graph whose session this very quantum releases.
+const answerSynthesisInstruction = "Produce the final answer to the original request using the tool results above. This call has no tools: answer directly."
+
+// answerSynthesizer bundles the answer body's optional synthesis
+// dependencies (M4.2). It is derived by NewRouterCognitionWithPlanner from
+// the concrete plannerCognition — the planner owns the session-scoped
+// handles (graph registry, fabric reader, LLM client) that assembling the
+// predecessors' history requires — so the answer body reaches the fabric
+// envelopes WITHOUT widening the Cognition interface (the mainline
+// invariant: a Cognition's only input is its own task). A nil synthesizer
+// means no synthesis (tests, degraded wiring): the answer body emits the
+// gap body.
+type answerSynthesizer struct {
+	// chat makes the ONE synthesis LLM call. Non-nil by construction
+	// (NewPlannerCognition validates its client); the nil check in
+	// synthesizeAnswer keeps a hand-built zero value usable.
+	chat ChatClient
+	// assemble rebuilds the session's LLM context (root prompt, tool
+	// history, experience prior) from the answer task's predecessor
+	// chain. false = context unavailable (session released, unreadable
+	// root); the caller degrades to the gap body instead of failing.
+	assemble func(ctx context.Context, task *models.Task) ([]*core.LLMMessage, bool)
+}
+
+// answerCognition terminates the session on its terminal node. The normal
+// path emits the content its own node carries: the planner stamps the LLM's
+// final-turn content onto the answer node (growAnswerNode → answerContentKey
+// arg), so the pass-through IS the primary answer path and must never be
+// bypassed. A content-less node — the LLM spent its final turn on tool calls
+// the L1 constraints then skipped, or returned empty content — synthesizes
+// instead: the synthesizer assembles the predecessor history (the same
+// context the planner would send on its next quantum) and makes ONE LLM
+// call with tools disabled. Unwired or failed synthesis emits the explicit
+// gap body (unansweredBody) plus a warning instead of failing the quantum —
+// see synthesizeAnswer for why a gap body rather than an error.
 type answerCognition struct {
 	logger *slog.Logger
 	// sessions releases the L2 graph when the terminal node completes
 	// (session teardown). Nil on routers without session wiring —
 	// the legacy path never releases what it never admitted.
 	sessions *SessionRegistry
+	// synthesis synthesizes a content-less terminal node's answer (M4.2).
+	// Nil = no synthesis (tests, degraded wiring).
+	synthesis *answerSynthesizer
 }
 
 var _ Cognition = (*answerCognition)(nil)
 
-// ExecuteStep completes the terminal node with the answer content supplied on
-// the node, or with an explicit "no content" body plus a warning when the node
-// carries none.
-func (c *answerCognition) ExecuteStep(_ context.Context, task *models.Task) (*StepOutcome, error) {
+// ExecuteStep completes the terminal node with the answer content supplied
+// on the node; a content-less node completes with the synthesized answer
+// when synthesis is wired, else with the explicit gap body.
+func (c *answerCognition) ExecuteStep(ctx context.Context, task *models.Task) (*StepOutcome, error) {
 	body, ok := argsFromPayload(task.Payload)[answerContentKey].(string)
 	if !ok || strings.TrimSpace(body) == "" {
+		body = c.synthesizeAnswer(ctx, task)
+	}
+	if strings.TrimSpace(body) == "" {
 		body = unansweredBody
-		if c.logger != nil {
-			c.logger.Warn("agentfabric: answer node has no content and no summarizer is wired",
-				"task_id", task.TaskID, "capability", string(task.AgentType))
-		}
+		c.logAnswerGap(task)
 	}
 	result := models.NewTaskResult(task.TaskID, task.AgentType)
 	result.SetSuccess([]*models.RecommendItem{{ItemID: task.TaskID, Content: body}}, "answer node terminated session")
@@ -417,6 +475,68 @@ func (c *answerCognition) ExecuteStep(_ context.Context, task *models.Task) (*St
 		}
 	}
 	return &StepOutcome{Done: true, Result: result}, nil
+}
+
+// synthesizeAnswer makes the answer path's ONE LLM call: assemble the
+// predecessor history and ask for the final answer with tools DISABLED.
+//
+// Failure contract: ANY failure — no wiring, nil internals, assembly miss,
+// LLM error, empty response — returns "" and the caller emits the gap body.
+// Returning an error instead would fail the quantum and burn the fabric's
+// retry budget on an LLM that is failing for every session, while a gap
+// body is the honest degraded output: the session terminates, the gap is
+// logged, the user sees an explicit absence instead of a session that
+// loops on retries.
+func (c *answerCognition) synthesizeAnswer(ctx context.Context, task *models.Task) string {
+	if c.synthesis == nil || c.synthesis.chat == nil || c.synthesis.assemble == nil {
+		// Zero-value usable: routers without synthesis wiring (tests,
+		// degraded construction) keep the documented gap-body degrade.
+		return ""
+	}
+	msgs, ok := c.synthesis.assemble(ctx, task)
+	if !ok {
+		return "" // the assembler already logged why
+	}
+	msgs = append(msgs, &core.LLMMessage{Role: "user", Content: answerSynthesisInstruction})
+	// No tool schemas and no param overrides: this is a plain completion
+	// over the session's history, not a planning call — the session is
+	// terminating, so a tool call could never execute, and strategy
+	// steering (which shapes tool choice) has nothing left to steer.
+	resp, err := c.synthesis.chat.Chat(ctx, msgs, nil, nil)
+	if err != nil {
+		if c.logger != nil {
+			c.logger.Warn("agentfabric: answer synthesis LLM call failed",
+				"task_id", task.TaskID, "session", task.SessionID, "error", err)
+		}
+		return ""
+	}
+	if resp == nil || strings.TrimSpace(resp.Content) == "" {
+		if c.logger != nil {
+			c.logger.Warn("agentfabric: answer synthesis returned no content",
+				"task_id", task.TaskID, "session", task.SessionID)
+		}
+		return ""
+	}
+	return resp.Content
+}
+
+// logAnswerGap reports why the terminal node emits the gap body: no
+// synthesis wiring at all (tests, degraded wiring — the pre-M4.2 message,
+// pinned by TestL2Cognition_AnswerWithoutContentSaysSo) versus a synthesis
+// that ran and failed (synthesizeAnswer already logged the cause). The
+// distinction is operational: the first is a wiring gap, the second an
+// LLM/provider event.
+func (c *answerCognition) logAnswerGap(task *models.Task) {
+	if c.logger == nil {
+		return
+	}
+	if c.synthesis == nil {
+		c.logger.Warn("agentfabric: answer node has no content and no summarizer is wired",
+			"task_id", task.TaskID, "capability", string(task.AgentType))
+		return
+	}
+	c.logger.Warn("agentfabric: answer synthesis failed; emitting gap body",
+		"task_id", task.TaskID, "session", task.SessionID)
 }
 
 // metadataFromParams flattens a params map into the string-only Step.Metadata

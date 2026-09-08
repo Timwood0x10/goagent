@@ -665,40 +665,11 @@ func (s *Scheduler) execute(ctx context.Context, taskID string) error {
 }
 
 // executeUnbound runs the fabric path for a task with no recovery binding:
-// the candidate pool is every registered, unbound executor whose capability
-// overlaps the task, plus every live IDLE fabric agent.
+// the candidate pool comes from the shared buildCandidates (every registered,
+// unbound executor whose capability overlaps the task, plus every live IDLE
+// fabric agent), scored and selected by the fabric.
 func (s *Scheduler) executeUnbound(ctx context.Context, taskID string) error {
-	execs := s.allExecutors()
-	cands := make([]taskfabric.Candidate, 0, len(execs))
-	for agentID, agent := range execs {
-		if agent == nil {
-			continue
-		}
-		if s.isBoundToAnyTask(agentID) {
-			continue
-		}
-		// When the fabric is wired (peer mode), the fabric's live
-		// population is the SINGLE candidate source — the static registrations
-		// of the configured sub-agents have a managed copy in the fabric, so a
-		// chaos kill takes effect on the next drain. Only recovery-bound
-		// executors (reserved for their task) stay in the static pool.
-		// (isBoundToAnyTask already checked above, so this is just s.agents != nil)
-		if s.agents != nil {
-			continue
-		}
-		cands = append(cands, taskfabric.Candidate{
-			AgentID:      agentID,
-			Capabilities: []string{string(agent.Type())},
-			Load:         s.tracker.Load(agentID),
-			Confidence:   s.tracker.Confidence(agentID),
-			Priority:     s.tracker.Priority(agentID),
-		})
-	}
-	// Live fabric agents are candidates too. Every drain re-queries the
-	// fabric, so a freshly spawned IDLE agent becomes schedulable immediately
-	// and a killed one disappears (spawn/kill reflected in the candidate set immediately).
-	cands = s.appendFabricCandidates(cands, execs)
-	return s.executeWithCandidates(ctx, taskID, cands)
+	return s.executeWithCandidates(ctx, taskID, s.buildCandidates(taskID))
 }
 
 // handleStaleWinner resolves the case where the scheduling winner died (or

@@ -46,13 +46,12 @@ type StrategySample struct {
 	At time.Time
 }
 
-// TODO(tech-debt): the design doc
-// gives StrategySample Latency and CostUSD fields (fed by flight-trace
-// cost/latency). Neither is populated today: task events carry no duration
-// or cost keys (see e.g. agentloop.Engine.emitTaskCompleted's payload), so
-// the fields were removed rather than left permanently zero. Reintroduce
-// them together with the aggregator's cost/latency penalty term once those
-// values reach the EventStore payloads.
+// TODO(tech-debt): the design doc gives StrategySample Latency and CostUSD
+// fields. Latency is now folded into Score at the observer (see
+// latencyPenalty), so a dedicated field would duplicate what the score
+// already carries; CostUSD still has no data source — reintroduce it (plus
+// the aggregator's cost penalty term) once per-call token/cost data reaches
+// the EventStore payloads.
 
 // RuntimeObserver subscribes to the EventStore for task and agent lifecycle
 // events, converts them into StrategySample values, and writes each sample
@@ -62,9 +61,48 @@ type RuntimeObserver struct {
 	subscriber EventStoreSubscriber
 	evStore    evidence.Store
 	activeID   func() string
-	mu         sync.Mutex
-	cancel     context.CancelFunc
-	eg         *errgroupAdapter
+	// latencyScale is the wall-time constant for the success-score latency
+	// penalty (see latencyPenalty). Zero disables the penalty.
+	latencyScale time.Duration
+	mu           sync.Mutex
+	cancel       context.CancelFunc
+	eg           *errgroupAdapter
+}
+
+// defaultLatencyScale is the latency penalty time constant: a task that
+// takes this long keeps half of its success score. 30s sits above typical
+// single-quantum tool calls and below pathological multi-minute sessions,
+// so normal traffic is barely damped while runaway tasks are discounted
+// hard.
+const defaultLatencyScale = 30 * time.Second
+
+// latencyPenalty computes the multiplicative latency factor for a completed
+// task: 1 / (1 + t/scale). Properties the GA relies on: monotonic
+// decreasing in t; bounded in (0,1] (t=0 → 1, t=scale → 0.5, asymptote 0);
+// strictly order-preserving (fast success > slow success at every t);
+// correctness still dominates (any success > any failure). A missing or
+// unparsable created_at, or a disabled scale (<= 0), returns 1 — an
+// unmeasurable task is scored on outcome alone, never invented latency.
+func (o *RuntimeObserver) latencyPenalty(evt *ares_events.Event) float64 {
+	if o.latencyScale <= 0 {
+		o.latencyScale = defaultLatencyScale
+	}
+	if evt == nil || evt.Payload == nil {
+		return 1
+	}
+	created, ok := evt.Payload["created_at"].(string)
+	if !ok {
+		return 1
+	}
+	start, err := time.Parse(time.RFC3339, created)
+	if err != nil {
+		return 1
+	}
+	elapsed := evt.Timestamp.Sub(start)
+	if elapsed <= 0 {
+		return 1
+	}
+	return 1.0 / (1.0 + elapsed.Seconds()/o.latencyScale.Seconds())
 }
 
 // errgroupAdapter is a minimal managed-goroutine wrapper so the observer
@@ -225,8 +263,13 @@ func (o *RuntimeObserver) eventToSample(evt *ares_events.Event) (StrategySample,
 	case ares_events.EventTaskCompleted:
 		score = 1.0
 		success = true
+		// Latency penalty: must-persist task events carry created_at, so the
+		// observer can compute the task's wall time without any new producer.
+		// The penalty is multiplicative and bounded so correctness always
+		// dominates: a failure keeps 0.0, a success keeps (0,1].
+		score *= o.latencyPenalty(evt)
 	case ares_events.EventTaskFailed:
-		// 0.0 (already initialized).
+		// 0.0 (already initialized). Failure is never penalty-rescued.
 	case ares_events.EventAgentStopped:
 		reason, _ := evt.Payload["reason"].(string)
 		if reason == "" || agentStoppedGracefulReasons[reason] {

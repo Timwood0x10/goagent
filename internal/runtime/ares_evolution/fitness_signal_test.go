@@ -33,7 +33,7 @@ func seedToolCall(t *testing.T, store *evidence.MemoryStore, strategyID, toolSte
 	}))
 }
 
-func TestM6_ToolClassSuccessRateSeparatesStrategies(t *testing.T) {
+func TestToolClassSuccessRateSeparatesStrategies(t *testing.T) {
 	ctx := context.Background()
 	store := evidence.NewMemoryStore()
 	now := time.Now()

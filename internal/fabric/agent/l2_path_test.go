@@ -47,12 +47,12 @@ func (c *dualPathChat) Chat(_ context.Context, _ []*core.LLMMessage, _ []core.To
 	}
 }
 
-// TestM4_L2PathSelfConsistency is the L2-path self-consistency test (renamed
+// TestL2PathSelfConsistency is the L2-path self-consistency test (renamed
 // from DualPathBehaviorConsistency when the ReAct path was deleted): the L2 graph
 // path (plannerCognition + routerCognition) runs one tool round
 // (grep → "echo(grep,pattern)") then a final answer ("the answer is 42")
 // and asserts the observable outputs match what the LLM produced.
-func TestM4_L2PathSelfConsistency(t *testing.T) {
+func TestL2PathSelfConsistency(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

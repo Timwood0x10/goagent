@@ -14,12 +14,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"log/slog"
 	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -924,6 +924,60 @@ func (h *actionHandler) handleSubmitGraph(w http.ResponseWriter, r *http.Request
 // counter hack is gone: the shared LoadTracker is scheduler-internal now).
 var peerTaskSeq atomic.Int64
 
+// maxRestoredTaskSeq extracts the highest counter value N embedded in any
+// counter-derived task ID of a restored fabric. The ID families minted from
+// process-local counters all end in "-N" before an optional "/" or "#"
+// suffix:
+//
+//	peer-plan-N              (submitPeerTask root tasks)
+//	sess/sess-auto-N/d0/t#s  (session-scoped node tasks)
+//	task-<capability>-N      (agentsyscall create_task)
+//	plan-<origin>-N/rR#s     (agentsyscall create_plan rounds)
+//
+// A generic last-dash scan intentionally covers every such family (including
+// future ones) instead of enumerating prefixes: over-seeding only skips ID
+// values, while a missed family would let a fresh boot mint a colliding ID.
+// Non-numeric or non-positive tails (UUIDs, engine step IDs) parse to 0 and
+// are ignored.
+func maxRestoredTaskSeq(ids []string) int64 {
+	var maxN int64
+	for _, id := range ids {
+		dash := strings.LastIndexByte(id, '-')
+		if dash < 0 || dash+1 >= len(id) {
+			continue
+		}
+		tail := id[dash+1:]
+		if cut := strings.IndexAny(tail, "/#"); cut >= 0 {
+			tail = tail[:cut]
+		}
+		n, err := strconv.ParseInt(tail, 10, 64)
+		if err != nil || n <= 0 {
+			continue
+		}
+		if n > maxN {
+			maxN = n
+		}
+	}
+	return maxN
+}
+
+// seedPeerTaskSeq advances the peer-mode ID sequence to at least min — the
+// cross-restart collision guard for peer-plan-N / sess-auto-N (see
+// maxRestoredTaskSeq for why the restored log demands it: a re-minted
+// peer-plan-N fails Create with ErrTaskExists, a re-minted sess-auto-N
+// silently re-admits onto a restored session's root task). Grow-only via CAS:
+// a min below the current value is a no-op, so a fresh store (min 0) leaves
+// the counter untouched and concurrent submissions can never move it
+// backwards.
+func seedPeerTaskSeq(min int64) {
+	for {
+		cur := peerTaskSeq.Load()
+		if min <= cur || peerTaskSeq.CompareAndSwap(cur, min) {
+			return
+		}
+	}
+}
+
 // normalizedPeers resolves the flat peer population from config. The
 // agents.peers structure is the DEFAULT; when it is empty (legacy config),
 // the legacy agents.sub entries are normalized into peers (each sub's single
@@ -1004,6 +1058,10 @@ func createPeerAgents(
 			return st.ID
 		})
 	}
+	// The restored max counter value (0 on a fresh/empty store); feeds the
+	// ID-collision seeds below. Declared here so both the restore site and
+	// the syscall Kernel construction (later in this assembly) can consume it.
+	var restoredSeq int64
 	if store != nil {
 		kernel.fabric = kernel.fabric.WithEventStore(store)
 		// Rebuild in-memory tasks from the durable task.* log BEFORE the
@@ -1013,6 +1071,13 @@ func createPeerAgents(
 		if err := kernel.fabric.RestoreFromStore(ctx); err != nil {
 			return nil, nil, fmt.Errorf("peer mode: restore task fabric from event store: %w", err)
 		}
+		// Cross-restart ID collision guard: the process-local counters reset
+		// to 1 on every boot, but with a durable store the restored fabric
+		// still holds the previous boot's peer-plan-N / sess-auto-N IDs. Seed
+		// the sequence past the max embedded N so the next mint cannot
+		// collide (grow-only: a no-op for a fresh in-memory store).
+		restoredSeq = maxRestoredTaskSeq(kernel.fabric.IDs())
+		seedPeerTaskSeq(restoredSeq)
 	}
 	// Experience-derived confidence prior — recorded skill/task outcomes
 	// sharpen scheduling when the same pattern recurs. Nil (skills disabled)
@@ -1207,6 +1272,13 @@ func createPeerAgents(
 		// The planner is the evolution strategy actuator after
 		// ReAct — deployed prompt/params steer plan growth.
 		StrategySource: strategySrc,
+		// M4.3 experience-loop read side: the planner reads the EXECUTING
+		// agent's cognitive Context (the spawn-time ExperiencePrior stamped
+		// by loadExperiencePrior) from the agent fabric and injects it as
+		// the leading context message. Same value the spawn wrote — no
+		// second experience-store query, and a Recover-restored state is
+		// honored mid-flight.
+		AgentFabric: agents,
 		// Operator-tunable growth-depth guard (0/absent = default).
 		MaxDepth: resolveMaxPlanDepth(cfg.Kernel.DAGExecution),
 		Logger:   slog.Default(),
@@ -1363,12 +1435,17 @@ func createPeerAgents(
 		// bounded by the serve lifetime, not the individual tool call.
 		agentsyscall.WithLoopLifetime(ctx),
 	)
+	// Same collision guard as seedPeerTaskSeq, for the Kernel's own ID
+	// families (task-<capability>-N / spawned-<capability>-N /
+	// plan-<origin>-N): after a durable restore the fresh counter must start
+	// past the max N the previous boot already wrote into the fabric.
+	kernelSyscall.SeedIDSeq(restoredSeq)
 	agentsyscall.BindTools(toolBinder, kernelSyscall)
 	// Retain the syscall Kernel on the kernel handle so the collaboration IPC
 	// bridge (built later in setupPeerRegistry) can inject ipc.Send into
 	// ask_agent (Step Y.2-ACT).
 	kernel.syscalls = kernelSyscall
-	log.Printf("peer mode: spawn_agent / create_task / ask_agent syscalls wired into tool binder")
+	log.Info("peer mode: spawn_agent / create_task / ask_agent syscalls wired into tool binder")
 
 	// Inject agent priorities into the tracker (thread priority).
 	for _, p := range peers {
@@ -1446,8 +1523,7 @@ func createPeerAgents(
 	})
 	kernel.recoveryStop = recCancel
 	kernel.recoveryDone = recDone
-
-	log.Printf("peer mode: %d peer agents registered, Kernel scheduler started (no leader)", len(subAgents))
+	log.Info("peer mode: peer agents registered, Kernel scheduler started (no leader)", "count", len(subAgents))
 	return subAgents, kernel, nil
 }
 
@@ -1465,7 +1541,6 @@ func newPeerExecutor(
 		capability,
 		&cognitionExecutor{id: agentID, typ: capability, cog: cog},
 		handler,
-		nil,
 		nil,
 		&sub.SubAgentConfig{
 			Config: base.Config{
@@ -1572,7 +1647,7 @@ func submitPeerTask(ctx context.Context, kernel *kernelHandle, capability string
 	if err := kernel.fabric.Create(task); err != nil {
 		return "", fmt.Errorf("peer mode: create task: %w", err)
 	}
-	log.Printf("peer mode: submitted task %q (%s) → READY", taskID, capability)
+	log.Info("peer mode: submitted task → READY", "task_id", taskID, "capability", capability)
 	return taskID, nil
 }
 
@@ -1601,7 +1676,7 @@ func chaosKillRandomFabric(ctx context.Context, k *kernelHandle) (string, error)
 	if err := k.agents.Kill(ctx, target); err != nil {
 		return "", fmt.Errorf("peer mode: kill %s: %w", target, err)
 	}
-	log.Printf("peer mode: chaos killed agent %q — lease expiry + replacement recovery will follow", target)
+	log.Info("peer mode: chaos killed agent — lease expiry + replacement recovery will follow", "target", target)
 	return target, nil
 }
 
@@ -1618,7 +1693,7 @@ func chaosKillAllFabric(ctx context.Context, k *kernelHandle) (killed, failed []
 	failed = make([]string, 0)
 	for _, id := range liveFabricAgents(k.agents) {
 		if kerr := k.agents.Kill(ctx, id); kerr != nil {
-			log.Printf("peer mode: chaos kill-all failed for %q: %v", id, kerr)
+			log.Warn("peer mode: chaos kill-all failed", "id", id, "err", kerr)
 			failed = append(failed, id)
 			continue
 		}
@@ -1643,7 +1718,7 @@ func chaosRecoverSweep(k *kernelHandle) ([]string, error) {
 	}
 	requeued := k.recovery.RequeueExpiredLeases()
 	if len(requeued) > 0 {
-		log.Printf("peer mode: chaos recover sweep requeued %d expired task(s)", len(requeued))
+		log.Info("peer mode: chaos recover sweep requeued expired task(s)", "count", len(requeued))
 	}
 	return requeued, nil
 }
@@ -1824,8 +1899,12 @@ func (e *cognitionExecutor) ExecuteStep(ctx context.Context, task *models.Task) 
 // ever driven (it never is: the static scheduler pool is gone and one-shot
 // Execute has no production callers).
 //
-// No heartbeat monitor, no message queue —
-// the fabric owns scheduling and lifecycle.
+// TODO(tech-debt): peer direct messaging (the sub.Agent message queue /
+// SendMessage path) was removed as dead — these shells were always built
+// with a nil queue, so peer delivery never succeeded; only the
+// kernel-session collaboration topics (delegate-task / pipeline-stage /
+// orchestrate-worker) are live. No heartbeat monitor — the fabric owns
+// scheduling and lifecycle.
 func createPeerSubAgents(
 	peers []ares_config.PeerAgentConfig,
 	store ares_events.EventStore,
@@ -1842,7 +1921,6 @@ func createPeerSubAgents(
 			models.AgentType(typ),
 			&cognitionExecutor{id: p.ID},
 			handler,
-			nil, // message queue: the fabric owns scheduling; no AHP queue loop
 			nil, // heartbeat monitor: no Process/Launch lifecycle in peer mode
 			&sub.SubAgentConfig{
 				Config: base.Config{
@@ -2500,7 +2578,7 @@ func sweepStaleCollabTasks(f *taskfabric.Fabric) int {
 		}
 	}
 	if removed > 0 {
-		log.Printf("peer mode: harvested %d stale collaboration task(s)", removed)
+		log.Info("peer mode: harvested stale collaboration task(s)", "removed", removed)
 	}
 	return removed
 }
@@ -2566,7 +2644,7 @@ func runCollabGraph(ctx context.Context, k *kernelHandle, runID string, nodes []
 		// and finish naturally; their ids are unique so nothing collides.
 		for _, tid := range created {
 			if derr := k.fabric.Delete(tid); derr != nil && derr != taskfabric.ErrTaskNotFound {
-				log.Printf("peer mode: cleanup %s: %v", tid, derr)
+				log.Warn("peer mode: cleanup failed", "task_id", tid, "err", derr)
 			}
 		}
 	}()
@@ -2599,7 +2677,7 @@ func runCollabGraph(ctx context.Context, k *kernelHandle, runID string, nodes []
 		}
 		created = append(created, tid)
 	}
-	log.Printf("peer mode: collaboration graph %s submitted (%d nodes)", runID, len(nodes))
+	log.Info("peer mode: collaboration graph submitted (nodes)", "run_id", runID, "count", len(nodes))
 
 	waitCtx := ctx
 	if _, hasDeadline := ctx.Deadline(); !hasDeadline {

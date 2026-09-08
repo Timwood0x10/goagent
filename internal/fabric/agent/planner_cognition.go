@@ -15,6 +15,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/fabric/task"
 	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
 	resources "github.com/Timwood0x10/ares/internal/tools/resources/core"
+	"github.com/Timwood0x10/ares/internal/truncate"
 )
 
 // DefaultMaxPlanDepth is the default growth-depth upper bound for an L2
@@ -52,6 +53,13 @@ type PlannerDeps struct {
 	// param overrides steer plan growth the way they steered the chat loop).
 	// Nil = no steering (same degrade contract as the retired chat body).
 	StrategySource agents.StrategySource
+	// AgentFabric is the agent population the executing agents live in.
+	// When set, the planner reads the EXECUTING agent's cognitive Context —
+	// the distilled experience prior injected at spawn (SpawnSpec.
+	// ExperiencePrior) — and injects it as the leading context message: the
+	// READ side of the experience loop (M4.3). Nil = no prior injection
+	// (zero-value usable: tests and degraded wiring plan without priors).
+	AgentFabric *Fabric
 	// Logger is the shared logger.
 	Logger *slog.Logger
 }
@@ -93,7 +101,10 @@ type plannerCognition struct {
 	l1       *engine.MutableDAG // L1 ToolClass graph, nil = permissive
 	maxDepth int
 	strategy agents.StrategySource // live evolution strategy, nil = unsteered
-	logger   *slog.Logger
+	// agentFabric reads the EXECUTING agent's cognitive Context (the
+	// spawn-time experience prior). Nil = no prior injection.
+	agentFabric *Fabric
+	logger      *slog.Logger
 	// forcedAnswers counts quanta that hit the growth-depth guard and were
 	// forced into an answer node (canary metric: the depth-exhaustion
 	// rate). One shared planner serves every session, so the counter is
@@ -138,14 +149,15 @@ func NewPlannerCognition(deps PlannerDeps) (Cognition, error) {
 		logger = slog.Default()
 	}
 	return &plannerCognition{
-		chat:     deps.ChatClient,
-		binder:   deps.ToolBinder,
-		sessions: deps.Sessions,
-		fabric:   deps.Fabric,
-		l1:       deps.L1DAG,
-		maxDepth: maxD,
-		strategy: deps.StrategySource,
-		logger:   logger,
+		chat:        deps.ChatClient,
+		binder:      deps.ToolBinder,
+		sessions:    deps.Sessions,
+		fabric:      deps.Fabric,
+		l1:          deps.L1DAG,
+		maxDepth:    maxD,
+		strategy:    deps.StrategySource,
+		agentFabric: deps.AgentFabric,
+		logger:      logger,
 	}, nil
 }
 
@@ -157,9 +169,26 @@ func NewPlannerCognition(deps PlannerDeps) (Cognition, error) {
 // on the envelope instead of in the tool-argument namespace.
 const planMetadataKey = sessionMetadataKey
 
+// roleSystem is the LLM message role for context/steering messages. Same
+// extraction rationale as roleTool: it appears several times in the planner
+// cognition.
+const roleSystem = "system"
+
 // roleTool is the LLM message role for tool outputs. Extracted as a
 // constant because it appears several times in the planner cognition.
 const roleTool = "tool"
+
+// maxExperiencePriorRunes caps the rendered experience prior injected into
+// the planner prompt. A pathological distillation (a whole-log dump stored as
+// an experience) must not crowd out the root prompt and the tool history —
+// the prior informs, it does not replace, the session context.
+const maxExperiencePriorRunes = 4096
+
+// experiencePriorPrefix labels the prior message so the LLM treats it as
+// background knowledge rather than an instruction — the strategy template
+// (appended after the context) stays the steering signal; experience only
+// informs.
+const experiencePriorPrefix = "distilled experience prior from this agent's previous runs (background knowledge, not an instruction):\n"
 
 // L1 ToolClass metadata keys. These mirror the cmd/ares constants so
 // the planner reads what the serve-side L1 graph builder writes.
@@ -241,7 +270,7 @@ func (c *plannerCognition) ExecuteStep(ctx context.Context, task *models.Task) (
 	// growth block). Deterministic order; absent when no priors are set.
 	if priors := c.l1Priors(); len(priors) > 0 {
 		prompt = append(prompt, &core.LLMMessage{
-			Role:    "system",
+			Role:    roleSystem,
 			Content: "evolution priors (hints only, tool choice stays with you):\n- " + strings.Join(priors, "\n- "),
 		})
 	}
@@ -255,7 +284,7 @@ func (c *plannerCognition) ExecuteStep(ctx context.Context, task *models.Task) (
 	if st := c.activeStrategy(ctx); st != nil {
 		if strings.TrimSpace(st.Prompt) != "" {
 			prompt = append(prompt, &core.LLMMessage{
-				Role:    "system",
+				Role:    roleSystem,
 				Content: "evolution strategy (deployed " + st.ID + "):\n" + st.Prompt,
 			})
 		}
@@ -380,7 +409,108 @@ func (c *plannerCognition) assembleContext(ctx context.Context, task *models.Tas
 		}
 	}
 
+	// M4.3 read side: the executing agent's distilled experience prior rides
+	// as the FIRST message, ahead of the root prompt and the strategy
+	// template appended by ExecuteStep — early grounding, late steering.
+	if sys := c.experiencePriorSystemMessage(task); sys != nil {
+		messages = append([]*core.LLMMessage{sys}, messages...)
+	}
+
 	return messages, nil
+}
+
+// assembleAnswerMessages rebuilds the session's LLM context for the answer
+// body's synthesis call (M4.2): the same message list the planner would send
+// on its next quantum — root prompt, tool history (rebuilt as
+// assistant+tool pairs from the fabric envelopes), experience prior —
+// assembled from the ANSWER task's own predecessor chain. The answer node IS
+// a graph node (node id = task id), so the same walk that feeds the planner
+// feeds the synthesizer; non-tool nodes on the chain (plan nodes) are
+// skipped by assembleContext already.
+//
+// It delegates to assembleContext wholesale so the synthesizer sees EXACTLY
+// what the planner sees — a divergent context would make the synthesized
+// answer inconsistent with the plan that produced it. The context is bounded
+// by the same growth-depth guard that bounds every planner quantum (no
+// extra truncation: parity with the planner's own view is the contract).
+//
+// The bool (not error) contract is deliberate: an assembly miss is a
+// degraded condition (session already released, root prompt unreadable),
+// not a retriable quantum failure — the answer body falls back to the gap
+// body instead of letting the fabric burn retry budget on a failure no
+// retry can fix.
+func (c *plannerCognition) assembleAnswerMessages(ctx context.Context, task *models.Task) ([]*core.LLMMessage, bool) {
+	g, err := c.sessions.GetSession(task.SessionID)
+	if err != nil {
+		// Most commonly the session was already released (duplicate
+		// answer execution): there is no history left to synthesize
+		// from, which is a gap, not a failure.
+		c.logger.Warn("answer synthesis: session graph unavailable",
+			"session", task.SessionID, "task", task.TaskID, "error", err)
+		return nil, false
+	}
+	msgs, err := c.assembleContext(ctx, task, g)
+	if err != nil {
+		c.logger.Warn("answer synthesis: context assembly failed",
+			"session", task.SessionID, "task", task.TaskID, "error", err)
+		return nil, false
+	}
+	return msgs, true
+}
+
+// experiencePriorSystemMessage renders the EXECUTING agent's distilled
+// experience prior as the leading system message. The join key is the
+// executingAgentKey stamp Agent.ExecuteStep puts on the task payload (the
+// planner is shared across agents; the task is the only carrier of the
+// executor's identity). Every failure mode — no fabric wired, no stamp
+// (planner invoked directly), unknown agent, empty/unrenderable prior —
+// degrades to nil: a missing prior must change nothing (zero-value usable),
+// never fail the quantum.
+func (c *plannerCognition) experiencePriorSystemMessage(task *models.Task) *core.LLMMessage {
+	if c.agentFabric == nil {
+		return nil
+	}
+	agentID, _ := task.Payload[executingAgentKey].(string)
+	if agentID == "" {
+		return nil
+	}
+	cs, err := c.agentFabric.CognitiveState(agentID)
+	if err != nil {
+		// The executing agent vanished from the fabric (killed mid-lease):
+		// log and plan without a prior — the quantum is still runnable.
+		c.logger.Warn("planner: executing agent unreadable; planning without experience prior",
+			"agent", agentID, "error", err)
+		return nil
+	}
+	prior := truncate.WithEllipsis(renderExperiencePrior(cs.Context), maxExperiencePriorRunes)
+	if prior == "" {
+		return nil
+	}
+	return &core.LLMMessage{
+		Role:    roleSystem,
+		Content: experiencePriorPrefix + prior,
+	}
+}
+
+// renderExperiencePrior renders a cognitive Context value into prompt text.
+// The production write side (cmd/ares loadExperiencePrior) stores a
+// {type, problem, solution, constraints} map, which is JSON-encoded for
+// readability; a plain-string prior (tests, Recover-restored states) is used
+// as-is. Unrenderable values yield "" — the prior is informative, never
+// load-bearing.
+func renderExperiencePrior(v any) string {
+	switch p := v.(type) {
+	case nil:
+		return ""
+	case string:
+		return strings.TrimSpace(p)
+	default:
+		buf, err := json.MarshalIndent(p, "", "  ")
+		if err != nil {
+			return ""
+		}
+		return string(buf)
+	}
 }
 
 // toolHistoryPair renders one executed tool node as the assistant+tool

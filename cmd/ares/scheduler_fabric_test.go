@@ -134,7 +134,7 @@ func TestKernelSchedulerFabricKillBeatsStaticRegistration(t *testing.T) {
 	fab := agentfabric.NewFabric()
 	// Static registration of the same id (legacy peer wiring): the sub.Agent
 	// copy is also managed as a fabric agent.
-	static := &w2StubAgent{id: "fab-code", typ: models.AgentType("code")}
+	static := &peerStubAgent{id: "fab-code", typ: models.AgentType("code")}
 	executors := map[string]CapabilityExecutor{"fab-code": static}
 	tracker := newLoadTracker()
 	sched := NewKernelScheduler(f, executors, tracker)

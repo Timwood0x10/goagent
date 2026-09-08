@@ -310,22 +310,16 @@ func Bootstrap(ctx context.Context, cfg *ares_config.Config, deps *BootstrapDeps
 					log.Warn("bootstrap: cleanup skills catalog close error", "error", err)
 				}
 			})
-			// Start the skill outcome recorder so skill usage/results are
-			// observed from the EventSubTaskResult stream and persisted for
-			// experience-guided selection. Best-effort: a nil catalog/store
-			// is a no-op.
-			// The retired tool loop was the only emitter, and its
-			// shape never matched what the recorder reads (Payload["task"] /
-			// ["success"]) — the recorder was already starved before the
-			// tool loop was retired and stays that way until an emitter
-			// feeds the conforming shape. Kept running (harmless
-			// subscribe), not silently dropped.
-			recorder := ares_skills.NewSkillOutcomeRecorder(catalog)
-			if serr := recorder.Start(ctx, comp.EventStore); serr != nil {
-				log.Warn("bootstrap: skill outcome recorder start failed", "error", serr)
-			} else {
-				log.Info("bootstrap: skill outcome recorder started (EventSubTaskResult)")
-			}
+			// TODO(tech-debt): the skill outcome recorder (the experience
+			// WRITE side) was removed as dead code: the retired tool loop was
+			// the only emitter of sub_task.result and its payload shape never
+			// matched what the recorder read (Payload["task"]/["success"]),
+			// so the recorder was starved from the start (RUNTIME.md
+			// breakage #8). The READ side survives — cmd/ares
+			// resolveExperienceConfidence feeds taskfabric scheduling via
+			// ares_skills.NewExperienceConfidenceSource — but experience
+			// confidence for scheduling stays unwritten until an emitter of
+			// the conforming sub_task.result shape exists.
 		}
 	}
 

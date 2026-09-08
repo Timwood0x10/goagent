@@ -3,7 +3,8 @@ package sdk
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -195,9 +196,29 @@ func (a *Agent) Run(ctx context.Context, input string) (*Result, error) {
 // the original a.runtime.trace gating without the engine needing a trace bool.
 func (a *Agent) traceTracer() func(format string, args ...any) {
 	if a.runtime.trace {
-		return log.Printf
+		return traceLog
 	}
 	return nil
+}
+
+// traceVerbRe matches a single Go printf verb (or an escaped "%%").
+var traceVerbRe = regexp.MustCompile(`%%|%[-+ #0]*(?:[0-9]+|\*)?(?:\.(?:[0-9]+|\*))?[vTtbcdoqxXUeEfFgGsSpw]`)
+
+// traceLog adapts the agentloop Tracer (printf-style) to the structured sdk
+// logger: the format verbs are stripped from the message and each printf
+// argument is emitted as a positional structured field.
+func traceLog(format string, args ...any) {
+	msg := traceVerbRe.ReplaceAllStringFunc(format, func(m string) string {
+		if m == "%%" {
+			return "%"
+		}
+		return ""
+	})
+	kvs := make([]any, 0, len(args)*2)
+	for i, a := range args {
+		kvs = append(kvs, "arg"+strconv.Itoa(i), a)
+	}
+	log.Info(msg, kvs...)
 }
 
 // ---- internal helpers ----

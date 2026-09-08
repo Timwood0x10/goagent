@@ -62,17 +62,17 @@ M2-b 修缮批 ✅（同日，源自全仓深审 DEEP_CODE_REVIEW）：持久化
 
 ### M3 — 死代码下葬批
 1. ~~agentipc Dispatch 死链~~ ✅ 已随 M2-b 删除（外观类型保留——协作主题仍用 bus.Send）
-2. SkillOutcomeRecorder（写侧饿死）
-3. memory.finalize 事件类型
-4. sub.Agent 的 messageQueue 路径（peer 直连必失败），保留身份壳
+2. ~~SkillOutcomeRecorder（写侧饿死）~~ ✅ M3.2 已删（bootstrap 解线+类型/测试删除，读侧 ExperienceConfidenceSource 保留，TODO 留痕）
+3. ~~memory.finalize 事件类型~~ ✅ M3.3 已删（含文档枚举清理）
+4. ~~sub.Agent 的 messageQueue 路径（peer 直连必失败），保留身份壳~~ ✅ M3.4 已删（peer 主题改报错，三个协作主题保留）
 5. distilled_memories 三件套（schema 幽灵，建议删不接线——RAG 已有 experiences/knowledge 两路）
 
-### M4 — 半接环补全批（按业务价值排）
-1. **事件持久化**（价值最高）：`storage.enabled` 时 serve 接 PostgresEventStore 替换 compactableStore 的内存部分——重启不再清零 fitness 证据（现状：serve.go 用 compactableStore=内存+归档，非裸 MemoryEventStore）
-2. **answer 合成器**：复用 planner 的 assembleContext 沿图路径收集前驱输出 + 一次 LLM 总结（l2graph.go:374 TODO）
-3. 经验→spawn 先验读侧：planner assembleContext 注入 ExperiencePrior
-4. skill 置信写侧：修 tool_observer 事件形状（或随 M3.2 删）
-5. （深审补充）进化 fitness 加 cost/latency 惩罚项（fitness_aggregator.go 设计缺口）；回归门 arena 接线（evolution/candidate.go placeholder）
+### M4 — 半接环补全批 ✅（2026-09-08 落地）
+1. **事件持久化** ✅：`storage.enabled` 时 serve 用 PostgresEventStore（newServeEventStore PG 分支 + fail-loud），跨重启 ID 碰撞由 seedPeerTaskSeq 守卫；内存模式保持 compactableStore（归档+压缩）。PG 模式的 round 归档留待后续（内存模式不受影响）。
+2. **answer 合成器** ✅：content-less answer 节点经 answerSynthesizer（复用 assembleContext 前驱历史 + 无工具 LLM 调用）合成终答；失败降级 gap body 不烧重试预算；正常 content 路径零改动。
+3. 经验→spawn 先验读侧 ✅：执行 agent 盖章 executing_agent_id（payload 克隆防泄漏）→ planner 读 Fabric.CognitiveState 注入先验 system 消息（4096 rune 截断）；无先验消息逐字节不变。
+4. skill 置信写侧：随 M3.2 删除饿死 recorder 收敛——需先有合规 sub_task.result 发射方（TODO(tech-debt) 在 bootstrap.go 留痕）。
+5. fitness cost/latency 惩罚 ✅（latency 侧）：observer 对 task.completed 按 created_at 计算 wall latency，乘性惩罚 1/(1+t/30s)（正确性恒主导：失败永不救赎、慢成功恒胜失败）；聚合器经窗口均值继承。USD/token 成本侧仍无数据源（TODO 留痕）。回归门 arena 接线仍开放。
 
 ### M5 — api/、agents/ 下葬（前置 M1-M3；口径已修正）
 - **api/ 实况修正（深审核实）：91 个文件仍在 import api/（serve/agent/bootstrap/llm/memory/knowledge/fabric 等）——"deprecated 下葬"名存实亡。必须先按 MIGRATION.md 迁移全部引用，才谈删除。**

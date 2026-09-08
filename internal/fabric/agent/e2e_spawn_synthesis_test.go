@@ -18,7 +18,7 @@ import (
 // child's Private State never appears in another agent's Task Shared
 // layer.
 
-// TestP3_4_EndToEndSpawnSynthesis is the spawn-synthesis acceptance scenario
+// TestEndToEndSpawnSynthesis is the spawn-synthesis acceptance scenario
 // (simplified):
 //
 //  1. Agent A receives "audit unsafe FFI" (too complex).
@@ -29,7 +29,7 @@ import (
 //  6. A dies — B/C/D do NOT die (§13 invariant #2).
 //  7. Tasks do not disappear when A dies.
 //  8. A (or a replacement) synthesises the children's results.
-func TestP3_4_EndToEndSpawnSynthesis(t *testing.T) {
+func TestEndToEndSpawnSynthesis(t *testing.T) {
 	ctx := context.Background()
 	fabric := NewFabric()
 
@@ -203,11 +203,11 @@ func TestP3_4_EndToEndSpawnSynthesis(t *testing.T) {
 	}
 }
 
-// TestP3_2_ContextThreeLayerSeparation verifies Context three-layer separation:
+// TestContextThreeLayerSeparation verifies Context three-layer separation:
 // Task Shared State, Agent Private State, and IPC are strictly separated.
 // A child's Private State NEVER appears in another agent's Task Shared State,
 // and setting a Private key does not bleed into Task Shared.
-func TestP3_2_ContextThreeLayerSeparation(t *testing.T) {
+func TestContextThreeLayerSeparation(t *testing.T) {
 	ctx := context.Background()
 	fabric := NewFabric()
 
@@ -297,10 +297,10 @@ func TestP3_2_ContextThreeLayerSeparation(t *testing.T) {
 	}
 }
 
-// TestP3_4_ParentDeathChildrenContinueTasks verifies the acceptance:
+// TestParentDeathChildrenContinueTasks verifies the acceptance:
 // "A 死亡，B/C/D 不死亡" and "Task 不因 A 死亡而消失" and
 // "B/C/D 可以继续执行".
-func TestP3_4_ParentDeathChildrenContinueTasks(t *testing.T) {
+func TestParentDeathChildrenContinueTasks(t *testing.T) {
 	ctx := context.Background()
 	fabric := NewFabric()
 
@@ -386,11 +386,11 @@ func TestP3_4_ParentDeathChildrenContinueTasks(t *testing.T) {
 	}
 }
 
-// TestP3_4_ConcurrentSpawnSynthesis exercises the concurrent spawn + IPC
+// TestConcurrentSpawnSynthesis exercises the concurrent spawn + IPC
 // scenario with goroutines (managed goroutines).
 // Multiple children work in parallel, report via a channel, and the parent
 // synthesises.
-func TestP3_4_ConcurrentSpawnSynthesis(t *testing.T) {
+func TestConcurrentSpawnSynthesis(t *testing.T) {
 	ctx := context.Background()
 	fabric := NewFabric()
 

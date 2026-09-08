@@ -221,7 +221,7 @@ func (t *WebSearch) Execute(ctx context.Context, params map[string]interface{}) 
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			fmt.Printf("Error closing response body: %v\n", err)
+			log.Error("failed to close response body", "error", err)
 		}
 	}()
 

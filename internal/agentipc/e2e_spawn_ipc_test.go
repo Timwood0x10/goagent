@@ -22,8 +22,8 @@ import (
 // This test does NOT use the leader path — it proves "A ≡ B ≡ C ≡ D"
 // (peer equivalence).
 
-// TestP3_4_P4_EndToEndSpawnIPC is the combined end-to-end spawn scenario.
-func TestP3_4_P4_EndToEndSpawnIPC(t *testing.T) {
+// TestEndToEndSpawnIPC is the combined end-to-end spawn scenario.
+func TestEndToEndSpawnIPC(t *testing.T) {
 	ctx := context.Background()
 	agents := agentfabric.NewFabric()
 	bus := NewBus()
@@ -159,10 +159,10 @@ func TestP3_4_P4_EndToEndSpawnIPC(t *testing.T) {
 	}
 }
 
-// TestP4_ChildCanCommunicateWithNonParent verifies peer acceptance:
+// TestChildCanCommunicateWithNonParent verifies peer acceptance:
 // "Child can communicate with non-parent" — two children of different
 // parents can message each other directly.
-func TestP4_ChildCanCommunicateWithNonParent(t *testing.T) {
+func TestChildCanCommunicateWithNonParent(t *testing.T) {
 	ctx := context.Background()
 	agents := agentfabric.NewFabric()
 	bus := NewBus()
@@ -222,11 +222,11 @@ func TestP4_ChildCanCommunicateWithNonParent(t *testing.T) {
 	}
 }
 
-// TestP4_NoLeaderPermissionBypass verifies the peer model invariant:
+// TestNoLeaderPermissionBypass verifies the peer model invariant:
 // "不存在 Leader 权限绕过" — there is no special "leader" agent that
 // can bypass the IPC layer. All agents use the same Send/Request/Reply
 // primitives. A leader, if it exists, is just another peer on the bus.
-func TestP4_NoLeaderPermissionBypass(t *testing.T) {
+func TestNoLeaderPermissionBypass(t *testing.T) {
 	ctx := context.Background()
 	bus := NewBus()
 
