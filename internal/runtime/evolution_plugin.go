@@ -111,6 +111,9 @@ func (p *defaultEvolutionPlugin) Stop(_ context.Context) error {
 func (p *defaultEvolutionPlugin) Recommend(ctx context.Context, _ ExecutionState) (*RuntimeRecommendation, error) {
 	// No provider configured is a valid "evolution disabled" state, not an
 	// error: return an empty recommendation per the documented contract.
+	// The router's Recommend caller nil-checks the result and falls through
+	// to expression rules, so (nil, nil) is a supported "no routing input"
+	// outcome, never a misread failure.
 	if p.provider == nil {
 		return nil, nil //nolint:nilnil // documented "no provider" contract.
 	}
@@ -144,7 +147,9 @@ func (p *defaultEvolutionPlugin) Recommend(ctx context.Context, _ ExecutionState
 	}
 
 	// A nil recommendation with a nil error is the documented "no
-	// recommendation available" success result — not a failure.
+	// recommendation available" success result — not a failure. This is the
+	// StrategyProvider contract verbatim, and the router consumer treats
+	// rec == nil as "fall through to expression rules".
 	if rec == nil {
 		return nil, nil //nolint:nilnil // documented "no recommendation" contract.
 	}

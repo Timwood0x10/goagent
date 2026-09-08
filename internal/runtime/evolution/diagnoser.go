@@ -116,6 +116,11 @@ func (d *Diagnoser) Generate(ctx context.Context, req GenerateRequest) (*Candida
 	}
 
 	if len(evidenceIDs) < MinFailureClusterSize {
+		// (nil, nil) is the documented "no systemic pattern yet" contract:
+		// callers treat a nil candidate with no error as "nothing worth
+		// promoting" (the cluster gate is a data condition, not a failure).
+		// A sentinel error here would force every caller to branch on
+		// errors.Is for the common cold-start case.
 		//nolint:nilnil // nil candidate + nil error is the documented "no systemic pattern yet" contract.
 		return nil, nil
 	}
@@ -159,6 +164,10 @@ func (d *Diagnoser) GenerateGA(ctx context.Context, role string, n int) ([]*Cand
 		return nil, err
 	}
 	if len(evidenceIDs) < MinFailureClusterSize {
+		// Same (nil, nil) "no systemic pattern yet" contract as Generate:
+		// an empty cluster is the steady state of a healthy system, and
+		// callers (pipeline tests, future coordinator wiring) treat nil
+		// candidates as "no work", not an error.
 		//nolint:nilnil // nil candidates + nil error is the documented "no systemic pattern yet" contract.
 		return nil, nil
 	}

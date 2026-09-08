@@ -2,10 +2,10 @@ package repositories
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"sync"
 
+	"github.com/Timwood0x10/ares/internal/errors"
 	storage_models "github.com/Timwood0x10/ares/internal/storage/postgres/models"
 )
 
@@ -80,16 +80,18 @@ func (r *memoryExperienceRepository) Create(ctx context.Context, exp *storage_mo
 //
 // Returns:
 //
-//	*Experience - the experience, or nil if not found.
-//	error - nil.
-//
-//nolint:nilnil // nil + nil error is the documented "not found" contract, matching the PG repository.
+//	*Experience - the experience.
+//	error - errors.ErrRecordNotFound when no experience with this id exists
+//	  under the tenant. The PG repository returns the same sentinel on
+//	  sql.ErrNoRows; the memory implementation previously returned
+//	  (nil, nil), which contradicted its own "matching the PG repository"
+//	  comment — a caller switching stores would silently change behavior.
 func (r *memoryExperienceRepository) GetByID(ctx context.Context, tenantID, id string) (*storage_models.Experience, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	exp, ok := r.exps[id]
 	if !ok || exp.TenantID != tenantID {
-		return nil, nil
+		return nil, errors.ErrRecordNotFound
 	}
 	cp := *exp
 	return &cp, nil

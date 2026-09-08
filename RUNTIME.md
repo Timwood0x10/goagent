@@ -130,25 +130,27 @@ SUSPENDED─(下轮 drain re-acquire)→LEASED；过期租约→CheckExpiredLeas
 | 内存 | **生产事件总线**（serve.go:191 MemoryEventStore——PG 版完整但未接线）、默认 evidence store、无 PG 时策略库 |
 | 文件 | round_N.json 归档（原子写+轮转）、~/.ares/experience.json |
 
-## 6. 断线台账（诚实清单）
+## 6. 断线台账（诚实清单，2026-09-08 M2 修缮后对账）
 
-| # | 断线 | 证据 | 处置建议 |
+| # | 断线 | 证据 | 状态 |
 |---|---|---|---|
-| 1 | agentipc DualTrackDispatcher 整链死线：`enableKernelExecution` 挂了 executeFn 但全仓生产零调用 `.Dispatch()`，HTTP 直捅 fabric | kernel.go:367-443 | 删或改构（协作主题仍用 bus.Send） |
-| 2 | peer 直连消息必失败：SendMessage 要求非 nil 队列而 peer 壳传 nil；仅 3 个协作主题能绕行 | evolution.go:412, agent.go:1799 | 删 sub 消息队列路径 |
-| 3 | **生产并发度=1**：`WithMaxConcurrent(0)` 回退 `ExecutorCount()`，peer 模式静态池故意空 → limit=1 | agent.go:1063, scheduler.go:468 | 显式设为 peer 数（bug 级） |
-| 4 | 事件不持久：生产用内存 EventStore → 重启清零 fitness 证据 | serve.go:191 | 接 PostgresEventStore |
-| 5 | answer 失败不释放会话（30min TTL 兜底） | l2graph.go:406 | Fail 路径也 Release |
-| 6 | answer 无合成器：内容自持或报"no answer content"，不综合前驱输出 | l2graph.go:374 TODO | 专用 answer 路径走 assembleContext+LLM |
-| 7 | 经验→spawn 先验只写不读 | lifecycle.go:116 | planner 读回或删 |
-| 8 | skill 置信只读不写（recorder 饿死） | bootstrap.go:317 | 修事件形状或删 |
-| 9 | distilled_memories 表零生产调用（schema 幽灵） | tool_deps.go:19 | 删（RAG 已两路） |
-| 10 | IPC 无重试/死信 | agentipc/deadletter.go 空挂 | 随 #1 处置 |
-| 11 | memory.finalize 事件：无发射方无订阅方 | types.go:70 | 删 |
-| 12 | 死旋钮 `dispatch_timeout` 解析无消费者 | kernel.go:618 | 删 |
-| 13 | CanRetry 注释与代码矛盾：注释 0=不重试，代码 0=无限重试 | task.go:53 vs :61 | 修语义 |
-| 14 | RestartPolicy.Backoff 从不 sleep | recovery.go:55 | 补睡眠或删字段 |
-| 15 | 孤儿符号：ErrAgentNotIdle / EventTaskStolen / StateDeclared | agent.go:114 等 | 删 |
+| 1 | agentipc DualTrackDispatcher `.Dispatch()` 死方法：生产零调用，HTTP 直捅 fabric | agentipc/policy.go | ✅ 已删（死方法+snapshot/compareShadow/Mismatches 孤儿链；外观类型保留——协作主题仍用 bus.Send） |
+| 2 | peer 直连消息必失败：SendMessage 要求非 nil 队列而 peer 壳传 nil；仅 3 个协作主题能绕行 | evolution.go:412, agent.go:1799 | 开放（M3 处置） |
+| 3 | **生产并发度=1** | agent.go:1063, scheduler.go drainLimit | ✅ 已修：auto 模式取 max(静态注册表, fabric 空闲候选数)；新增 `kernel.max_concurrent` 配置 |
+| 4 | 事件不持久：serve 用 compactableStore（内存+归档，非裸 MemoryEventStore）→ 重启丢事件流与 fitness 证据 | serve.go:189 | 开放（M4 接 PostgresEventStore） |
+| 5 | answer 任务终态失败不释放会话 | l2graph.go | ✅ 已修：`task.failed`(state=FAILED, capability=ares/answer) 事件订阅即释放，reaper 正常收割 |
+| 6 | answer 无合成器：内容自持或报"no answer content"，不综合前驱输出 | l2graph.go:374 TODO | 开放（M4） |
+| 7 | 经验→spawn 先验只写不读 | lifecycle.go:116 | 开放 |
+| 8 | skill 置信只读不写（recorder 饿死） | bootstrap.go:317 | 开放 |
+| 9 | distilled_memories 表零生产调用（schema 幽灵） | tool_deps.go:19 | 开放（M3 建议删） |
+| 10 | IPC 无重试/死信 | agentipc/deadletter.go 空挂 | 开放（弹性缺口，非死线） |
+| 11 | memory.finalize 事件：无发射方无订阅方 | types.go:70 | 开放（M3 删） |
+| 12 | ~~死旋钮 dispatch_timeout~~ | — | ✅ 已删（常量+字段+解析+默认值） |
+| 13 | CanRetry 语义矛盾 | task.go | ✅ 已修：`Attempts < MaxRetries`，0/负=不重试；CompilePlan 未设预算默认 2 |
+| 14 | RestartPolicy.Backoff 从不 sleep | recovery.go | ✅ 已修：`min(Backoff<<attempts, MaxBackoff)`，ctx 可取消，sleeper 可注入 |
+| 15 | 孤儿符号 ErrAgentNotIdle / EventTaskStolen / StateDeclared | — | ✅ 已删（含 ares_events/introspect 联动清理） |
+
+另（深审 DEEP_CODE_REVIEW 对账补充）：restore.go 持久化恢复的未检查断言已修（坏 payload 拒绝折叠）；10 处类型断言/11 处 nilnil/4 处无目标 nolint 已处置；arena 四个弃用成员确认为"仅测试调用"，已留 `TODO(tech-debt)` 痕。**api/ 有 91 个文件仍在 import——"下葬"不可行，必须先迁引用（M5 口径修正）**。
 
 ## 7. 旁观者模块（不在热路径）
 

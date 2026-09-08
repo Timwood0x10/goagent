@@ -332,10 +332,13 @@ func (r *ScenarioReport) checkVerified(scenario Scenario) {
 // RunScenario executes all actions in a scenario with the specified delays.
 // Returns the results of all executed actions. Stops if the context is cancelled.
 //
-// Deprecated: Use RunScenarioReport for structured results.
-// Kept for backward compatibility.
+// Deprecated: Use RunScenarioReport for structured results. No production
+// caller remains (the HTTP API serves RunScenarioReport), so this is
+// test-only surface.
+// TODO(tech-debt): remove RunScenario together with its scenario_test.go
+// coverage once no test needs the raw []Result unpacking.
 func RunScenario(ctx context.Context, service *Service, scenario Scenario) ([]Result, error) {
-	log.Warn("RunScenario is deprecated, use RunScenarioReport instead")
+	log.Warn("RunScenario is deprecated, use RunScenarioReport instead; no production caller remains (test-only)")
 
 	report, err := RunScenarioReport(ctx, service, scenario)
 	if err != nil {

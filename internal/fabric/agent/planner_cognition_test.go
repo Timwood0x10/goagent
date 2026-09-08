@@ -486,3 +486,57 @@ func TestPlannerCognition_StrategySteersGrowth(t *testing.T) {
 		}
 	})
 }
+
+// TestPlannerCognition_MissingInputPayloadErrors verifies the strict
+// payload-input contract: when the root's output is unavailable AND the task
+// payload carries no string "input", the quantum errors (and the fabric can
+// retry it) instead of silently sending an empty prompt to the LLM. The
+// admission path (submitPeerTask) always stamps a string input, so a missing
+// one is a wiring bug that must be observable.
+func TestPlannerCognition_MissingInputPayloadErrors(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	const sessionID = "missing-input"
+	fabric := taskfabric.NewFabric()
+	coord := planprojection.NewCompileCoordinator(fabric, nil)
+	reg := NewSessionRegistry()
+	g, err := reg.InitSession(ctx, sessionID, "prompt", nil,
+		func(_ context.Context, dag *engine.MutableDAG) (stop func()) {
+			return coord.SubscribeGraphEvents(ctx, dag)
+		})
+	require.NoError(t, err)
+
+	// Compile the root task but leave it NOT completed: readNodeOutput
+	// reports "" so the planner must fall back to the payload input.
+	rootStep := g.DAG().StepIndex()[g.Root()]
+	_, err = fabric.CompileNode(ctx, planprojection.ProjectStep(rootStep))
+	require.NoError(t, err)
+
+	chat := &recordingChat{}
+	planner, err := NewPlannerCognition(PlannerDeps{
+		ChatClient: chat,
+		ToolBinder: &plannerTestBinder{},
+		Sessions:   reg,
+		Fabric:     fabric,
+		Logger:     slog.Default(),
+	})
+	require.NoError(t, err)
+
+	// Wiring bug shape: the payload carries NO "input" (and a non-string
+	// value must be treated the same way — the type assertion fails).
+	planTask := models.NewTask(SessionNodeID(sessionID, 0, "plan", 0), models.AgentType("ares/plan"), nil)
+	planTask.SessionID = sessionID
+	planTask.Payload = map[string]any{planMetadataKey: sessionID}
+
+	_, err = planner.ExecuteStep(ctx, planTask)
+	require.Error(t, err, "missing string input must surface as an error, not an empty prompt")
+	require.Contains(t, err.Error(), "input", "error must name the missing payload field")
+
+	chat.mu.Lock()
+	calls := len(chat.msgs)
+	chat.mu.Unlock()
+	require.Equal(t, 0, calls, "the LLM must not be called with an empty prompt")
+
+	require.NoError(t, reg.ReleaseSession(sessionID))
+}

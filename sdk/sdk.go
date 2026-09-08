@@ -24,7 +24,7 @@
 //	}
 package sdk
 
-//nolint: errcheck // best-effort operations: ResponseWriter writes, cleanup Close/Wait, deferred shutdown
+//nolint:errcheck // Close() only: shutdown paths use deliberate `_ =` assignments (drained errgroup, best-effort MCP/client closes) where a second failure during teardown has no recovery action
 import (
 	"context"
 	"fmt"

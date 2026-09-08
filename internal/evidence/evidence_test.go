@@ -26,6 +26,26 @@ func TestNewMemoryStore(t *testing.T) {
 	assert.Len(t, s.data, 0)
 }
 
+// TestNewEvidence_UnmarshalablePayloadKeepsZeroRawMessage locks the
+// constructor's degrade contract: a payload json.Marshal rejects (e.g. a
+// channel) yields a zero RawMessage instead of a panic or a silently bogus
+// value — stores and queries already treat zero RawMessage as "no payload".
+func TestNewEvidence_UnmarshalablePayloadKeepsZeroRawMessage(t *testing.T) {
+	e := NewEvidence("test", KindKnowledge, make(chan int))
+	require.NotEmpty(t, e.ID)
+	require.NotNil(t, e.Metadata)
+	assert.Nil(t, e.Payload, "unmarshalable payload must keep the zero RawMessage")
+}
+
+// TestNewEvidence_MarshalablePayloadRidesRawMessage is the happy path: the
+// payload is JSON-encoded onto Payload.
+func TestNewEvidence_MarshalablePayloadRidesRawMessage(t *testing.T) {
+	e := NewEvidence("test", KindKnowledge, map[string]any{"v": 1.0})
+	var decoded map[string]any
+	require.NoError(t, json.Unmarshal(e.Payload, &decoded))
+	assert.InDelta(t, 1.0, decoded["v"], 1e-9)
+}
+
 func TestMemoryStore_Append(t *testing.T) {
 	ctx := context.Background()
 	s := NewMemoryStore()

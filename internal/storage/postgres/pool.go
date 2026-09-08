@@ -1,6 +1,6 @@
 package postgres
 
-//nolint: errcheck // best-effort operations: ResponseWriter writes, cleanup Close/Wait, deferred shutdown
+//nolint:errcheck // deliberate `_ =` only: rollback-after-commit no-ops and defensive conn.Close on already-failing paths, where the primary error is being returned instead
 import (
 	"context"
 	"database/sql"

@@ -984,6 +984,48 @@ func TestSummarizeToolResultWithCall_HTTPRequest(t *testing.T) {
 	}
 }
 
+func TestSummarizeToolResultWithCall_MissingURLDegradesToPlaceholder(t *testing.T) {
+	// Args carry no url/URL (and a non-string url must behave the same):
+	// the summary degrades to the explicit <unknown-url> placeholder
+	// instead of a silently-empty field, keeping the shape stable.
+	msg := Message{Role: RoleToolResult, Content: "Status: 502 Bad Gateway\nbody"}
+	for name, argsJSON := range map[string]string{
+		"no url key":       `{}`,
+		"non-string url":   `{"url":123}`,
+		"empty url":        `{"url":""}`,
+		"uppercase backup": `{"URL":"https://fallback.example.com/x"}`,
+	} {
+		result := SummarizeToolResultWithCall(msg, "http_request", argsJSON)
+		if !strings.Contains(result, "200") && !strings.Contains(result, "502") {
+			t.Errorf("%s: expected status code in summary, got %q", name, result)
+		}
+		switch name {
+		case "uppercase backup":
+			if !strings.Contains(result, "fallback.example.com") {
+				t.Errorf("%s: expected the uppercase URL fallback to be used, got %q", name, result)
+			}
+		default:
+			if !strings.Contains(result, unknownURLSummary) {
+				t.Errorf("%s: expected %q placeholder, got %q", name, unknownURLSummary, result)
+			}
+		}
+	}
+
+	// web_scraper shares the same tolerant-display contract.
+	scrape := SummarizeToolResultWithCall(
+		Message{Role: RoleToolResult, Content: "<html>hello</html>"},
+		"web_scraper", `{}`)
+	if !strings.Contains(scrape, unknownURLSummary) {
+		t.Errorf("web_scraper without url: expected %q placeholder, got %q", unknownURLSummary, scrape)
+	}
+	scrapeUpper := SummarizeToolResultWithCall(
+		Message{Role: RoleToolResult, Content: "<html>hello</html>"},
+		"web_scraper", `{"URL":"https://fallback.example.com"}`)
+	if !strings.Contains(scrapeUpper, "fallback.example.com") {
+		t.Errorf("web_scraper uppercase URL: expected fallback to be used, got %q", scrapeUpper)
+	}
+}
+
 func TestSummarizeToolResultWithCall_UnknownTool(t *testing.T) {
 	msg := Message{Role: RoleToolResult,
 		Content: "The calculation result is 42. " +

@@ -332,7 +332,18 @@ func (c *plannerCognition) assembleContext(ctx context.Context, task *models.Tas
 		// empty. Either way the payload's "input" is the prompt the
 		// admission path stamped — never send an empty user message, real
 		// providers reject it.
-		rootPrompt, _ = task.Payload["input"].(string)
+		//
+		// The payload's "input" is asserted strictly: the admission path
+		// (submitPeerTask → ensureSessionAdmission) always stamps a string
+		// input, so a missing or non-string value is a wiring bug, not a
+		// data condition — surface it as an error (the fabric retries the
+		// task) instead of silently planning on an empty prompt.
+		fallback, ok := task.Payload["input"].(string)
+		if !ok {
+			return nil, fmt.Errorf("agentfabric: planner cognition: task %q payload has no string %q (root %q unreadable: %v)",
+				task.TaskID, "input", rootID, err)
+		}
+		rootPrompt = fallback
 	}
 
 	messages := []*core.LLMMessage{

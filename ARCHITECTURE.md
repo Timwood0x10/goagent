@@ -43,36 +43,41 @@ ARES 是 **"Agent 操作系统"**：Agent 不是被编排的工作流节点，�
 
 收敛主体已完成（38→7 CLI 文件、fabric/kernel/runtime 三核心落位、冻结巡查在线）。剩余工作按里程碑组织，**每步验收统一为：build + vet + golangci-lint + test 全绿；涉及删除的追加 grep 全仓引用清零**。
 
-### M1 — 文档与事实对齐 ✅（本次）
+### M1 — 文档与事实对齐 ✅（2026-09-08）
 - RUNTIME.md 落盘（运行时全景 + 断线台账 15 项，全带锚点）；本文档重写为设计+路线图，过时附录（chatCognition 路径描述、已修缺陷的开放状态等）折并删除。
 - 旧缺陷台账状态重标：P0-1a（会话 idle TTL）✅已修；P0-1b（session_id 斜杠校验，agent.go:2214）✅已修；P0-1c（answer 后同 ID 重提交 harvest，agent.go:2265）✅已修；P1-4（ReAct 双实现）✅已随 M4-D 删除。其余未修项折入 M2-M4。
+- 全仓深审报告（DEEP_CODE_REVIEW.md）已完成对账收编：其台账纠错（api/ 91 引用活着、事件存储措辞、#13/#14 状态）已合入本文档与 RUNTIME.md §6；其修缮清单落地为 M2-b（见下）。根目录 DEEP_CODE_REVIEW.md 保留为审查证据存档。
 
-### M2 — 代码修缮批（小步，每项独立提交）
-| # | 项 | 位置 | 改动 |
-|---|---|---|---|
-| 1 | 并发度=1（bug 级） | agent.go:1063 | `WithMaxConcurrent(0)` → 显式 peer 数或 `kernel.max_concurrent` 配置 |
-| 2 | answer 失败不释放会话 | l2graph.go:395 | Fail 路径也调 ReleaseSession + 测试 |
-| 3 | CanRetry 语义矛盾 | task.go:53 vs :61 | 修代码使 0=不重试（与注释一致），查所有零值 RetryPolicy 构造点 |
-| 4 | RestartPolicy.Backoff 不 sleep | recovery.go:55 | 补 backoff 睡眠 |
-| 5 | 死旋钮 dispatch_timeout | kernel.go:618 | 删配置项 |
-| 6 | 孤儿符号 | ErrAgentNotIdle / EventTaskStolen / StateDeclared | 删 |
+### M2 — 代码修缮批 ✅（2026-09-08 落地，经深度 review 对账）
+| # | 项 | 结果 |
+|---|---|---|
+| 1 | 并发度=1（bug 级） | ✅ drainLimit() auto 取 max(静态注册表, fabric 空闲候选数)；新增 `kernel.max_concurrent`（0=auto，负值校验拒绝） |
+| 2 | answer 失败不释放会话 | ✅ `task.failed`(FAILED+ares/answer) 事件订阅释放（requeue 事件不释放）；测试锁定 |
+| 3 | CanRetry 语义矛盾 | ✅ `Attempts < MaxRetries`；CompilePlan 未设预算默认 2；全仓无零值依赖 |
+| 4 | RestartPolicy.Backoff 不 sleep | ✅ 指数退避 min(Backoff<<attempts, MaxBackoff)，ctx 可取消，sleeper 可注入 |
+| 5 | 死旋钮 dispatch_timeout | ✅ 常量+字段+解析全删 |
+| 6 | 孤儿符号 | ✅ ErrAgentNotIdle / EventTaskStolen / StateDeclared 连带映射清理 |
+
+M2-b 修缮批 ✅（同日，源自全仓深审 DEEP_CODE_REVIEW）：持久化恢复路径未检查断言（restore.go，坏 payload 拒绝折叠）、10 处类型断言补 ok、11 处 nilnil 逐点 caller 分析（1 处真矛盾修复，10 处为文档化契约保留+注释）、4 处无目标 //nolint 定向或删除、agentipc DualTrackDispatcher.Dispatch 死方法及孤儿链删除（-253 行）、arena 四弃用成员定性"仅测试调用"并留痕。
 
 ### M3 — 死代码下葬批
-1. agentipc DualTrackDispatcher 生产链（协作主题保留 bus.Send）
+1. ~~agentipc Dispatch 死链~~ ✅ 已随 M2-b 删除（外观类型保留——协作主题仍用 bus.Send）
 2. SkillOutcomeRecorder（写侧饿死）
 3. memory.finalize 事件类型
 4. sub.Agent 的 messageQueue 路径（peer 直连必失败），保留身份壳
 5. distilled_memories 三件套（schema 幽灵，建议删不接线——RAG 已有 experiences/knowledge 两路）
 
 ### M4 — 半接环补全批（按业务价值排）
-1. **事件持久化**（价值最高）：`storage.enabled` 时 serve 接 PostgresEventStore 替换内存版（serve.go:191）——重启不再清零 fitness 证据
+1. **事件持久化**（价值最高）：`storage.enabled` 时 serve 接 PostgresEventStore 替换 compactableStore 的内存部分——重启不再清零 fitness 证据（现状：serve.go 用 compactableStore=内存+归档，非裸 MemoryEventStore）
 2. **answer 合成器**：复用 planner 的 assembleContext 沿图路径收集前驱输出 + 一次 LLM 总结（l2graph.go:374 TODO）
 3. 经验→spawn 先验读侧：planner assembleContext 注入 ExperiencePrior
 4. skill 置信写侧：修 tool_observer 事件形状（或随 M3.2 删）
+5. （深审补充）进化 fitness 加 cost/latency 惩罚项（fitness_aggregator.go 设计缺口）；回归门 arena 接线（evolution/candidate.go placeholder）
 
-### M5 — api/、agents/ 下葬（独立 PR，前置 M1-M3）
-- api/ 生产引用迁到 sdk/（按 MIGRATION.md）；agents/ 只留 StrategySource 等活符号，sub 壳下葬。
-- compat/ 以 provide_llm 解耦为门，删除时按惯例留 `TODO(tech-debt)`。
+### M5 — api/、agents/ 下葬（前置 M1-M3；口径已修正）
+- **api/ 实况修正（深审核实）：91 个文件仍在 import api/（serve/agent/bootstrap/llm/memory/knowledge/fabric 等）——"deprecated 下葬"名存实亡。必须先按 MIGRATION.md 迁移全部引用，才谈删除。**
+- agents/ 只留 StrategySource 等活符号，sub 壳下葬。
+- compat/ 仅 1 个外部引用（ares_bootstrap/provide_llm.go），标准日落目标；删除时按惯例留 `TODO(tech-debt)`。
 
 ### 完成状态总表（历史收敛，一行化）
 - Phase 0 冻结巡查 ✅（scripts/check_convergence_freeze.sh + freeze-manifest）

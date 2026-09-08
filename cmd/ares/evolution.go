@@ -509,6 +509,10 @@ func executeCollabViaKernel(ctx context.Context, k *kernelHandle, targetID, capa
 	// Prompt precedence: explicit input, task description, then the topic.
 	prompt, _ := taskPayload["input"].(string)
 	if prompt == "" {
+		// task_desc is a FALLBACK, not a contract field: a missing or
+		// non-string value just falls through to the next precedence level
+		// (msg.Topic), so the unchecked assertion is safe by design — the
+		// ok result would only duplicate the == "" branch below.
 		prompt, _ = taskPayload["task_desc"].(string)
 	}
 	if prompt == "" {

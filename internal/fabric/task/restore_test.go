@@ -214,3 +214,35 @@ func TestRestoreSkipsOrphanEvents(t *testing.T) {
 	_, err = f2.Task("orphan")
 	require.ErrorIs(t, err, ErrTaskNotFound, "orphan must not materialize")
 }
+
+// TestRestoreRejectsCorruptCapabilityPayload verifies a task.created event
+// whose capability field has the wrong type is rejected (logged + skipped by
+// RestoreFromStore), NOT folded as a task with a silently-zero capability —
+// such a ghost task could never be matched by a scheduler candidate.
+func TestRestoreRejectsCorruptCapabilityPayload(t *testing.T) {
+	store := ares_events.NewMemoryEventStore()
+	// Hand-craft a created event with a non-string capability payload.
+	require.NoError(t, store.Append(context.Background(), "corrupt", []*ares_events.Event{{
+		Type:       ares_events.EventTaskCreated,
+		StreamID:   "corrupt",
+		ModuleName: "taskfabric",
+		Payload: map[string]any{
+			restoreKeyTaskID:     "corrupt",
+			restoreKeyCapability: 42, // wrong type: must be rejected, not zero-folded
+			restoreKeyOrigin:     "agent-root",
+			restoreKeyState:      string(StateReady),
+		},
+		Timestamp: time.Now(),
+	}}, 0))
+	// A healthy task on the same store proves the corrupt record only skips
+	// itself (one bad row must not abort the rebuild).
+	f1 := NewFabric().WithEventStore(store)
+	require.NoError(t, f1.Create(newTask("healthy")))
+
+	f2 := NewFabric().WithEventStore(store)
+	require.NoError(t, f2.RestoreFromStore(context.Background()))
+	_, err := f2.Task("corrupt")
+	require.ErrorIs(t, err, ErrTaskNotFound, "corrupt created event must not materialize as a zero-capability task")
+	_, err = f2.Task("healthy")
+	require.NoError(t, err, "healthy tasks must restore despite the corrupt record")
+}

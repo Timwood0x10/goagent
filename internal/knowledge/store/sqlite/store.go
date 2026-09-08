@@ -339,8 +339,23 @@ func (s *Store) GetRepresentation(ctx context.Context, objectID string, model st
 
 	_ = json.Unmarshal([]byte(vecJSON), &rep.Vector)
 	_ = json.Unmarshal([]byte(metaJSON), &rep.Metadata)
-	rep.CreatedAt, _ = time.Parse(time.RFC3339, createdAtStr)
+	rep.CreatedAt = parseTimeField(createdAtStr, "representation", rep.ID)
 	return &rep, nil
+}
+
+// parseTimeField decodes a persisted RFC3339 timestamp column. The write
+// path always stores time.Time.Format(time.RFC3339), so a parse failure
+// means the row was corrupted or hand-written — keep the zero time (same
+// degrade contract as the best-effort JSON unmarshals) but log the raw
+// string so the corrupt row is observable, not silently blank.
+func parseTimeField(raw, what, id string) time.Time {
+	t, err := time.Parse(time.RFC3339, raw)
+	if err != nil {
+		slog.Warn("sqlite store: corrupt timestamp column, keeping zero time",
+			"what", what, "id", id, "raw", raw, "error", err)
+		return time.Time{}
+	}
+	return t
 }
 
 // scanObject scans a row into a KnowledgeObject.
@@ -369,8 +384,8 @@ func scanObject(row scanner) (*knowledge.KnowledgeObject, error) {
 	if tagsStr != "" {
 		obj.Tags = strings.Split(tagsStr, ",")
 	}
-	obj.CreatedAt, _ = time.Parse(time.RFC3339, createdAtStr)
-	obj.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAtStr)
+	obj.CreatedAt = parseTimeField(createdAtStr, "object", obj.ID)
+	obj.UpdatedAt = parseTimeField(updatedAtStr, "object", obj.ID)
 	obj.Status = knowledge.ObjectStatus(statusStr)
 	obj.EmbeddingModel = embeddingModel
 	// Unmarshal quality/relations best-effort: malformed JSON is ignored.
@@ -526,7 +541,7 @@ func scanRepresentation(row scanner) (*knowledge.Representation, error) {
 	}
 	_ = json.Unmarshal([]byte(vecJSON), &rep.Vector)
 	_ = json.Unmarshal([]byte(metaJSON), &rep.Metadata)
-	rep.CreatedAt, _ = time.Parse(time.RFC3339, createdAtStr)
+	rep.CreatedAt = parseTimeField(createdAtStr, "representation", rep.ID)
 	return &rep, nil
 }
 

@@ -154,9 +154,11 @@ func TestEnableKernelExecutionRunsFabricPath(t *testing.T) {
 	enableKernelExecution(kernel, f)
 	flag.Set(agentipc.PolicyTaskFabric)
 
-	// Dispatch through the kernel (active path = fabric submit).
+	// Dispatch through the kernel's live path: the facade's current new-path
+	// dispatcher (the DualTrack dispatch entry was removed — zero production
+	// callers; enableKernelExecution swaps the path via SetNewPath).
 	payload := map[string]any{"agent_type": "tool/code"}
-	if err := kernel.Dispatch(context.Background(), "", "t1", payload); err != nil {
+	if err := kernel.NewPath().D(context.Background(), "", "t1", payload); err != nil {
 		t.Fatalf("dispatch: %v", err)
 	}
 

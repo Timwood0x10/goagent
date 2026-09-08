@@ -20,7 +20,15 @@ func NewEvidence(source string, kind EvidenceKind, payload any, opts ...Evidence
 	id := fmt.Sprintf("ev_%x", time.Now().UnixNano())
 	var raw json.RawMessage
 	if payload != nil {
-		raw, _ = json.Marshal(payload)
+		// Marshal failures are practically impossible for the map/struct
+		// payloads producers pass, but the constructor's signature cannot
+		// return an error (it is the canonical producer entry point): on
+		// failure keep the zero RawMessage, which stores/queries already
+		// treat as "no payload" — visible, not silently wrong.
+		b, err := json.Marshal(payload)
+		if err == nil {
+			raw = b
+		}
 	}
 	e := Evidence{
 		ID:        id,

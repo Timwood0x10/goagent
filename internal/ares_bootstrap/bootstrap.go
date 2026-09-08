@@ -635,6 +635,11 @@ func Bootstrap(ctx context.Context, cfg *ares_config.Config, deps *BootstrapDeps
 // The event store is wired during construction, eliminating
 // the post-Bootstrap SetEventStore bypass in serve.go. Returns nil when disabled.
 //
+// (nil, nil) on the disabled path is the documented contract: every caller
+// (Bootstrap and tests) probes `comp.Memory != nil` / `mem != nil` for the
+// disabled state and nil-checks before optional SetSkillsRegistry-style
+// wiring — none treats nil as an error.
+//
 //nolint:nilnil // nil manager + nil error is the documented "disabled" contract.
 func wireMemory(cfg *ares_config.Config, eventStore ares_events.EventStore) (ares_memory.MemoryManager, error) {
 	if !cfg.Memory.IsEnabled() {
@@ -664,6 +669,11 @@ func wireMemory(cfg *ares_config.Config, eventStore ares_events.EventStore) (are
 // buildEvolutionDAG builds the minimal mutable DAG used by the evolution system
 // (workflow/scheduler/recovery genomes evolve against it). Returns nil when
 // evolution is disabled so no graph is constructed behind the config's back.
+//
+// (nil, nil) on the disabled path is the documented contract: Bootstrap's
+// continuation explicitly nil-checks (`comp.Runtime != nil && dag != nil`)
+// before RegisterAgentDAG, so a nil DAG means "nothing to register", never
+// an error state.
 //
 //nolint:nilnil // nil DAG + nil error is the documented "disabled" contract.
 func buildEvolutionDAG(enabled bool) (*engine.MutableDAG, error) {
@@ -700,6 +710,11 @@ func resolveLiveMemoryStore(mem ares_memory.MemoryManager) ares_memory.MemoryCon
 // evidence store: when disabled, a standalone store keeps the flight recorder's
 // fitness evidence flowing without a NewEvolution instance.
 //
+// (nil components + nil error) on the disabled path is the documented
+// contract: callers gate on `comp.NewEvolution != nil` (deployment wiring,
+// wireGAEvolution) and the evidence store is ALWAYS non-nil, so nothing
+// downstream can mistake the disabled state for a failure.
+//
 //nolint:nilnil // nil components + nil error is the documented "disabled" contract.
 func wireNewEvolution(enabled bool, dag *engine.MutableDAG, rt *knowledgeruntime.KnowledgeRuntime, memoryStore ares_memory.MemoryConfigStore, evStore evidence.Store) (*NewEvolutionComponents, evidence.Store, error) {
 	if !enabled {
@@ -716,6 +731,12 @@ func wireNewEvolution(enabled bool, dag *engine.MutableDAG, rt *knowledgeruntime
 // all required deps are present; otherwise it is skipped (nil), preserving
 // prior behavior. Gated by cfg.Evolution.Enabled so the legacy scheduler
 // cannot start behind the config's back.
+//
+// (nil, nil) on the skipped path is the documented contract: Bootstrap's
+// continuation nil-checks (`if evol != nil`) before arming the scheduler
+// shutdown goroutine, and bootstrap_steps.go re-asserts the scheduler type
+// — the absence of a legacy scheduler is a supported configuration
+// (wired-scheduler fallback), not a failure.
 //
 //nolint:nilnil // nil components + nil error is the documented "disabled" contract.
 func wireLegacyEvolution(ctx context.Context, cfg *ares_config.Config, deps *BootstrapDeps, comp *Components) (*EvolutionComponents, error) {

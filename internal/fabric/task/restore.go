@@ -165,8 +165,22 @@ func (f *Fabric) foldRestoreEvent(ev *ares_events.Event) error {
 	switch ev.Type {
 	case ares_events.EventTaskCreated:
 		t := &Task{ID: id}
-		t.Capability, _ = p[restoreKeyCapability].(string)
-		t.Origin, _ = p[restoreKeyOrigin].(string)
+		// Capability/Origin are written by recordLocked as strings on every
+		// must-persist event; a wrong-typed or missing value means the log
+		// was corrupted or hand-written. Reject the record (the caller logs
+		// and skips it) rather than folding a task whose capability silently
+		// became "" — a zero capability task can never be matched by a
+		// scheduler candidate and would be an unrunnable ghost in the map.
+		capability, ok := p[restoreKeyCapability].(string)
+		if !ok {
+			return fmt.Errorf("missing or non-string %q for task %q", restoreKeyCapability, id)
+		}
+		origin, ok := p[restoreKeyOrigin].(string)
+		if !ok {
+			return fmt.Errorf("missing or non-string %q for task %q", restoreKeyOrigin, id)
+		}
+		t.Capability = capability
+		t.Origin = origin
 		t.Priority = restoreInt(p, restoreKeyPriority)
 		t.RetryPolicy.Attempts = restoreInt(p, restoreKeyRetryAttempts)
 		t.RetryPolicy.MaxRetries = restoreInt(p, restoreKeyRetryMax)

@@ -1,6 +1,5 @@
 package repositories
 
-//nolint: errcheck // best-effort operations: ResponseWriter writes, cleanup Close/Wait, deferred shutdown
 import (
 	"context"
 	"database/sql"
@@ -146,12 +145,11 @@ func (r *StrategyRepository) setActiveTx(ctx context.Context, db beginTxer, s St
 	}()
 
 	deactivateQ := `UPDATE evolution_strategies SET is_active = false WHERE is_active = true`
-	result, err := tx.ExecContext(ctx, deactivateQ)
-	if err != nil {
+	// RowsAffected is intentionally ignored: 0 affected rows means no
+	// previously active strategy (normal on first deployment).
+	if _, err := tx.ExecContext(ctx, deactivateQ); err != nil {
 		return errors.Wrap(err, "deactivate strategies")
 	}
-	affected, _ := result.RowsAffected()
-	_ = affected
 
 	insertQ := `INSERT INTO evolution_strategies
 		(id, is_active, name, version, params, parent_id, prompt_template,

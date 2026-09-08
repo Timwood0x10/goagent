@@ -508,7 +508,16 @@ func wireGAEvolution(ctx context.Context, cfg *ares_config.Config, comp *Compone
 	// real scores.
 	var legacySched *evolution.EvolutionScheduler
 	if comp.Evolution != nil {
-		legacySched, _ = comp.Evolution.Scheduler.(*evolution.EvolutionScheduler)
+		// ok is used instead of relying on the nil-ness of the asserted
+		// value: the assertion may legitimately miss (Scheduler is an
+		// interface; other implementations exist), and the ok form makes
+		// the "not the legacy scheduler" branch read as a deliberate
+		// fallback rather than an accident of nil-ness.
+		var isLegacy bool
+		legacySched, isLegacy = comp.Evolution.Scheduler.(*evolution.EvolutionScheduler)
+		if !isLegacy {
+			legacySched = nil
+		}
 	}
 	if legacySched != nil {
 		legacySched.SetAdapter(popAdapter)

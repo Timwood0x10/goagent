@@ -185,7 +185,15 @@ func (t *EmbeddingTool) embedBatch(ctx context.Context, params map[string]interf
 	}
 	texts := make([]string, len(textsRaw))
 	for i, v := range textsRaw {
-		texts[i], _ = v.(string)
+		s, ok := v.(string)
+		if !ok {
+			// A non-string element would be silently zero-folded into "",
+			// sending empty texts to the embedding service (wasted calls,
+			// meaningless vectors). Reject the whole batch naming the index
+			// so the caller can fix its arguments.
+			return core.NewErrorResult(fmt.Sprintf("'texts'[%d] must be a string, got %T", i, v)), nil
+		}
+		texts[i] = s
 	}
 	prefix, _ := params["prefix"].(string)
 	if prefix == "" {

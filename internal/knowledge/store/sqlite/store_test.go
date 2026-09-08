@@ -194,6 +194,43 @@ func TestGetRepresentationNotFound(t *testing.T) {
 	}
 }
 
+// TestGetCorruptTimestampDegradesToZeroTimeAndLogs locks the scan-side
+// degrade contract for timestamp columns: a corrupted created_at/updated_at
+// (hand-written row or bit rot) keeps the zero time — one bad column must
+// not fail the whole read — while parseTimeField logs a warning with the
+// raw string so the corrupt row is observable in logs.
+func TestGetCorruptTimestampDegradesToZeroTimeAndLogs(t *testing.T) {
+	s := newTestStore(t)
+
+	obj := &knowledge.KnowledgeObject{
+		ID: "corrupt-ts", Summary: "corrupt ts", Confidence: 1.0,
+		CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	}
+	if err := s.Save(context.Background(), obj); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	t.Cleanup(func() { _ = s.Delete(context.Background(), obj.ID) })
+
+	// Corrupt both timestamp columns directly (bypassing the writer).
+	if _, err := s.db.Exec(
+		`UPDATE akf_objects SET created_at = 'not-a-timestamp', updated_at = 'also-bad' WHERE id = ?`,
+		obj.ID,
+	); err != nil {
+		t.Fatalf("corrupt timestamps: %v", err)
+	}
+
+	got, err := s.Get(context.Background(), obj.ID)
+	if err != nil {
+		t.Fatalf("Get with corrupt timestamps must degrade, not fail: %v", err)
+	}
+	if !got.CreatedAt.IsZero() {
+		t.Errorf("corrupt created_at must fold to zero time, got %v", got.CreatedAt)
+	}
+	if !got.UpdatedAt.IsZero() {
+		t.Errorf("corrupt updated_at must fold to zero time, got %v", got.UpdatedAt)
+	}
+}
+
 func TestDelete(t *testing.T) {
 	s := newTestStore(t)
 

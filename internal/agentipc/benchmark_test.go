@@ -53,18 +53,3 @@ func BenchmarkBus_Broadcast(b *testing.B) {
 		_ = bus.Broadcast(ctx, "a", "topic", msg)
 	}
 }
-
-// BenchmarkDualTrackDispatch measures the kernel dispatch overhead
-// (flag read + active path + optional shadow comparison).
-func BenchmarkDualTrackDispatch(b *testing.B) {
-	flag := NewPolicyFlag(PolicyTaskFabric)
-	legacy := &stubDispatcher{}
-	newPath := &stubDispatcher{}
-	d := NewDualTrackDispatcher(flag, legacy, newPath, false) // shadow off (live path)
-	ctx := context.Background()
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_ = d.Dispatch(ctx, "a", "t", nil)
-	}
-}

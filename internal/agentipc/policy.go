@@ -2,32 +2,32 @@ package agentipc
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"sync/atomic"
 )
 
-// ExecutionPolicy is the strategy for dispatching a task to an agent
-// (see the design doc). The Kernel picks one policy per dispatch; the feature flag
-// selects the active path. The legacy policy is retained only as a
-// library constant — the leader runtime is removed,
-// so no production dispatcher registers a legacy track.
+// ExecutionPolicy is the dispatch-policy vocabulary for the kernel config and
+// flag (kernel.policy). The dispatch entry that routed by this policy was
+// removed (zero production callers — HTTP submits tasks to the Task Fabric
+// directly and the kernelScheduler drains them), so the constants are
+// config/flag state rather than live routing branches.
 type ExecutionPolicy int
 
 const (
-	// PolicyLegacy is the old leader+sub dispatch path. Retained as a
-	// library constant for the dispatcher's dormant legacy branch; production
-	// wires a nil legacy track, so selecting it returns ErrDispatcherNotRegistered.
+	// PolicyLegacy is the old leader+sub dispatch path, retained as a library
+	// constant for config compatibility. Production wires a nil legacy track;
+	// with the dispatch entry removed, nothing dispatches on it.
 	PolicyLegacy ExecutionPolicy = iota
 	// PolicyTaskFabric is the Kernel path: Task Fabric → Scheduler → Agent
 	// (capability-aware, no central leader). This is the only production policy.
 	PolicyTaskFabric
 )
 
-// PolicyFlag is the feature flag that selects which dispatch policy is
-// active (parallel + feature flag gradual cutover). Production starts
-// at PolicyTaskFabric; the flag is read atomically so a flip takes effect on
-// the next dispatch without restart.
+// PolicyFlag is the feature flag recording which dispatch policy is active
+// (parallel + feature flag gradual cutover). Production starts at
+// PolicyTaskFabric; the flag is read atomically. With the dispatch entry
+// removed, a flip only changes the recorded policy — no dispatch routing
+// happens anymore.
 type PolicyFlag struct {
 	v atomic.Int64 // 0 = legacy, 1 = task fabric (int64 avoids int→int32 narrowing)
 }
@@ -60,36 +60,36 @@ func (p *PolicyFlag) IsTaskFabric() bool {
 	return p.Active() == PolicyTaskFabric
 }
 
-// Dispatcher is the abstraction both policies implement. The Kernel calls
-// the active policy's Dispatch; the implementations differ (legacy routes
-// through the leader; new routes through Task Fabric). Both must be
-// registered for the flag to work.
+// Dispatcher is the abstraction both policies implement. Production wires the
+// new path (Task Fabric); the legacy leader path is removed. Implementations
+// must be equivalent in observable outcome (the task is delivered and
+// executed); only the path differs.
 type Dispatcher interface {
-	// Dispatch sends a task to an agent under the given policy. The
+	// D sends a task to an agent under the given policy. The
 	// implementation must be equivalent in observable outcome (the task is
 	// delivered and executed); only the path differs.
 	D(ctx context.Context, agentID string, taskID string, payload any) error
 }
 
-// DualTrackDispatcher holds both the legacy and new dispatchers and routes to
-// the active one based on the PolicyFlag (parallel + feature flag).
-// Both paths coexist; the flag selects which is live. This is the
-// "双轨等价" verification surface: run both under the flag and compare.
+// DualTrackDispatcher holds the legacy and new dispatchers and records the
+// active one based on the PolicyFlag (parallel + feature flag). The Kernel
+// uses it as a mutable dispatcher facade: enableKernelExecution swaps the
+// new path (SetNewPath) and turns shadow off (SetShadow) at startup.
 type DualTrackDispatcher struct {
 	flag    *PolicyFlag
 	legacy  Dispatcher
 	newPath Dispatcher
-	// equivalencyChecks collects per-dispatch comparisons when both paths are
-	// run in shadow mode (flag = legacy, new path runs in shadow and the
-	// outcomes are compared). Empty when shadow mode is off.
-	mu         sync.Mutex
-	shadow     bool
-	mismatches int
+	// shadow records whether the inactive path would run alongside the
+	// active one for equivalence comparison. The dispatch entry that acted on
+	// it was removed (zero production callers); the field stays as mutable
+	// facade state so SetShadow keeps its contract.
+	mu     sync.Mutex
+	shadow bool
 }
 
-// NewDualTrackDispatcher wires the dual-track dispatcher. The flag selects the
-// active path; when shadow is true, the inactive path also runs and the
-// outcomes are compared (equivalence verification).
+// NewDualTrackDispatcher wires the dual-track dispatcher. The flag records
+// the active path; shadow and the two tracks are held for the facade's
+// mutable state (SetShadow / SetNewPath).
 func NewDualTrackDispatcher(flag *PolicyFlag, legacy, newPath Dispatcher, shadow bool) *DualTrackDispatcher {
 	return &DualTrackDispatcher{
 		flag:    flag,
@@ -97,43 +97,6 @@ func NewDualTrackDispatcher(flag *PolicyFlag, legacy, newPath Dispatcher, shadow
 		newPath: newPath,
 		shadow:  shadow,
 	}
-}
-
-// Dispatch routes to the active policy's dispatcher. When shadow mode is on,
-// the inactive path also runs and the outcomes are compared; a mismatch is
-// counted and surfaced via Mismatches().
-func (d *DualTrackDispatcher) Dispatch(ctx context.Context, agentID, taskID string, payload any) error {
-	// Snapshot the mutable state (shadow + both paths) under mu: SetShadow /
-	// SetNewPath can flip concurrently with in-flight dispatches (live mid-run
-	// flip), so reading the fields directly would race. The snapshot makes a
-	// single dispatch observe one consistent configuration.
-	shadow, legacy, newPath := d.snapshot()
-	if d.flag.IsLegacy() {
-		if legacy == nil {
-			return ErrDispatcherNotRegistered
-		}
-		err := legacy.D(ctx, agentID, taskID, payload)
-		if shadow {
-			d.compareShadow(ctx, agentID, taskID, payload, err, newPath)
-		}
-		return err
-	}
-	if newPath == nil {
-		return ErrDispatcherNotRegistered
-	}
-	err := newPath.D(ctx, agentID, taskID, payload)
-	if shadow {
-		d.compareShadow(ctx, agentID, taskID, payload, err, legacy)
-	}
-	return err
-}
-
-// snapshot returns a consistent view of the dispatcher's mutable state
-// (shadow flag and both paths) under one mu acquisition.
-func (d *DualTrackDispatcher) snapshot() (shadow bool, legacy, newPath Dispatcher) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	return d.shadow, d.legacy, d.newPath
 }
 
 // SetShadow turns shadow mode on or off at runtime. Shadow must be disabled
@@ -163,32 +126,3 @@ func (d *DualTrackDispatcher) NewPath() Dispatcher {
 	defer d.mu.Unlock()
 	return d.newPath
 }
-
-// compareShadow runs the inactive path (passed in from the dispatch snapshot)
-// and compares its outcome with the active path's. shadowDispatcher may be nil
-// (path not wired) — then no comparison is possible and nothing is counted.
-func (d *DualTrackDispatcher) compareShadow(ctx context.Context, agentID, taskID string, payload any, activeErr error, shadowDispatcher Dispatcher) {
-	if shadowDispatcher == nil {
-		return
-	}
-	shadowErr := shadowDispatcher.D(ctx, agentID, taskID, payload)
-	// Equivalence: both must agree on success/failure. Error text may differ;
-	// we compare only the presence of an error.
-	if (activeErr == nil) != (shadowErr == nil) {
-		d.mu.Lock()
-		d.mismatches++
-		d.mu.Unlock()
-	}
-}
-
-// Mismatches returns the count of shadow-mode outcome mismatches (0 = the two
-// paths are equivalent so far).
-func (d *DualTrackDispatcher) Mismatches() int {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	return d.mismatches
-}
-
-// ErrDispatcherNotRegistered is returned when the active path has no
-// dispatcher wired.
-var ErrDispatcherNotRegistered = errors.New("agentipc: dispatcher not registered")

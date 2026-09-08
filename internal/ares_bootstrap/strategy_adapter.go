@@ -30,9 +30,12 @@ var _ agents.StrategySource = (*evolutionStrategySource)(nil)
 // GetActiveStrategy returns the active evolution strategy in the agents
 // runtime view. A nil *ActiveStrategy with no error signals that no
 // strategy has been deployed yet — callers distinguish "empty" from
-// "failure" via the nil check, not the error.
+// "failure" via the nil check, not the error. This mirrors the
+// agents.StrategySource contract ("nil if none is set") and the upstream
+// StrategyStore.GetActive contract ("nil if no strategy has been stored"),
+// so callers (planner cognition, strategy stamping) already treat
+// (nil, nil) as "steer nothing".
 //
-//nolint:nilnil // nil value + nil error is the documented "no strategy" contract.
 //nolint:nilnil // nil value + nil error is the documented "no active strategy" contract.
 func (s *evolutionStrategySource) GetActiveStrategy(ctx context.Context) (*agents.ActiveStrategy, error) {
 	st, err := s.store.GetActive(ctx)

@@ -26,6 +26,11 @@ const (
 	CleaningModeAggressive   = core.CleaningModeAggressive
 )
 
+// unknownURLSummary is the placeholder a tool-result summary shows when the
+// recorded call args carry no usable url/URL — an explicit "unknown" reads
+// better than a silently-empty field and keeps the summary shape stable.
+const unknownURLSummary = "<unknown-url>"
+
 // DefaultCleanOptions delegates to the canonical definition in api/core.
 func DefaultCleanOptions() CleanOptions { return core.DefaultCleanOptions() }
 
@@ -372,9 +377,17 @@ func summarizeCodeRunnerResult(msg Message, args map[string]interface{}) string 
 
 // summarizeHTTPRequestResult extracts compact info from http_request results.
 func summarizeHTTPRequestResult(msg Message, args map[string]interface{}) string {
-	url, _ := args["url"].(string)
-	if url == "" {
-		url, _ = args["URL"].(string)
+	// Tolerant parsing on purpose: this is a DISPLAY summary, not the request
+	// path — the http_request tool itself validates its args before calling.
+	// "URL" is the uppercase variant older callers stamped. A missing value
+	// degrades the summary text only, so the checked assertions fall through
+	// to an explicit placeholder instead of a silently-empty field.
+	url, ok := args["url"].(string)
+	if !ok || url == "" {
+		url, ok = args["URL"].(string)
+		if !ok || url == "" {
+			url = unknownURLSummary
+		}
 	}
 	method, _ := args["method"].(string)
 	if method == "" {
@@ -412,9 +425,15 @@ func summarizeHTTPRequestResult(msg Message, args map[string]interface{}) string
 
 // summarizeWebScraperResult extracts compact info from web_scraper results.
 func summarizeWebScraperResult(msg Message, args map[string]interface{}) string {
-	url, _ := args["url"].(string)
-	if url == "" {
-		url, _ = args["URL"].(string)
+	// Same tolerant-display contract as summarizeHTTPRequestResult: "URL" is
+	// the uppercase variant older callers stamped; a missing value degrades
+	// the summary text only.
+	url, ok := args["url"].(string)
+	if !ok || url == "" {
+		url, ok = args["URL"].(string)
+		if !ok || url == "" {
+			url = unknownURLSummary
+		}
 	}
 	content := msg.Content
 	preview := truncpkg.WithEllipsis(content, 120)

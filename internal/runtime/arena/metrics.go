@@ -76,9 +76,13 @@ func (mc *MetricsCollector) RecordActionResult(actionType ActionType, success bo
 
 // RecordRecovery records a recovery duration sample.
 //
-// Deprecated: Use RecordActionResult instead. Kept for backward compatibility with tests.
+// Deprecated: Use RecordActionResult instead. No production caller remains
+// (the service records per-action results via RecordActionResult; recovery
+// timing derives from action events), so this is test-only surface.
+// TODO(tech-debt): remove RecordRecovery together with its metrics_test.go
+// coverage once no test needs the raw recovery-timeseries path.
 func (mc *MetricsCollector) RecordRecovery(d time.Duration) {
-	log.Warn("MetricsCollector.RecordRecovery is deprecated, use RecordActionResult instead")
+	log.Warn("MetricsCollector.RecordRecovery is deprecated, use RecordActionResult instead; no production caller remains (test-only)")
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
 	mc.recoveries = append(mc.recoveries, d)
@@ -86,9 +90,13 @@ func (mc *MetricsCollector) RecordRecovery(d time.Duration) {
 
 // RecordFailover records a failover event.
 //
-// Deprecated: Use RecordActionResult instead. Kept for backward compatibility with tests.
+// Deprecated: Use RecordActionResult instead. No production caller remains
+// (per-action success/failure is recorded via RecordActionResult), so this is
+// test-only surface.
+// TODO(tech-debt): remove RecordFailover and the FailoverCount snapshot field
+// once no test needs the legacy failover counter.
 func (mc *MetricsCollector) RecordFailover() {
-	log.Warn("MetricsCollector.RecordFailover is deprecated, use RecordActionResult instead")
+	log.Warn("MetricsCollector.RecordFailover is deprecated, use RecordActionResult instead; no production caller remains (test-only)")
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
 	mc.failoverCount++
@@ -96,9 +104,13 @@ func (mc *MetricsCollector) RecordFailover() {
 
 // RecordConsistency records a data consistency rate sample (0-100).
 //
-// Deprecated: Use RecordActionResult instead. Kept for backward compatibility with tests.
+// Deprecated: Use RecordActionResult instead. No production caller remains
+// (action results are recorded via RecordActionResult), so this is test-only
+// surface.
+// TODO(tech-debt): remove RecordConsistency and the DataConsistencyRate
+// snapshot field once no test needs the legacy consistency-timeseries path.
 func (mc *MetricsCollector) RecordConsistency(rate float64) {
-	log.Warn("MetricsCollector.RecordConsistency is deprecated, use RecordActionResult instead")
+	log.Warn("MetricsCollector.RecordConsistency is deprecated, use RecordActionResult instead; no production caller remains (test-only)")
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
 	mc.consistencySamples = append(mc.consistencySamples, rate)
