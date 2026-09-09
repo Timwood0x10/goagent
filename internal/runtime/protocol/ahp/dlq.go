@@ -271,9 +271,13 @@ func (p *DLQProcessor) processEntry(ctx context.Context, entry *DLQEntry) error 
 }
 
 // defaultHandler is the default handler for DLQ entries.
-func (p *DLQProcessor) defaultHandler(ctx context.Context, entry *DLQEntry) error {
+func (p *DLQProcessor) defaultHandler(_ context.Context, entry *DLQEntry) error {
+	sessionID := ""
+	if entry.Message != nil {
+		sessionID = entry.Message.SessionID
+	}
 	log.Warn("DLQ entry processed by default handler",
-		"session_id", entry.Message.SessionID,
+		"session_id", sessionID,
 		"reason", entry.Reason,
 		"retries", entry.Retries,
 		"error", entry.Error,

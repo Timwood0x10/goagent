@@ -75,6 +75,9 @@ func (a *flightRecorderAdapter) TimelineEvents(agentID string) []flight.Timeline
 
 // TimelineSummary implements FlightProvider.
 func (a *flightRecorderAdapter) TimelineSummary(agentID string) flight.TimelineSummary {
+	if agentID != "" {
+		return a.fr.Timeline().SummaryByAgent(agentID)
+	}
 	return a.fr.Timeline().Summary()
 }
 

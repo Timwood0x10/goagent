@@ -82,6 +82,7 @@ func NewService(config *Config) (*Service, error) {
 		BaseURL:         config.LLMConfig.BaseURL,
 		Model:           config.LLMConfig.Model,
 		Timeout:         config.LLMConfig.Timeout,
+		MaxTokens:       config.LLMConfig.MaxTokens,
 		MaxPromptLength: config.LLMConfig.MaxPromptLength,
 	}
 

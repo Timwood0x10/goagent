@@ -683,11 +683,12 @@ func (l *StrategyLifecycle) Submit(ctx context.Context, candidate *mutation.Stra
 	// submissions until an operator decides (replacing the held candidate
 	// silently would defeat the gate).
 	if l.pendingApproval {
+		heldID := l.heldCandidateIDLocked()
 		l.mu.Unlock()
 		log.InfoContext(ctx, "manual approval pending, rejecting new candidate", "method", "lifecycle.Submit",
 			"strategy_id", candidate.ID,
 			"generation", generation,
-			"held_id", l.heldCandidateIDLocked(),
+			"held_id", heldID,
 		)
 		return
 	}

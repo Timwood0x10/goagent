@@ -27,6 +27,8 @@ const (
 	// produced by a full state reconcile (a subscriber compensating for
 	// missed events), so "created by reconcile" stays attributable.
 	ChangeReconcile
+	// ChangeReset indicates the DAG was wholesale replaced via ResetFromSteps.
+	ChangeReset
 )
 
 // GraphChange describes a single mutation to the DAG.

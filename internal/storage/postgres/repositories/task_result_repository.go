@@ -51,8 +51,12 @@ func (r *TaskResultRepository) Create(ctx context.Context, result *storage_model
 		return errors.Wrap(err, "marshal metadata")
 	}
 
-	// Convert embedding to pgvector format
-	embeddingStr := postgres.FormatVector(result.Embedding)
+	// Convert embedding to pgvector format. An empty embedding must be
+	// NULL, not "[]" — the ::vector cast rejects an empty array literal.
+	var embeddingStr any
+	if len(result.Embedding) > 0 {
+		embeddingStr = postgres.FormatVector(result.Embedding)
+	}
 
 	// Build query based on whether ID is provided
 	var query string

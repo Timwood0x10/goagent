@@ -57,6 +57,11 @@ func NewWithDB(db *sql.DB) (*Store, error) {
 }
 
 func (s *Store) initTables(ctx context.Context) error {
+	// SQLite disables foreign key enforcement by default; without this
+	// pragma, ON DELETE CASCADE is decorative.
+	if _, err := s.db.ExecContext(ctx, "PRAGMA foreign_keys = ON"); err != nil {
+		return fmt.Errorf("enable foreign_keys: %w", err)
+	}
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS akf_objects (
 			id TEXT PRIMARY KEY,

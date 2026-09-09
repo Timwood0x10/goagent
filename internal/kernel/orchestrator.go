@@ -220,7 +220,7 @@ func (o *Orchestrator) Shutdown(ctx context.Context) error {
 		name := order[i]
 		if ctx.Err() != nil {
 			errs = append(errs, fmt.Errorf(
-				"system_runtime: shutdown budget expired before stopping %q", name))
+				"kernel: shutdown budget expired before stopping %q", name))
 			break
 		}
 		if err := o.stopComponent(ctx, name); err != nil {
@@ -238,7 +238,7 @@ func (o *Orchestrator) Shutdown(ctx context.Context) error {
 	}
 	if len(notStopped) > 0 {
 		errs = append(errs, fmt.Errorf(
-			"system_runtime: components did not reach Stopped: %s", strings.Join(notStopped, ", ")))
+			"kernel: components did not reach Stopped: %s", strings.Join(notStopped, ", ")))
 		log.Warn("kernel: shutdown left components unstopped",
 			"components", strings.Join(notStopped, ", "))
 	}

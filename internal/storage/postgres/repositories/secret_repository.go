@@ -178,12 +178,16 @@ func (r *SecretRepository) List(ctx context.Context, tenantID string) ([]*storag
 	secrets := make([]*storage_models.Secret, 0)
 	for rows.Next() {
 		secret := &storage_models.Secret{}
+		var expiresAt sql.NullTime
 		err := rows.Scan(
 			&secret.ID, &secret.TenantID, &secret.Key,
-			&secret.KeyVersion, &secret.Algorithm, &secret.ExpiresAt, &secret.CreatedAt,
+			&secret.KeyVersion, &secret.Algorithm, &expiresAt, &secret.CreatedAt,
 		)
 		if err != nil {
 			continue
+		}
+		if expiresAt.Valid {
+			secret.ExpiresAt = expiresAt.Time
 		}
 		secrets = append(secrets, secret)
 	}
@@ -473,22 +477,63 @@ func (r *SecretRepository) RotateKey(ctx context.Context, tenantID string, newKe
 	return updatedCount, nil
 }
 
-// Export exports secrets (for backup purposes).
-// Args:
-// ctx - database operation context.
-// tenantID - tenant identifier for isolation.
-// Returns exported secrets data or error if export fails.
+// Export exports secrets INCLUDING their decrypted values (for backup purposes).
+// Unlike List (which intentionally omits values for security), Export must
+// include them so a backup/restored deployment retains working secrets.
 func (r *SecretRepository) Export(ctx context.Context, tenantID string) ([]byte, error) {
-	secrets, err := r.List(ctx, tenantID)
+	query := `
+		SELECT id, tenant_id, key, value, key_version, algorithm, expires_at, created_at
+		FROM secrets
+		WHERE tenant_id = $1
+		ORDER BY key ASC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, tenantID)
 	if err != nil {
-		return nil, errors.Wrap(err, "list secrets")
+		return nil, errors.Wrap(err, "export secrets query")
+	}
+	defer func() { _ = rows.Close() }()
+
+	type exportEntry struct {
+		ID         string     `json:"id"`
+		TenantID   string     `json:"tenant_id"`
+		Key        string     `json:"key"`
+		Value      []byte     `json:"value"`
+		KeyVersion int        `json:"key_version"`
+		Algorithm  string     `json:"algorithm"`
+		ExpiresAt  *time.Time `json:"expires_at,omitempty"`
+		CreatedAt  time.Time  `json:"created_at"`
 	}
 
-	data, err := json.Marshal(secrets)
+	var entries []exportEntry
+	for rows.Next() {
+		var e exportEntry
+		var expiresAt sql.NullTime
+		var encrypted []byte
+		if err := rows.Scan(&e.ID, &e.TenantID, &e.Key, &encrypted, &e.KeyVersion, &e.Algorithm, &expiresAt, &e.CreatedAt); err != nil {
+			continue
+		}
+		// Decrypt so the export is usable after restore without needing the
+		// same encryption key.
+		if plain, dErr := r.decrypt(encrypted); dErr == nil {
+			e.Value = plain
+		} else {
+			e.Value = encrypted
+		}
+		if expiresAt.Valid {
+			t := expiresAt.Time
+			e.ExpiresAt = &t
+		}
+		entries = append(entries, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, errors.Wrap(err, "iterate export secrets")
+	}
+
+	data, err := json.Marshal(entries)
 	if err != nil {
 		return nil, errors.Wrap(err, "marshal secrets")
 	}
-
 	return data, nil
 }
 

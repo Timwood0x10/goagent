@@ -115,7 +115,12 @@ func (cb *CircuitBreaker) RecordSuccess() {
 	switch cb.state {
 	case CircuitBreakerStateHalfOpen:
 		cb.halfOpenSuccess++
-		cb.halfOpenInflight.Add(-1)
+		// Guard against going negative: if the inflight counter was already
+		// cleaned up by cleanupHalfOpenInflight, a decrement here would make
+		// it negative and permanently break CompareAndSwap(0,1) in AllowRequest.
+		if cb.halfOpenInflight.Load() > 0 {
+			cb.halfOpenInflight.Add(-1)
+		}
 		if cb.halfOpenSuccess >= cb.successThreshold {
 			cb.state = CircuitBreakerStateClosed
 			cb.failureCount = 0
@@ -166,7 +171,9 @@ func (cb *CircuitBreaker) RecordFailure() {
 	defer cb.mu.Unlock()
 
 	if cb.state == CircuitBreakerStateHalfOpen {
-		cb.halfOpenInflight.Add(-1)
+		if cb.halfOpenInflight.Load() > 0 {
+			cb.halfOpenInflight.Add(-1)
+		}
 		cb.state = CircuitBreakerStateOpen
 		cb.lastFailureTime = time.Now()
 		return

@@ -144,7 +144,10 @@ func (m *TaskMemory) Get(ctx context.Context, taskID string) (*TaskData, bool) {
 	}
 
 	task.AccessedAt = time.Now()
-	return task, true
+	// Return a shallow copy so the caller cannot mutate internal state
+	// through the returned pointer.
+	cp := *task
+	return &cp, true
 }
 
 // Set stores task data.

@@ -23,6 +23,31 @@ import (
 	"github.com/Timwood0x10/ares/internal/tools/resources/core"
 )
 
+// limitedBuffer is an io.Writer that caps total bytes written and sets
+// the exceeded flag when the limit is hit. It replaces bytes.Buffer so a
+// chatty command cannot exhaust memory before the post-run size check.
+type limitedBuffer struct {
+	buf      bytes.Buffer
+	limit    int
+	exceeded bool
+}
+
+func (lb *limitedBuffer) Write(p []byte) (int, error) {
+	if lb.exceeded {
+		return len(p), nil // discard silently; caller checks the flag
+	}
+	remaining := lb.limit - lb.buf.Len()
+	if len(p) >= remaining {
+		lb.buf.Write(p[:remaining])
+		lb.exceeded = true
+		return len(p), nil
+	}
+	return lb.buf.Write(p)
+}
+
+func (lb *limitedBuffer) String() string { return lb.buf.String() }
+func (lb *limitedBuffer) Bytes() []byte  { return lb.buf.Bytes() }
+
 // ExecFunc runs a command with the given arguments and returns its stdout.
 // It is abstracted so tests can inject a fake runner instead of executing
 // real host commands.
@@ -65,27 +90,24 @@ func NewDiscoverer(allowlist []string, opts ...Option) *Discoverer {
 	d := &Discoverer{
 		allowlist: allowlist,
 		exec: func(ctx context.Context, name string, args []string) ([]byte, error) {
-			// cap output so a chatty command cannot exhaust memory —
-			// a bounded buffer replaces the unbounded .Output() read.
 			cmd := exec.CommandContext(ctx, name, args...) //nolint:gosec // allowlist-gated by design
-			// capture stdout and stderr separately — describe
-			// parses the FIRST line as the tool description, and many CLIs
-			// write --help (or warnings) to stderr; mixing the streams made
-			// the description nondeterministic. Output exceeding the cap is
-			// an ERROR (not a silent truncation) so the caller never mistakes
-			// partial output for a complete result.
-			var outBuf, errBuf bytes.Buffer
-			cmd.Stdout = &outBuf
-			cmd.Stderr = &errBuf
+			// Use a limited writer so the buffer cannot grow unbounded while
+			// the command is still running — a chatty command (e.g. `yes`)
+			// would otherwise exhaust memory before the post-run size check.
+			outBuf := &limitedBuffer{limit: maxCommandOutputBytes}
+			errBuf := &limitedBuffer{limit: maxCommandOutputBytes}
+			cmd.Stdout = outBuf
+			cmd.Stderr = errBuf
 			if err := cmd.Run(); err != nil {
-				// surface stderr in the error, but degrade to the bare
-				// error when stderr is empty — avoids a trailing ": " artifact.
+				if outBuf.exceeded || errBuf.exceeded {
+					return nil, fmt.Errorf("command %q output exceeds %d bytes", name, maxCommandOutputBytes)
+				}
 				if stderr := strings.TrimSpace(errBuf.String()); stderr != "" {
 					return nil, fmt.Errorf("%w: %s", err, stderr)
 				}
 				return nil, err
 			}
-			if outBuf.Len() > maxCommandOutputBytes {
+			if outBuf.exceeded {
 				return nil, fmt.Errorf("command %q output exceeds %d bytes; refusing to return partial output", name, maxCommandOutputBytes)
 			}
 			return outBuf.Bytes(), nil

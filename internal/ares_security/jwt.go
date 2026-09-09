@@ -86,7 +86,7 @@ func VerifyJWT(secret []byte, token string, now time.Time) (subject, role string
 	if claims.Expires == 0 {
 		return "", "", fmt.Errorf("%w: missing exp", ErrInvalidToken)
 	}
-	if now.Unix() > claims.Expires {
+	if now.Unix() >= claims.Expires {
 		return "", "", fmt.Errorf("%w: expired at %d", ErrTokenExpired, claims.Expires)
 	}
 	if claims.Issued > 0 && now.Unix() < claims.Issued {

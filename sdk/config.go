@@ -355,10 +355,22 @@ func (c *ConfigFile) ToOptions() ([]Option, error) {
 		opts = append(opts, WithBaseURL(c.LLM.BaseURL))
 	}
 
-	// MaxPromptLength: bridge the YAML field into core.LLMConfig. Without
-	// this the value in ares.yaml was silently dropped (the field existed in
-	// core.LLMConfig but nothing wired it), so long agent runs died at the
-	// 8192 provider default during synthesis.
+	// Bridge YAML LLM tuning fields into core.LLMConfig. Without these the
+	// values in ares.yaml were silently dropped (the fields existed in
+	// core.LLMConfig but nothing wired them), so users got hardcoded
+	// defaults 0.7/2048 regardless of what they configured.
+	if c.LLM.Temperature > 0 {
+		opts = append(opts, func(cfg *config) error {
+			cfg.llmCfg.Temperature = c.LLM.Temperature
+			return nil
+		})
+	}
+	if c.LLM.MaxTokens > 0 {
+		opts = append(opts, func(cfg *config) error {
+			cfg.llmCfg.MaxTokens = c.LLM.MaxTokens
+			return nil
+		})
+	}
 	if c.LLM.MaxPromptLength > 0 {
 		opts = append(opts, func(cfg *config) error {
 			cfg.llmCfg.MaxPromptLength = c.LLM.MaxPromptLength

@@ -506,6 +506,16 @@ func (dc *DreamCycle) deployWinner(
 		return nil
 	}
 
+	// Set cooldown at entry so every early-return path (guardrail reject,
+	// shadow reject, nil winner conversion) also respects it. Previously
+	// only the successful-deploy path set lastCycle, letting rejected
+	// candidates re-trigger immediately.
+	defer func() {
+		dc.mu.Lock()
+		dc.lastCycle = time.Now()
+		dc.mu.Unlock()
+	}()
+
 	// Post-evolution guardrail check.
 	if dc.guardrails != nil {
 		gen := 0
@@ -641,10 +651,6 @@ func (dc *DreamCycle) deployWinner(
 			}
 		}
 	}
-
-	dc.mu.Lock()
-	dc.lastCycle = time.Now()
-	dc.mu.Unlock()
 
 	slog.InfoContext(ctx, "[DreamCycle] Evolution cycle complete",
 		"winner_id", winner.strategy.ID,

@@ -181,7 +181,8 @@ func (m *SessionMemory) Get(ctx context.Context, sessionID string) (*SessionData
 	}, true
 }
 
-// Set stores session data.
+// Set stores session data. The messages slice is copied so the caller
+// cannot mutate stored state through the original backing array.
 func (m *SessionMemory) Set(ctx context.Context, sessionID, userID string, messages []Message) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -190,10 +191,13 @@ func (m *SessionMemory) Set(ctx context.Context, sessionID, userID string, messa
 		m.evictOldest()
 	}
 
+	msgCopy := make([]Message, len(messages))
+	copy(msgCopy, messages)
+
 	session := &SessionData{
 		SessionID:  sessionID,
 		UserID:     userID,
-		Messages:   messages,
+		Messages:   msgCopy,
 		Context:    make(map[string]interface{}),
 		AccessedAt: time.Now(),
 		CreatedAt:  time.Now(),

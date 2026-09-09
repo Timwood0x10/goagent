@@ -42,6 +42,14 @@ func (r *SessionRepository) Create(ctx context.Context, session *models.Session)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
 
+	// Pass nil for zero ExpiredAt so PostgreSQL stores NULL instead of the
+	// zero time (year 1), which would make every session look expired on the
+	// first CleanupExpired run.
+	var expiredAt any
+	if !session.ExpiredAt.IsZero() {
+		expiredAt = session.ExpiredAt
+	}
+
 	_, err = r.db.ExecContext(ctx, query,
 		session.SessionID,
 		session.UserID,
@@ -51,7 +59,7 @@ func (r *SessionRepository) Create(ctx context.Context, session *models.Session)
 		metadataJSON,
 		session.CreatedAt,
 		session.UpdatedAt,
-		session.ExpiredAt,
+		expiredAt,
 	)
 	if err != nil {
 		return errors.Wrap(err, "insert session")
@@ -69,6 +77,7 @@ func (r *SessionRepository) GetByID(ctx context.Context, sessionID string) (*mod
 
 	var session models.Session
 	var profileJSON, metadataJSON []byte
+	var expiredAt sql.NullTime
 
 	err := r.db.QueryRowContext(ctx, query, sessionID).Scan(
 		&session.SessionID,
@@ -79,13 +88,16 @@ func (r *SessionRepository) GetByID(ctx context.Context, sessionID string) (*mod
 		&metadataJSON,
 		&session.CreatedAt,
 		&session.UpdatedAt,
-		&session.ExpiredAt,
+		&expiredAt,
 	)
 	if err == sql.ErrNoRows {
 		return nil, errors.ErrRecordNotFound
 	}
 	if err != nil {
 		return nil, errors.Wrap(err, "query session")
+	}
+	if expiredAt.Valid {
+		session.ExpiredAt = expiredAt.Time
 	}
 
 	if err := json.Unmarshal(profileJSON, &session.UserProfile); err != nil {
@@ -211,7 +223,7 @@ func (r *SessionRepository) ListByUserID(ctx context.Context, userID string, lim
 
 // CleanupExpired removes expired sessions.
 func (r *SessionRepository) CleanupExpired(ctx context.Context) (int64, error) {
-	query := `DELETE FROM sessions WHERE expired_at < $1`
+	query := `DELETE FROM sessions WHERE expired_at IS NOT NULL AND expired_at < $1`
 
 	result, err := r.db.ExecContext(ctx, query, time.Now())
 	if err != nil {

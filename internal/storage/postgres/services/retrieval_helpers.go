@@ -11,6 +11,7 @@ import (
 	"math"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // GenerateDebugInfo generates detailed debugging information for a search result.
@@ -169,28 +170,48 @@ func normalizeEnglishQuery(query string) string {
 }
 
 // replaceAllIgnoreCase replaces all occurrences of a substring case-insensitively.
-// Args:
-// s - original string.
-// old - substring to replace.
-// new - replacement string.
-// Returns string with all replacements applied.
+// Operates on runes to avoid corrupting multi-byte UTF-8 characters (e.g. CJK).
 func replaceAllIgnoreCase(s, old, new string) string {
-	sLower := toLower(s)
-	oldLower := toLower(old)
+	if old == "" {
+		return s
+	}
+	sRunes := []rune(s)
+	oldRunes := []rune(old)
+	oldLower := make([]rune, len(oldRunes))
+	for i, r := range oldRunes {
+		oldLower[i] = toLowerRune(r)
+	}
 
-	result := ""
+	var result []rune
 	i := 0
-	for i < len(sLower) {
-		if i <= len(sLower)-len(oldLower) && sLower[i:i+len(oldLower)] == oldLower {
-			result += new
+	for i < len(sRunes) {
+		if i+len(oldLower) <= len(sRunes) && matchRunesFold(sRunes[i:i+len(oldLower)], oldLower) {
+			result = append(result, []rune(new)...)
 			i += len(oldLower)
 		} else {
-			result += string(s[i])
+			result = append(result, sRunes[i])
 			i++
 		}
 	}
+	return string(result)
+}
 
-	return result
+// toLowerRune lowercases a single rune (ASCII fast-path + unicode fallback).
+func toLowerRune(r rune) rune {
+	if r >= 'A' && r <= 'Z' {
+		return r + 32
+	}
+	return unicode.ToLower(r)
+}
+
+// matchRunesFold compares two rune slices case-insensitively.
+func matchRunesFold(a, b []rune) bool {
+	for i := range a {
+		if toLowerRune(a[i]) != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // trimSpaces removes extra spaces from a string, keeping only single spaces.

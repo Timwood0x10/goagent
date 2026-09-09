@@ -89,15 +89,27 @@ func (b *Bus) Send(ctx context.Context, from, to, topic string, payload any) err
 		Payload: payload,
 		At:      b.allocNow(),
 	}
-	_, err := h(ContextWithTraceID(ctx, traceID), msg)
+	err := b.safeInvokeHandler(ContextWithTraceID(ctx, traceID), msg, h, from, to)
 	if err != nil {
-		// record undelivered/failed fire-and-forget sends.
 		b.deadLetters.Record(from, to, topic, payload, err.Error(), traceID)
 		outcome = feedback.OutcomeFailure
 		return err
 	}
 	outcome = feedback.OutcomeSuccess
 	return nil
+}
+
+// safeInvokeHandler calls a handler with a recover boundary so a panicking
+// handler cannot kill the process. Returns ErrHandlerPanic on recover.
+func (b *Bus) safeInvokeHandler(ctx context.Context, msg *Message, h Handler, from, to string) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			b.logHandlerPanic(msg, from, to, r)
+			err = ErrHandlerPanic
+		}
+	}()
+	_, err = h(ctx, msg)
+	return err
 }
 
 // Request is the synchronous request/reply primitive: send a message to a
@@ -505,11 +517,9 @@ func (b *Bus) Broadcast(ctx context.Context, from, topic string, payload any) in
 			Payload: payload,
 			At:      b.allocNow(),
 		}
-		if _, err := h(ContextWithTraceID(ctx, traceID), msg); err == nil {
+		if err := b.safeInvokeHandler(ContextWithTraceID(ctx, traceID), msg, h, from, subID); err == nil {
 			delivered++
 		} else {
-			// a fan-out delivery the target rejected is a genuine
-			// failure — record it without stopping the fan-out.
 			b.deadLetters.Record(from, subID, topic, payload, err.Error(), traceID)
 		}
 	}

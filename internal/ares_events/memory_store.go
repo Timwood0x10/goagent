@@ -71,7 +71,11 @@ func (s *MemoryEventStore) Append(_ context.Context, streamID string, events []*
 	// versionCounter advances only for non-nil events so skipped nil entries
 	// never leave holes in the stream's version sequence (a nil event must not
 	// consume a version number, unlike the old raw-index arithmetic).
+	//
+	// Two-pass: validate ALL events before mutating any state, so a mid-batch
+	// failure (version overflow) does not leave partially-appended events.
 	versionCounter := int64(0)
+	prepared := make([]*Event, 0, len(events))
 	for _, event := range events {
 		if event == nil {
 			continue
@@ -88,17 +92,14 @@ func (s *MemoryEventStore) Append(_ context.Context, streamID string, events []*
 		if event.ID == "" {
 			event.ID = NewEventID()
 		}
+		prepared = append(prepared, event)
+	}
 
+	for _, event := range prepared {
 		s.events = append(s.events, event)
 		s.streams[streamID] = append(s.streams[streamID], event)
 		s.versions[streamID] = event.Version
 
-		// clone the event before notifying subscribers. The stored
-		// *Event pointer is shared across all readers and the internal
-		// streams slice; a subscriber that mutates the event would race
-		// with concurrent Read/Append callers. The clone gives each
-		// subscriber its own copy (read-only convention enforced by
-		// design — the original is never mutated after Append).
 		clone := *event
 		s.notifySubscribers(&clone)
 	}

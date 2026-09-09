@@ -107,35 +107,36 @@ func (t *PDFTool) extractText(ctx context.Context, filePath string) (core.Result
 	// Enforce the sandbox boundary: the requested path must resolve inside
 	// the allowed directory. Without this check the PDF tool could read
 	// arbitrary files, bypassing the file tools sandbox.
-	{
-		// Resolve symlinks on both paths before the containment check so a
-		// symlink inside the allowed dir cannot point outside it (arbitrary
-		// file read). Mirrors the file tools sandbox behavior.
-		absAllowed, err := filepath.Abs(t.allowedDir)
-		if err != nil {
-			return core.NewErrorResult(fmt.Sprintf("failed to resolve allowed directory: %v", err)), nil
-		}
-		if resolved, rErr := filepath.EvalSymlinks(absAllowed); rErr == nil {
-			absAllowed = resolved
-		}
-		absPath, err := filepath.Abs(filePath)
-		if err != nil {
-			return core.NewErrorResult(fmt.Sprintf("failed to resolve file path: %v", err)), nil
-		}
-		if resolved, rErr := filepath.EvalSymlinks(absPath); rErr == nil {
-			absPath = resolved
-		}
-		rel, err := filepath.Rel(absAllowed, absPath)
-		if err != nil {
-			return core.NewErrorResult(fmt.Sprintf("failed to resolve path relative to allowed directory: %v", err)), nil
-		}
-		if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-			return core.NewErrorResult(fmt.Sprintf("access denied: path %s is outside allowed directory %s", filePath, t.allowedDir)), nil
-		}
+	//
+	// Resolve symlinks on both paths before the containment check so a
+	// symlink inside the allowed dir cannot point outside it. The resolved
+	// absPath is reused for the actual open below, closing the TOCTOU window
+	// where a symlink is swapped between check and read.
+	absAllowed, err := filepath.Abs(t.allowedDir)
+	if err != nil {
+		return core.NewErrorResult(fmt.Sprintf("failed to resolve allowed directory: %v", err)), nil
+	}
+	if resolved, rErr := filepath.EvalSymlinks(absAllowed); rErr == nil {
+		absAllowed = resolved
+	}
+	absPath, err := filepath.Abs(filePath)
+	if err != nil {
+		return core.NewErrorResult(fmt.Sprintf("failed to resolve file path: %v", err)), nil
+	}
+	if resolved, rErr := filepath.EvalSymlinks(absPath); rErr == nil {
+		absPath = resolved
+	}
+	rel, err := filepath.Rel(absAllowed, absPath)
+	if err != nil {
+		return core.NewErrorResult(fmt.Sprintf("failed to resolve path relative to allowed directory: %v", err)), nil
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return core.NewErrorResult(fmt.Sprintf("access denied: path %s is outside allowed directory %s", filePath, t.allowedDir)), nil
 	}
 
-	// Verify file exists and is readable.
-	info, err := os.Stat(filePath)
+	// Verify file exists and is readable — use the RESOLVED path so the
+	// containment check and the actual read target the same file.
+	info, err := os.Stat(absPath)
 	if err != nil {
 		return core.NewErrorResult(fmt.Sprintf("cannot access file: %v", err)), nil
 	}
@@ -143,7 +144,7 @@ func (t *PDFTool) extractText(ctx context.Context, filePath string) (core.Result
 		return core.NewErrorResult("path is a directory, not a file"), nil
 	}
 
-	f, r, err := pdf.Open(filePath)
+	f, r, err := pdf.Open(absPath)
 	if err != nil {
 		return core.NewErrorResult(fmt.Sprintf("failed to open PDF: %v", err)), nil
 	}

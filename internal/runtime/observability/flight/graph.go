@@ -99,7 +99,12 @@ func (g *Graph) AddNode(node *GraphNode) {
 	}
 
 	if node.ParentID == "" {
-		g.root = node
+		// Only adopt the first root; subsequent root nodes (multi-agent)
+		// must not overwrite g.root, or the export would render only the
+		// last-started agent's subtree.
+		if g.root == nil {
+			g.root = node
+		}
 		return
 	}
 

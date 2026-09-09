@@ -192,14 +192,15 @@ func (c *Compactor) buildSummary(streamID string, events []*Event) *EventSummary
 		eventTypeCounts := summary.EventTypeCounts
 		eventTypeCounts[string(evt.Type)]++
 
-		// Extract agent ID from metadata or payload.
-		if summary.AgentID == "" {
-			if aid, ok := evt.Metadata["agent_id"].(string); ok && aid != "" {
+		// Extract agent ID from metadata or payload. Track the FIRST
+		// non-empty agent ID; if a later event carries a different one,
+		// mark the summary as multi-agent rather than silently attributing
+		// everything to the first agent.
+		if aid := extractAgentID(evt); aid != "" {
+			if summary.AgentID == "" {
 				summary.AgentID = aid
-			} else if aid, ok := evt.Payload["agent_id"].(string); ok && aid != "" {
-				summary.AgentID = aid
-			} else {
-				summary.AgentID = "unknown"
+			} else if summary.AgentID != aid && summary.AgentID != "multi" {
+				summary.AgentID = "multi"
 			}
 		}
 
@@ -287,6 +288,10 @@ func (c *Compactor) buildSummary(streamID string, events []*Event) *EventSummary
 		}
 	}
 
+	if summary.AgentID == "" {
+		summary.AgentID = "unknown"
+	}
+
 	// Determine outcome.
 	switch {
 	case summary.EventTypeCounts[string(EventTaskFailed)] > 0 || summary.EventTypeCounts[string(EventFailoverTriggered)] > 0:
@@ -316,6 +321,18 @@ func collectTool(payload map[string]any, key string, seen map[string]bool, tools
 			*tools = append(*tools, t)
 		}
 	}
+}
+
+// extractAgentID pulls the agent_id from an event's metadata or payload.
+// Returns "" when neither carries a non-empty value.
+func extractAgentID(evt *Event) string {
+	if aid, ok := evt.Metadata["agent_id"].(string); ok && aid != "" {
+		return aid
+	}
+	if aid, ok := evt.Payload["agent_id"].(string); ok && aid != "" {
+		return aid
+	}
+	return ""
 }
 
 // DefaultSummarizer is a rule-based summarizer that produces a concise English

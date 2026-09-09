@@ -88,9 +88,9 @@ func (ix *Indexer) indexOne(kind SourceKind, dir string) (SkillIndexEntry, error
 		entry.Version = v
 	}
 	entry.Keywords = toStringSlice(front["keywords"])
-	if caps, ok := front["capabilities"].([]string); ok {
-		entry.Capabilities = caps
-	}
+	// YAML unmarshals arrays as []interface{}, not []string — use the
+	// generic converter.
+	entry.Capabilities = toStringSlice(front["capabilities"])
 
 	// Manifest declares execution carriers; its fields win over front matter.
 	manifest, err := loadManifest(filepath.Join(dir, "skill.yaml"))

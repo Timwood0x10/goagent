@@ -352,12 +352,14 @@ func (p *Population) doEvolve(ctx context.Context, mutator MutatorInterface, cro
 	nextGen = append(nextGen, elites...)
 	nextGen = append(nextGen, offspring...)
 
-	// Pad if under target size.
-	for len(nextGen) < p.Size && len(survivors) > 0 {
-		idx := len(nextGen) % len(survivors)
-		clone := survivors[idx].Clone()
+	// Pad if under target size. Each survivor is used at most once to avoid
+	// duplicate elite IDs in the next generation.
+	survivorIdx := 0
+	for len(nextGen) < p.Size && survivorIdx < len(survivors) {
+		clone := survivors[survivorIdx].Clone()
 		clone.GenerationCreated = p.Generation + 1
 		nextGen = append(nextGen, clone)
+		survivorIdx++
 	}
 
 	p.Agents = nextGen
@@ -419,9 +421,20 @@ func (p *Population) doEvolve(ctx context.Context, mutator MutatorInterface, cro
 	)
 
 	// Invoke generation callback if set.
+	// computeStatsLocked is used directly (not Stats()) because doEvolve
+	// already holds the write lock; calling Stats() would attempt RLock
+	// on a non-reentrant RWMutex and self-deadlock.
 	if p.cfg.Callbacks.OnGeneration != nil {
-		stats := p.Stats()
-		p.cfg.Callbacks.OnGeneration(ctx, *stats)
+		best, avg, worst := p.computeStatsLocked()
+		stats := PopulationStats{
+			Generation: p.Generation,
+			Size:       len(p.Agents),
+			BestScore:  best,
+			AvgScore:   avg,
+			WorstScore: worst,
+			Diversity:  p.measureDiversityReportLocked(),
+		}
+		p.cfg.Callbacks.OnGeneration(ctx, stats)
 	}
 
 	return nil

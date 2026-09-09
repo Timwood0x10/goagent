@@ -51,9 +51,13 @@ type skillOutcomeWriter struct {
 // (skills disabled), a nil experience handle, or a nil store is a no-op —
 // offline wiring, not an error. The subscription runs detached; it stops
 // when the bootstrap ctx ends or the store closes the channel.
-func startSkillOutcomeWriter(ctx context.Context, store ares_events.EventStore, exp *ares_skills.Experience) {
+// startSkillOutcomeWriter subscribes to terminal task events and records
+// outcomes until the returned cancel is invoked or ctx ends. The caller
+// MUST register the cancel in the bootstrap cleanups slice so a failed
+// bootstrap does not leave the writer running.
+func startSkillOutcomeWriter(ctx context.Context, store ares_events.EventStore, exp *ares_skills.Experience) func() {
 	if exp == nil || store == nil {
-		return
+		return func() {}
 	}
 	w := &skillOutcomeWriter{
 		exp:    exp,
@@ -63,7 +67,9 @@ func startSkillOutcomeWriter(ctx context.Context, store ares_events.EventStore, 
 	}
 	if err := w.start(ctx); err != nil {
 		w.logger.Warn("bootstrap: skill outcome writer start failed", "error", err)
+		return func() {}
 	}
+	return w.cancel
 }
 
 // start subscribes and launches the consume loop. Package-level (not on the

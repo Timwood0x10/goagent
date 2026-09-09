@@ -396,7 +396,7 @@ func ReportString(r *EvolutionReport) string {
 	if r.ScorerCostSummary != nil {
 		cs := r.ScorerCostSummary
 		b.WriteString("\n--- Scorer Cost Summary ---\n")
-		fmt.Fprintf(&b, "  LLM Calls:        %d / %d\n", cs.LLMBudgetUsed, cs.LLMBudgetMax)
+		fmt.Fprintf(&b, "  LLM Calls:        %d (budget %d)\n", cs.LLMBudgetUsed, cs.LLMBudgetMax)
 		fmt.Fprintf(&b, "  Cache Hits:       %d\n", cs.TotalCacheHits)
 		fmt.Fprintf(&b, "  Fallbacks:        %d\n", cs.TotalFallbacks)
 	}

@@ -342,6 +342,10 @@ func (m *Manager) GetAgent(agentID string) base.Agent {
 func (m *Manager) RestartAgent(ctx context.Context, agentID string) error {
 	// Use write lock for entire check-and-mutate to prevent NotifyAgentDead race.
 	m.mu.Lock()
+	if m.isStopped {
+		m.mu.Unlock()
+		return ErrRuntimeStopped
+	}
 	ma, exists := m.agents[agentID]
 	if !exists {
 		m.mu.Unlock()

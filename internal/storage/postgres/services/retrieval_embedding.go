@@ -15,13 +15,16 @@ func (s *RetrievalService) getEmbedding(ctx context.Context, query string) []flo
 	}
 
 	// Use the unified embedding pipeline when available.
-	if s.pipeline != nil {
-		spec, err := s.pipeline.BuildSpec(memembed.KindMemoryQuery, query)
+	s.pipelineMu.RLock()
+	p := s.pipeline
+	s.pipelineMu.RUnlock()
+	if p != nil {
+		spec, err := p.BuildSpec(memembed.KindMemoryQuery, query)
 		if err != nil {
 			s.logger.Warn("Failed to build query spec", "error", err)
 			return nil
 		}
-		vec, err := s.pipeline.Embed(ctx, spec)
+		vec, err := p.Embed(ctx, spec)
 		if err != nil {
 			s.logger.Warn("Failed to get embedding via pipeline", "query", query, "error", err)
 			return nil

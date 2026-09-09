@@ -98,9 +98,6 @@ func (p *Population) injectFreshMutantsLocked(eliteCount int) {
 				// Perturb int values: ensure the random range is at least 2
 				// so that iVal=0 can still get a non-zero delta.
 				base := max(iVal, 1)
-				if base < 1 {
-					base = 1
-				}
 				delta := p.rng.Intn(base*2+1) - base
 				template.Params[k] = iVal + delta
 			}

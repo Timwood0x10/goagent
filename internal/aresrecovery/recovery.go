@@ -301,9 +301,13 @@ func (r *Recovery) RestartAgent(ctx context.Context, deadAgentID string, cogniti
 	if err := r.agents.Recover(ctx, a.Identity, cognitive); err != nil {
 		return nil, fmt.Errorf("aresrecovery: restart recover for %s: %w", deadAgentID, err)
 	}
-	// Only charge the budget after a successful spawn+recover.
+	// Only charge the budget after a successful spawn+recover. Re-read the
+	// counter under lock: the value captured before the backoff sleep may be
+	// stale if a concurrent RestartAgent for the same agent also succeeded,
+	// which would let both goroutines write the same attempts+1 and bypass
+	// the budget.
 	r.mu.Lock()
-	r.restarts[deadAgentID] = attempts + 1
+	r.restarts[deadAgentID]++
 	r.mu.Unlock()
 	// The snapshot is now CONSUMED by this revival; keeping it would let a
 	// much later death of the revived body restore stale cognition.

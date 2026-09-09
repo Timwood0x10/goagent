@@ -132,10 +132,14 @@ func (r *ConversationRepository) GetByID(ctx context.Context, id string) (*stora
 
 	conv := &storage_models.Conversation{}
 	var metadataBytes []byte
+	var expiresAt sql.NullTime
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&conv.ID, &conv.SessionID, &conv.TenantID, &conv.UserID,
-		&conv.AgentID, &conv.Role, &conv.Content, &metadataBytes, &conv.ExpiresAt, &conv.CreatedAt,
+		&conv.AgentID, &conv.Role, &conv.Content, &metadataBytes, &expiresAt, &conv.CreatedAt,
 	)
+	if expiresAt.Valid {
+		conv.ExpiresAt = expiresAt.Time
+	}
 	if metadataBytes != nil {
 		if err := json.Unmarshal(metadataBytes, &conv.Metadata); err != nil {
 			log.Warn("Failed to unmarshal metadata", "error", err)

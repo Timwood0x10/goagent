@@ -260,6 +260,8 @@ func (m *ProductionMemoryManager) SetTenantID(tenantID string) error {
 // SetEventStore configures an optional EventStore for emitting lifecycle ares_events.
 // If store is nil, event emission is a no-op.
 func (m *ProductionMemoryManager) SetEventStore(store ares_events.EventStore, streamID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.eventStore = store
 	m.streamID = streamID
 }

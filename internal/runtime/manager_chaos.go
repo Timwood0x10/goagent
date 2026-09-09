@@ -111,6 +111,10 @@ func (m *Manager) PauseAgent(ctx context.Context, agentID string) error {
 func (m *Manager) ResumeAgent(ctx context.Context, agentID string) error {
 	log.Info("[arena] ResumeAgent", "agent", agentID)
 	m.mu.Lock()
+	if m.isStopped {
+		m.mu.Unlock()
+		return ErrRuntimeStopped
+	}
 	ma, exists := m.agents[agentID]
 	if !exists {
 		m.mu.Unlock()

@@ -57,6 +57,11 @@ func NewRegexTool() *RegexTool {
 // ReDoS attacks via catastrophic backtracking on very large inputs.
 const maxRegexInputSize = 10 * 1024 * 1024 // 10MB
 
+// defaultMaxRegexResults caps the number of matches returned when the caller
+// does not specify max_results. -1 (unlimited) on a broad pattern over large
+// input can produce millions of matches and exhaust memory.
+const defaultMaxRegexResults = 1000
+
 // Execute performs the regex operation.
 func (t *RegexTool) Execute(ctx context.Context, params map[string]interface{}) (core.Result, error) {
 	operation, ok := params["operation"].(string)
@@ -93,10 +98,10 @@ func (t *RegexTool) Execute(ctx context.Context, params map[string]interface{}) 
 
 	switch operation {
 	case "match":
-		maxResults := getInt(params, "max_results", -1)
+		maxResults := getInt(params, "max_results", defaultMaxRegexResults)
 		return t.match(ctx, text, re, maxResults)
 	case "extract":
-		maxResults := getInt(params, "max_results", -1)
+		maxResults := getInt(params, "max_results", defaultMaxRegexResults)
 		return t.extract(ctx, text, re, maxResults)
 	case "replace":
 		replacement, ok := params["replacement"].(string)

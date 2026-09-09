@@ -139,6 +139,14 @@ func NewEvolutionAdapter(tasks *agentfabric.Fabric, agents *agentfabric.Fabric) 
 func (e *EvolutionAdapter) AdaptPopulation(ctx context.Context, spawn []agentfabric.SpawnSpec, retire []string) ([]string, error) {
 	spawned := make([]string, 0, len(spawn))
 	for _, spec := range spawn {
+		// Skip agents that already exist: the policy is re-applied on a
+		// periodic loop, and unconditional Spawn would create unbounded
+		// duplicates for identity-bearing specs.
+		if spec.Identity != "" {
+			if _, err := e.agents.Get(spec.Identity); err == nil {
+				continue // already alive
+			}
+		}
 		a, err := e.agents.Spawn(ctx, spec)
 		if err != nil {
 			return spawned, fmt.Errorf("evolution: spawn %s: %w", spec.Identity, err)

@@ -12,9 +12,9 @@
 | 严重程度 | 数量 | 说明 |
 |---------|------|------|
 | **CRITICAL** | 9 | 数据丢失、死锁、进程崩溃、沙箱逃逸 |
-| **HIGH** | ~50 | 并发 bug、资源泄漏、静默功能失效、安全漏洞 |
-| **MEDIUM** | ~135 | 设计缺陷、边界条件、错误处理 |
-| **LOW** | ~95 | 代码质量、死代码、文档不一致 |
+| **HIGH** | ~55 | 并发 bug、资源泄漏、静默功能失效、安全漏洞 |
+| **MEDIUM** | ~150 | 设计缺陷、边界条件、错误处理 |
+| **LOW** | ~100 | 代码质量、死代码、文档不一致 |
 
 ---
 
@@ -195,6 +195,15 @@
 | 62 | `builtin/text/regex_tool.go:129-155` | `max_results` 默认 -1（无限）+ 空匹配模式 → 数百万匹配 → OOM |
 | 63 | `builtin/knowledge/knowledge_base.go:117-134` | `tenant_id` 来自 LLM 工具参数 → 多租户隔离完全依赖模型诚实 |
 
+### 2.13 storage 基础设施
+
+| # | 位置 | 问题 |
+|---|------|------|
+| 64 | `storage/postgres/write_buffer.go:146-172` | 毒丸活锁：不支持的 Table 的批次项永久失败 → buffer 永远满 → 所有写入失败，无 dead-letter |
+| 65 | `storage/postgres/circuit_breaker.go:111-181` | `halfOpenInflight` 可为负 → `CAS(0,1)` 永久失败 → 熔断器永久卡在半开状态 |
+| 66 | `storage/postgres/vector.go:62-119` | `Search` 在租户作用域表上无租户过滤 → 跨租户数据泄漏 |
+| 67 | `storage/postgres/session.go:29-55` | `expired_at` 可空但 Create 绑定零值 → 首次 cleanup 即删除所有未设过期的 session |
+
 ---
 
 ## 三、MEDIUM（应计划修复）
@@ -266,6 +275,16 @@
 - `pipeline/llm_summarizer.go:123-140` — 不可信内容直接拼入 prompt → 间接 prompt 注入
 - `provider/vector/provider.go:101` — `_ = store.CreateCollection(...)` 丢弃所有错误
 
+### 3.5b storage 基础设施补充
+- `write_buffer.go:79-101` — `Start` 无双重启动守卫 → 两个 `processLoop` 消费同一 channel
+- `pool.go:227-254` — `QueryWithTenant` 设置连接级 GUC 但无 finalizer → 遗忘 `Close()` 导致租户绑定泄漏
+- `migrate.go:71-77` — `embeddings` 表是 `VECTOR(1536)` 而其他地方是 1024 → 维度不匹配
+- `vector.go:205-218` — `CREATE TABLE; CREATE INDEX` 多语句在一个 `ExecContext` 中 → pgx 拒绝
+- `repository.go:183-194` — `SaveProfile` exists-then-Create TOCTOU → 并发下重复键
+- `adapters/secret_adapter.go:187-210` — 秘密 key/value 未加引号写入 YAML → 含 `:`/换行的值破坏结构
+- `session.go:29-55` — `expired_at` 零值绑定导致 session 在首次 cleanup 被删除
+- `embedding/cache.go:316-342` — 返回/存储共享 slice
+
 ### 3.6 ares_events
 - `pg_store.go:128-144` — `Append` 无 `FOR UPDATE` → 并发追加静默丢事件
 - `summary_repository.go:131-139` — 遍历后不检查 `rows.Err()` → 部分结果集被当作成功
@@ -317,6 +336,8 @@
 - `aresrecovery/evolution_spawner.go:101-121` — recovery spawn 仍受 `Enabled` 门控 → 搁浅任务
 - `aresrecovery/evolution_feedback.go:52-59` — `WithMaxEntries` 不重建 `byCandID` 索引
 - `aresrecovery/evolution_feedback.go:32-34` — `CombinedFitness` 混合 [0,1] 和 [1,5] 量表
+- `agentipc/primitives.go:44-160` — `from` 由调用者提供，无认证无 ACL → 任何 bus 持有者可冒充任意 agent，毒化演化反馈
+- `agentsyscall/syscall.go:182-184` — `SetAskAgent` 无同步写入，每个 LLM 工具调用无锁读取 → 数据竞争
 
 ### 3.11 sdk / cmd
 - `sdk/knowledge.go:166-169` — 两个独立的 evolution strategy store → AKG provider 看不到运行时写入

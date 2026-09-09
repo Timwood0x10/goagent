@@ -61,7 +61,10 @@ type RuntimeObserver struct {
 	evStore    evidence.Store
 	activeID   func() string
 	// latencyScale is the wall-time constant for the success-score latency
-	// penalty (see latencyPenalty). Zero disables the penalty.
+	// penalty (see latencyPenalty). Zero falls back to defaultLatencyScale
+	// (the production posture — bootstrap constructs the observer with no
+	// scale option, and the penalty must be ON by default); negative
+	// disables the penalty.
 	latencyScale time.Duration
 	mu           sync.Mutex
 	cancel       context.CancelFunc
@@ -120,11 +123,19 @@ func (o *RuntimeObserver) costPenalty(evt *ares_events.Event) float64 {
 // decreasing in t; bounded in (0,1] (t=0 → 1, t=scale → 0.5, asymptote 0);
 // strictly order-preserving (fast success > slow success at every t);
 // correctness still dominates (any success > any failure). A missing or
-// unparsable created_at, or a disabled scale (<= 0), returns 1 — an
-// unmeasurable task is scored on outcome alone, never invented latency.
+// unparsable created_at, or an explicitly disabled scale (negative), returns
+// 1 — an unmeasurable task is scored on outcome alone, never invented latency.
 func (o *RuntimeObserver) latencyPenalty(evt *ares_events.Event) float64 {
-	if o.latencyScale <= 0 {
+	// Zero means "unset" (the production constructor passes no scale
+	// option) — fall back to the default so the penalty is ON unless a
+	// caller EXPLICITLY disables it with a negative value. Silently
+	// treating zero as disabled would switch the penalty off in every
+	// production deployment.
+	if o.latencyScale == 0 {
 		o.latencyScale = defaultLatencyScale
+	}
+	if o.latencyScale < 0 {
+		return 1
 	}
 	if evt == nil || evt.Payload == nil {
 		return 1

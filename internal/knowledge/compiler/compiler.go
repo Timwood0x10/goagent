@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -251,8 +252,14 @@ func (c *DefaultCompiler) formatJSON(graph *knowledge.WorkingGraph, cfg CompileC
 			b.WriteString(",\n")
 		}
 		first = false
-		fmt.Fprintf(&b, "    {\"id\":%q,\"type\":%q,\"summary\":%q,\"confidence\":%.2f}",
-			obj.ID, obj.Type, obj.Summary, obj.Confidence)
+		// Use json.Marshal for string fields: %q produces Go string-literal
+		// escaping (e.g. \n stays as two chars), which is not valid JSON
+		// when the raw content contains control characters.
+		idJSON, _ := json.Marshal(obj.ID)
+		typeJSON, _ := json.Marshal(string(obj.Type))
+		summaryJSON, _ := json.Marshal(obj.Summary)
+		fmt.Fprintf(&b, "    {\"id\":%s,\"type\":%s,\"summary\":%s,\"confidence\":%.2f}",
+			idJSON, typeJSON, summaryJSON, obj.Confidence)
 		count++
 	}
 
@@ -290,8 +297,10 @@ func (c *DefaultCompiler) formatXML(graph *knowledge.WorkingGraph, cfg CompileCo
 		if cfg.MaxNodes > 0 && count >= cfg.MaxNodes {
 			break
 		}
-		fmt.Fprintf(&b, "    <node id=%q type=%q confidence=\"%.2f\">\n",
-			obj.ID, obj.Type, obj.Confidence)
+		// Use proper XML attribute escaping: %q produces Go string quotes
+		// which break XML when the value contains & or <.
+		fmt.Fprintf(&b, "    <node id=%s type=%s confidence=\"%.2f\">\n",
+			escapeXMLAttr(obj.ID), escapeXMLAttr(string(obj.Type)), obj.Confidence)
 		if obj.Summary != "" {
 			fmt.Fprintf(&b, "      <summary>%s</summary>\n", escapeXML(obj.Summary))
 		}
@@ -370,6 +379,12 @@ func escapeXML(s string) string {
 	s = strings.ReplaceAll(s, "\"", "&quot;")
 	s = strings.ReplaceAll(s, "'", "&apos;")
 	return s
+}
+
+// escapeXMLAttr escapes a value and wraps it in double quotes for use as
+// an XML attribute value.
+func escapeXMLAttr(s string) string {
+	return "\"" + escapeXML(s) + "\""
 }
 
 // estimateTokens provides a rough estimate of token count.

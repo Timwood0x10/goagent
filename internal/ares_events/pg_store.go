@@ -418,11 +418,9 @@ func buildAllReadQuery(opts ReadOptions) (string, []any) {
 }
 
 // pgSubscription carries the per-subscriber poll state. The cursor advances
-// ONLY when a poll drained the window completely (fewer than LIMIT rows);
-// otherwise the SAME `created_at >= cursor` window is re-polled and already
-// delivered events are skipped by id. This closes the timestamp-tie loss: the
-// previous strictly-greater cursor permanently skipped same-microsecond
-// siblings that fell past the LIMIT cut.
+// by keyset pagination: every poll with a non-empty query page moves the
+// cursor to the page's last (max) created_at, and the `>= cursor` window
+// plus delivered-id dedup absorb ties at the boundary.
 type pgSubscription struct {
 	filter EventFilter
 	ch     chan<- *Event
@@ -444,6 +442,21 @@ func (p *pgSubscription) markDelivered(events []*Event) {
 		// worst re-deliver old events — never lose new ones.
 		p.delivered = make(map[string]bool, 1024)
 	}
+}
+
+// eventPageQuery abstracts the store's page fetch so pollOnce is unit-testable
+// without a live pool (the keyset-cursor decision is pure logic; only the
+// fetch needs a database).
+type eventPageQuery func(ctx context.Context, filter EventFilter, cursor time.Time) ([]*Event, error)
+
+// queryEventPage is the production eventPageQuery over the pool.
+func (s *PostgresEventStore) queryEventPage(
+	ctx context.Context,
+	filter EventFilter,
+	cursor time.Time,
+) ([]*Event, error) {
+	query, args := buildSubscribeQuery(filter, cursor)
+	return s.queryEvents(ctx, query, args...)
 }
 
 // pollEvents periodically queries for new events matching the filter and sends them to ch.
@@ -473,7 +486,7 @@ func (s *PostgresEventStore) pollEvents(
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := s.pollOnce(ctx, sub); err != nil {
+			if err := pollOnce(ctx, sub, s.queryEventPage); err != nil {
 				log.Error("event subscription poll failed", "error", err)
 				continue
 			}
@@ -482,11 +495,13 @@ func (s *PostgresEventStore) pollEvents(
 }
 
 // pollOnce executes a single poll cycle over [cursor, +inf) with an overlap
-// window; it advances sub.cursor only after the window was fully drained.
-func (s *PostgresEventStore) pollOnce(ctx context.Context, sub *pgSubscription) error {
-	query, args := buildSubscribeQuery(sub.filter, sub.cursor)
-
-	events, err := s.queryEvents(ctx, query, args...)
+// window; it advances sub.cursor by keyset pagination on every non-empty page.
+func pollOnce(
+	ctx context.Context,
+	sub *pgSubscription,
+	query eventPageQuery,
+) error {
+	events, err := query(ctx, sub.filter, sub.cursor)
 	if err != nil {
 		return err
 	}
@@ -506,20 +521,30 @@ func (s *PostgresEventStore) pollOnce(ctx context.Context, sub *pgSubscription) 
 
 	sub.markDelivered(batch)
 
-	// Advance the cursor only when the query returned fewer than the LIMIT —
-	// proof that everything with created_at >= cursor has been delivered.
-	// On a full batch, keep the cursor so the next poll re-reads the tail of
-	// the window (deduped by delivered-ids).
-	if len(events) < defaultEventReadLimit && len(batch) > 0 {
-		maxTS := batch[len(batch)-1].Timestamp
-		for _, evt := range batch {
-			if evt.Timestamp.After(maxTS) {
-				maxTS = evt.Timestamp
-			}
-		}
-		sub.cursor = maxTS
+	if next, ok := nextPollCursor(events, sub.cursor); ok {
+		sub.cursor = next
 	}
 	return nil
+}
+
+// nextPollCursor decides the subscription cursor after a poll. Keyset
+// pagination: ANY non-empty page advances the cursor to the page's last
+// timestamp — even when every row was already delivered (batch empty). A
+// delivered-only page proves nothing new exists below the page tail; keeping
+// the old cursor would wedge the subscriber: the next poll re-reads the same
+// rows, the batch is empty again, and the cursor never passes the window.
+//
+// Tie semantics: `>= cursor` (inclusive) re-reads rows sharing the page-tail
+// timestamp next poll; those are deduped by the delivered set — that is its
+// job. The invariant that matters is losslessness: events written later with
+// the SAME timestamp still satisfy `>= cursor` and cannot be skipped. Only a
+// single timestamp carrying more than maxDeliveredIDs events risks
+// re-delivery (documented burst behavior: at worst re-deliver, never lose).
+func nextPollCursor(events []*Event, cursor time.Time) (time.Time, bool) {
+	if len(events) == 0 {
+		return cursor, false
+	}
+	return events[len(events)-1].Timestamp, true
 }
 
 // buildSubscribeQuery constructs a parameterized query for the subscription

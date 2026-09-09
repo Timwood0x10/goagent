@@ -36,7 +36,7 @@ var (
 // Sentinel errors for Agent module.
 var (
 	ErrAgentNotFound       = fmt.Errorf("agent not found: %w", ErrNotFound)
-	ErrAgentTimeout        = errors.New("agent execution timeout")
+	ErrAgentTimeout        = fmt.Errorf("agent execution timeout: %w", ErrTimeout)
 	ErrAgentPanic          = errors.New("agent internal panic")
 	ErrTaskQueueFull       = errors.New("task queue is full")
 	ErrDependencyCycle     = errors.New("task dependency cycle detected")
@@ -52,7 +52,7 @@ var (
 // Sentinel errors for Protocol module.
 var (
 	ErrInvalidMessage  = errors.New("invalid message format")
-	ErrMessageTimeout  = errors.New("message send timeout")
+	ErrMessageTimeout  = fmt.Errorf("message send timeout: %w", ErrTimeout)
 	ErrHeartbeatMissed = errors.New("heartbeat missed")
 	ErrQueueFull       = errors.New("message queue is full")
 	ErrQueueEmpty      = errors.New("message queue is empty")
@@ -79,7 +79,7 @@ var (
 // Sentinel errors for LLM module.
 var (
 	ErrLLMRequestFailed    = errors.New("LLM request failed")
-	ErrLLMTimeout          = errors.New("LLM response timeout")
+	ErrLLMTimeout          = fmt.Errorf("LLM response timeout: %w", ErrTimeout)
 	ErrLLMQuotaExceeded    = errors.New("LLM quota exceeded")
 	ErrLLMInvalidResponse  = errors.New("LLM invalid response")
 	ErrLLMParserFailed     = errors.New("LLM output parsing failed")
@@ -89,7 +89,7 @@ var (
 // Sentinel errors for Rate Limiting module.
 var (
 	ErrRateLimitExceeded = errors.New("rate limit exceeded")
-	ErrDBTimeout         = errors.New("database operation timeout")
+	ErrDBTimeout         = fmt.Errorf("database operation timeout: %w", ErrTimeout)
 )
 
 // Sentinel errors for Parameter validation.

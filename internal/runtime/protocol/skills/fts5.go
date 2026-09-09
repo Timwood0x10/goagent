@@ -37,6 +37,10 @@ func NewFTS5Index(entries []SkillIndexEntry) (*FTS5Index, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ares_skills: open fts5: %w", err)
 	}
+	// :memory: databases are per-connection; without this cap each new
+	// connection gets a fresh empty database and concurrent searches hit
+	// nothing.
+	db.SetMaxOpenConns(1)
 	idx := &FTS5Index{db: db}
 	if err := idx.build(entries); err != nil {
 		_ = db.Close()

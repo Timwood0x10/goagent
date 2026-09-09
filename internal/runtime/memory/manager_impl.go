@@ -299,14 +299,19 @@ func (m *memoryManager) Stop(ctx context.Context) error {
 // SetEventStore configures an optional EventStore for emitting lifecycle ares_events.
 // If store is nil, event emission is a no-op.
 func (m *memoryManager) SetEventStore(store ares_events.EventStore, streamID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.eventStore = store
 	m.streamID = streamID
 }
 
 // emitEvent appends a single event using the canonical ares_events.Emit.
 func (m *memoryManager) emitEvent(ctx context.Context, eventType ares_events.EventType, payload map[string]any) {
-	if !ares_events.Emit(ctx, m.eventStore, m.streamID, eventType, "memory", payload) {
-		log.Warn("failed to emit event", "event_type", eventType, "stream_id", m.streamID)
+	m.mu.RLock()
+	store, sid := m.eventStore, m.streamID
+	m.mu.RUnlock()
+	if !ares_events.Emit(ctx, store, sid, eventType, "memory", payload) {
+		log.Warn("failed to emit event", "event_type", eventType, "stream_id", sid)
 	}
 }
 

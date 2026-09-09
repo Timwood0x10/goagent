@@ -154,11 +154,14 @@ func NewOutputStore() *OutputStore {
 	}
 }
 
-// Set stores output for a step.
+// Set stores output for a step. No-op after Close.
 func (s *OutputStore) Set(stepID string, output *StepOutput) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if s.outputs == nil {
+		return // closed
+	}
 	s.outputs[stepID] = output
 }
 

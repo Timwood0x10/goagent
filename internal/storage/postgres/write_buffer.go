@@ -83,6 +83,9 @@ func (b *WriteBuffer) Start(ctx context.Context) error {
 	if b.stopped.Load() {
 		return errors.New("write buffer already stopped")
 	}
+	if b.g != nil {
+		return errors.New("write buffer already started")
+	}
 
 	// Create errgroup for goroutine management
 	b.g, b.gctx = errgroup.WithContext(ctx)

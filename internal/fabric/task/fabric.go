@@ -347,7 +347,12 @@ func (f *Fabric) Yield(id, agentID string, epoch uint64, checkpoint any) error {
 	if err := t.transition(StateSuspended); err != nil {
 		return err
 	}
-	t.Checkpoint = checkpoint
+	// Only overwrite the checkpoint when the quantum provides a non-nil
+	// value. A nil Yield (progress pause without new data) must not erase
+	// the checkpoint saved by a previous quantum or commit envelope.
+	if checkpoint != nil {
+		t.Checkpoint = checkpoint
+	}
 	pending = append(pending, f.recordLocked(t, EventTaskYielded))
 	if checkpoint != nil {
 		pending = append(pending, f.recordLocked(t, EventTaskCheckpointed))
@@ -810,12 +815,9 @@ func (f *Fabric) recordLocked(t *Task, typ EventType) *pendingAppend {
 	// task.failed events are what the skill outcome writer (the experience
 	// WRITE side, M4.4) subscribes to, and its {skill=capability, pattern}
 	// record needs the capability without decoding the checkpoint envelope.
-	// Without this key the writer would record every outcome under a ""
-	// capability — a prior the read side (Fabric.Schedule queries
-	// Confidence(t.Capability)) can never match, starved at the join.
-	if t.Capability != "" {
-		payload[restoreKeyCapability] = t.Capability
-	}
+	// Written unconditionally — an empty capability is a legal value for
+	// unconstrained tasks; foldRestoreEvent requires the key to exist.
+	payload[restoreKeyCapability] = t.Capability
 	// Token usage (input/output/total) rides on the TERMINAL events only:
 	// the envelope accumulates the session's LLM spend across yield→resume
 	// quanta (see CheckpointEnvelope v4), and the completed event is where

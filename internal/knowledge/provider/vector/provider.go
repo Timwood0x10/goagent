@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 	"strings"
 	"time"
@@ -310,24 +311,12 @@ func normalizeUnit(vec []float64) []float64 {
 	if sum == 0 {
 		return vec
 	}
-	mag := 1.0 / sqrt(sum)
+	mag := 1.0 / math.Sqrt(sum)
 	out := make([]float64, len(vec))
 	for i, v := range vec {
 		out[i] = v * mag
 	}
 	return out
-}
-
-// sqrt is a simple Newton‑Raphson sqrt for float64.
-func sqrt(x float64) float64 {
-	if x <= 0 {
-		return 0
-	}
-	z := x / 2
-	for i := 0; i < 10; i++ {
-		z -= (z*z - x) / (2 * z)
-	}
-	return z
 }
 
 // compile-time interface check.

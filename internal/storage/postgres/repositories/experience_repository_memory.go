@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -12,6 +13,25 @@ import (
 // errExperienceInvalid reports an invalid experience argument.
 var errExperienceInvalid = func(msg string) error {
 	return errors.New("experience: " + msg)
+}
+
+// deepCopyExperience returns a copy of exp with its mutable reference-type
+// fields (Embedding slice, Metadata map) independently allocated, so
+// concurrent writers cannot corrupt the stored copy through shared backing
+// arrays.
+func deepCopyExperience(exp *storage_models.Experience) *storage_models.Experience {
+	cp := *exp
+	if exp.Embedding != nil {
+		cp.Embedding = make([]float64, len(exp.Embedding))
+		copy(cp.Embedding, exp.Embedding)
+	}
+	if exp.Metadata != nil {
+		cp.Metadata = make(map[string]interface{}, len(exp.Metadata))
+		for k, v := range exp.Metadata {
+			cp.Metadata[k] = v
+		}
+	}
+	return &cp
 }
 
 // memoryExperienceRepository is an in-memory implementation of
@@ -61,12 +81,12 @@ func (r *memoryExperienceRepository) Create(ctx context.Context, exp *storage_mo
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	cp := *exp
+	cp := deepCopyExperience(exp)
 	if cp.ID == "" {
 		r.next++
 		cp.ID = idOf(r.next)
 	}
-	r.exps[cp.ID] = &cp
+	r.exps[cp.ID] = cp
 	return nil
 }
 
@@ -93,8 +113,7 @@ func (r *memoryExperienceRepository) GetByID(ctx context.Context, tenantID, id s
 	if !ok || exp.TenantID != tenantID {
 		return nil, errors.ErrRecordNotFound
 	}
-	cp := *exp
-	return &cp, nil
+	return deepCopyExperience(exp), nil
 }
 
 // Update replaces an existing experience in memory.
@@ -113,11 +132,15 @@ func (r *memoryExperienceRepository) Update(ctx context.Context, exp *storage_mo
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if _, ok := r.exps[exp.ID]; !ok {
+	existing, ok := r.exps[exp.ID]
+	if !ok {
 		return nil
 	}
-	cp := *exp
-	r.exps[cp.ID] = &cp
+	if existing.TenantID != exp.TenantID {
+		return errExperienceInvalid("tenant_id mismatch")
+	}
+	cp := deepCopyExperience(exp)
+	r.exps[cp.ID] = cp
 	return nil
 }
 
@@ -342,19 +365,5 @@ func (r *memoryExperienceRepository) ListByAgent(ctx context.Context, agentID, t
 }
 
 func idOf(n int64) string {
-	return "mem-exp-" + strings.Repeat("0", 3-len(intToStr(n))) + intToStr(n)
-}
-
-func intToStr(n int64) string {
-	if n == 0 {
-		return "0"
-	}
-	var b [20]byte
-	i := len(b)
-	for n > 0 {
-		i--
-		b[i] = byte('0' + n%10)
-		n /= 10
-	}
-	return string(b[i:])
+	return fmt.Sprintf("mem-exp-%03d", n)
 }

@@ -20,8 +20,17 @@ func (b *apiGuidanceBridge) HintsForTask(ctx context.Context, taskType string, l
 	out := make([]evolution.EvolutionHint, len(hints))
 	for i, h := range hints {
 		out[i] = evolution.EvolutionHint{
-			TaskType: h.TaskType, Problem: h.Problem, Solution: h.Solution,
-			Constraints: h.Constraints,
+			ID:                  h.ID,
+			TaskType:            h.TaskType,
+			Problem:             h.Problem,
+			Solution:            h.Solution,
+			Constraints:         h.Constraints,
+			FailedPatterns:      h.FailedPatterns,
+			PreferredTools:      h.PreferredTools,
+			PromptSnippets:      h.PromptSnippets,
+			ParamHints:          h.ParamHints,
+			Confidence:          h.Confidence,
+			SourceExperienceIDs: h.SourceExperienceIDs,
 		}
 	}
 	return out, nil

@@ -335,7 +335,7 @@ func Bootstrap(ctx context.Context, cfg *ares_config.Config, deps *BootstrapDeps
 			// payload shape, pattern key the scheduler never queried);
 			// this writer consumes the production terminal-event stream
 			// at the join key the scheduler provably uses.
-			startSkillOutcomeWriter(ctx, comp.EventStore, catalog.Experience())
+			cleanups = append(cleanups, startSkillOutcomeWriter(ctx, comp.EventStore, catalog.Experience()))
 		}
 	}
 

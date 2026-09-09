@@ -318,8 +318,6 @@ func (t *SSEServerTransport) handleSSEConnect(w http.ResponseWriter, r *http.Req
 		t.sessionsMu.Lock()
 		delete(t.sessions, sessionID)
 		t.sessionsMu.Unlock()
-		for range msgCh {
-		}
 	}()
 
 	// Send endpoint event with session-scoped POST URL.
@@ -361,7 +359,7 @@ func (t *SSEServerTransport) handlePOSTRequest(w http.ResponseWriter, r *http.Re
 	}
 
 	var msg JSONRPCMessage
-	if err := json.NewDecoder(r.Body).Decode(&msg); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&msg); err != nil {
 		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}

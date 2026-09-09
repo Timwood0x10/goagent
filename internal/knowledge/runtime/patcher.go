@@ -142,7 +142,10 @@ func (e *KnowledgePatchExecutor) Apply(_ context.Context, p patch.RuntimePatch) 
 
 // CanApply checks whether a patch can be applied.
 func (e *KnowledgePatchExecutor) CanApply(_ context.Context, p patch.RuntimePatch) error {
-	if e.runtime == nil {
+	e.mu.Lock()
+	r := e.runtime
+	e.mu.Unlock()
+	if r == nil {
 		return errors.New("knowledge executor: runtime is nil")
 	}
 	switch p.Type {

@@ -64,7 +64,12 @@ func (a *MemoryAdapter) FromMemory(m *distillation.Memory, ns string) *knowledge
 	objType := memoryTypeToObjectType(m.Type)
 	summary := m.Content
 	if max := a.MaxContentLen(); len(summary) > max {
-		summary = summary[:max] + "..."
+		// Truncate by runes, not bytes, to avoid splitting multi-byte
+		// UTF-8 characters (e.g. CJK).
+		runes := []rune(summary)
+		if len(runes) > max {
+			summary = string(runes[:max]) + "..."
+		}
 	}
 
 	return &knowledge.KnowledgeObject{

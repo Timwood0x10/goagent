@@ -7,6 +7,7 @@ import (
 	"reflect" // used for comparing arbitrary values via reflect.DeepEqual in validation
 	"regexp"
 	"sync"
+	"unicode/utf8"
 
 	"github.com/Timwood0x10/ares/internal/core/models"
 )
@@ -103,11 +104,14 @@ func (v *Validator) validateValue(data interface{}, schema *Schema, path string)
 	// named string types such as models.Occasion get their MinLength /
 	// MaxLength / Pattern constraints checked too.
 	if str, ok := asString(data); ok {
-		if schema.MinLength != nil && len(str) < *schema.MinLength {
-			return fmt.Errorf("%s: length %d is less than minimum %d", path, len(str), *schema.MinLength)
+		// Count runes, not bytes: CJK characters are 3-4 bytes in UTF-8
+		// and a byte-based length check would reject valid short strings.
+		runeLen := utf8.RuneCountInString(str)
+		if schema.MinLength != nil && runeLen < *schema.MinLength {
+			return fmt.Errorf("%s: length %d is less than minimum %d", path, runeLen, *schema.MinLength)
 		}
-		if schema.MaxLength != nil && len(str) > *schema.MaxLength {
-			return fmt.Errorf("%s: length %d exceeds maximum %d", path, len(str), *schema.MaxLength)
+		if schema.MaxLength != nil && runeLen > *schema.MaxLength {
+			return fmt.Errorf("%s: length %d exceeds maximum %d", path, runeLen, *schema.MaxLength)
 		}
 		if schema.Pattern != "" {
 			// Use cached regex pattern for better performance.

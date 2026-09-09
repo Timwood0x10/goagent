@@ -96,10 +96,10 @@ func TestAggregateDimensions(t *testing.T) {
 		t.Errorf("expected positive aggregate, got %f", score)
 	}
 	// Default weights: success_rate=0.4, quality=0.25, cost=0.2, latency=0.15
-	// cost is minimized so it's inverted: 0.9*0.4 + 0.8*0.25 + (-0.2)*0.2 + 0*0.15
-	// = 0.36 + 0.20 - 0.04 + 0 = 0.52
-	if score < 0.51 || score > 0.53 {
-		t.Errorf("expected aggregate ~0.52, got %f", score)
+	// cost is minimized so it's inverted: 1 - 0.2 = 0.8
+	// 0.9*0.4 + 0.8*0.25 + 0.8*0.2 + 0*0.15 = 0.36 + 0.20 + 0.16 + 0 = 0.72
+	if score < 0.71 || score > 0.73 {
+		t.Errorf("expected aggregate ~0.72, got %f", score)
 	}
 }
 

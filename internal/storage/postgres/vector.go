@@ -202,19 +202,24 @@ func (v *VectorSearcher) CreateVectorTable(ctx context.Context, table string, me
 		return fmt.Errorf("invalid dimension: %d (must be 1-2000)", dim)
 	}
 
-	query := fmt.Sprintf(`
+	createTable := fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %s (
 			id VARCHAR(255) PRIMARY KEY,
 			embedding VECTOR(%d),
 			metadata JSONB,
 			created_at TIMESTAMP DEFAULT NOW()
-		);
-		CREATE INDEX IF NOT EXISTS %s_embedding_idx ON %s USING ivfflat (embedding vector_cosine_ops);
-	`, safeTable, dim, safeTable, safeTable)
-
-	_, err = v.db.ExecContext(ctx, query)
-	if err != nil {
+		)
+	`, safeTable, dim)
+	if _, err = v.db.ExecContext(ctx, createTable); err != nil {
 		return errors.Wrap(err, "create vector table")
+	}
+
+	createIndex := fmt.Sprintf(
+		`CREATE INDEX IF NOT EXISTS %s_embedding_idx ON %s USING ivfflat (embedding vector_cosine_ops)`,
+		safeTable, safeTable,
+	)
+	if _, err = v.db.ExecContext(ctx, createIndex); err != nil {
+		return errors.Wrap(err, "create vector index")
 	}
 
 	return nil

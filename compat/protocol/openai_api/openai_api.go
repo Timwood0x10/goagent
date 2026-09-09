@@ -139,8 +139,9 @@ func detectEndpoint(raw []byte) string {
 		// Disambiguate by input shape: a bare string `input` is legal for both
 		// the Responses API (chat) and the Embeddings API (single document);
 		// route string inputs by model prefix so embedding models reach the
-		// embeddings handler. An array `input` is only legal for Embeddings,
-		// so it always routes there regardless of the model name.
+		// embeddings handler. An array `input` is legal for BOTH Embeddings
+		// (batch) and Responses (multi-turn), so route by model prefix the
+		// same way — only embedding-prefixed models go to embeddings.
 		var inputStr string
 		if json.Unmarshal(env.Input, &inputStr) == nil {
 			if strings.HasPrefix(env.Model, "text-embedding-") {
@@ -148,7 +149,11 @@ func detectEndpoint(raw []byte) string {
 			}
 			return responsesEndpoint
 		}
-		return embeddingsEndpoint
+		// Array input: same model-prefix disambiguation.
+		if strings.HasPrefix(env.Model, "text-embedding-") {
+			return embeddingsEndpoint
+		}
+		return responsesEndpoint
 	}
 	return defaultEndpoint
 }
@@ -632,7 +637,9 @@ func buildChatResponse(genResp *llmcore.GenerateResponse, model string, cfg *llm
 	}
 
 	resp := chatResponse{
-		ID:      fmt.Sprintf("chatcmpl-%x", now),
+		// Nano-precision timestamp avoids same-second ID collisions when
+		// multiple completions are generated within one second.
+		ID:      fmt.Sprintf("chatcmpl-%x", time.Now().UnixNano()),
 		Object:  "chat.completion",
 		Created: now,
 		Model:   model,

@@ -201,7 +201,8 @@ func CrowdingDistance(strategies []*mutation.Strategy) []float64 {
 }
 
 // AggregateDimensions computes a weighted sum of dimension scores.
-// Minimized dimensions are inverted (1 - normalized) so higher is always better.
+// Minimized dimensions are inverted (1 - value) so higher is always better
+// and the aggregate stays non-negative (IsScoreEvaluated requires >= 0).
 // Uses DefaultDimensionWeights for dimensions not in the provided weights.
 func AggregateDimensions(dims map[string]float64, weights map[string]float64) float64 {
 	if len(dims) == 0 {
@@ -211,9 +212,11 @@ func AggregateDimensions(dims map[string]float64, weights map[string]float64) fl
 	var total float64
 	for k, v := range dims {
 		val := v
-		// Invert minimized dimensions so higher is always better in the aggregate.
+		// Invert minimized dimensions so higher is always better.
+		// Use 1-v (not -v) for normalized [0,1] inputs: -v can push the
+		// aggregate negative, which IsScoreEvaluated treats as unevaluated.
 		if dimensionDirection(k) == Minimize {
-			val = -val
+			val = 1 - val
 		}
 		total += val * w[k]
 	}

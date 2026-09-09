@@ -14,6 +14,25 @@ type ImportanceScorer struct {
 	lengthBonus       float64
 }
 
+// scorerKeywordScores is the keyword→bonus map for importance scoring.
+// Declared at package level so the map is allocated once at init, not on
+// every Score call.
+var scorerKeywordScores = map[string]float64{
+	"error": 0.3, "fix": 0.3, "solution": 0.3,
+	"prefer": 0.2, "issue": 0.25, "problem": 0.25,
+	"debug": 0.2, "won't": 0.2, "can't": 0.2,
+	"cannot": 0.2, "broken": 0.2, "fail": 0.2,
+	"错误": 0.3, "修复": 0.3, "解决": 0.3,
+	"问题": 0.25, "故障": 0.25, "配置": 0.2,
+	"规范": 0.2, "编码": 0.2, "框架": 0.2,
+	"架构": 0.2, "方案": 0.2, "方法": 0.2,
+	"实现": 0.2, "支持": 0.15, "特点": 0.2,
+	"功能": 0.2, "区别": 0.2, "推荐": 0.2,
+	"最佳": 0.2, "优化": 0.25, "性能": 0.2,
+	"安全": 0.2, "部署": 0.2, "测试": 0.2,
+	"调试": 0.2,
+}
+
 // NewImportanceScorer creates a new ImportanceScorer instance with default settings.
 func NewImportanceScorer() *ImportanceScorer {
 	return &ImportanceScorer{
@@ -52,47 +71,9 @@ func (s *ImportanceScorer) ScoreMemory(memoryType MemoryType, problem, solution 
 	content := strings.ToLower(problem + " " + solution)
 	totalLength := len(problem) + len(solution)
 
-	// Keyword-based scoring - increased bonuses for important keywords
-	keywordScores := map[string]float64{
-		"error":    0.3,
-		"fix":      0.3,
-		"solution": 0.3,
-		"prefer":   0.2,
-		"issue":    0.25,
-		"problem":  0.25,
-		"debug":    0.2,
-		"won't":    0.2,
-		"can't":    0.2,
-		"cannot":   0.2,
-		"broken":   0.2,
-		"fail":     0.2,
-		// Chinese keywords
-		"错误": 0.3,
-		"修复": 0.3,
-		"解决": 0.3,
-		"问题": 0.25,
-		"故障": 0.25,
-		"配置": 0.2,
-		"规范": 0.2,
-		"编码": 0.2,
-		"框架": 0.2,
-		"架构": 0.2,
-		"方案": 0.2,
-		"方法": 0.2,
-		"实现": 0.2,
-		"支持": 0.15,
-		"特点": 0.2,
-		"功能": 0.2,
-		"区别": 0.2,
-		"推荐": 0.2,
-		"最佳": 0.2,
-		"优化": 0.25,
-		"性能": 0.2,
-		"安全": 0.2,
-		"部署": 0.2,
-		"测试": 0.2,
-		"调试": 0.2,
-	}
+	// Keyword-based scoring - increased bonuses for important keywords.
+	// Package-level so the map is allocated once, not on every call.
+	keywordScores := scorerKeywordScores
 
 	hasKeywords := false
 	for keyword, bonus := range keywordScores {

@@ -84,6 +84,12 @@ func (v *ResultVerifier) Verify(taskID, role string, checks []ResultCheck) *Evid
 			failedCount++
 		case StatusMissing, StatusSkipped:
 			indeterminateCount++
+		case StatusPassed:
+			// explicit pass — no counter bump
+		default:
+			// Unknown status: treat as indeterminate rather than silently
+			// passing, so garbage input cannot masquerade as a PASS.
+			indeterminateCount++
 		}
 	}
 

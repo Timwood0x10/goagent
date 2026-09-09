@@ -327,6 +327,11 @@ func (c *Client) decodeOpenAIChatResponse(ctx context.Context, req *http.Request
 	respCore := &llmcore.GenerateResponse{
 		Content:      choice.Message.Content,
 		FinishReason: choice.FinishReason,
+		Usage: llmcore.TokenUsage{
+			PromptTokens:     chatResp.Usage.PromptTokens,
+			CompletionTokens: chatResp.Usage.CompletionTokens,
+			TotalTokens:      chatResp.Usage.TotalTokens,
+		},
 	}
 	for _, tc := range choice.Message.ToolCalls {
 		respCore.ToolCalls = append(respCore.ToolCalls, llmcore.ToolCall{
@@ -538,29 +543,41 @@ func (c *Client) decodeAnthropicChatResponse(ctx context.Context, req *http.Requ
 
 // buildAnthropicChatMessages converts llmcore.LLMMessage slice to Anthropic format.
 // System-role messages are extracted into a separate system prompt string.
-// Tool-result messages are converted to Anthropic's user+tool_result format.
+// Consecutive tool-result messages are batched into a single user message
+// with multiple tool_result content blocks — Anthropic rejects consecutive
+// user messages (HTTP 400), which is exactly what parallel tool calls produce.
 // Returns (messages, systemPrompt).
 func buildAnthropicChatMessages(messages []*llmcore.LLMMessage) ([]map[string]any, string) {
 	var systemParts []string
 	result := make([]map[string]any, 0, len(messages))
+
+	// pendingToolResults accumulates tool_result blocks from consecutive
+	// tool-role messages so they become one user message.
+	var pendingToolResults []map[string]any
+
+	flushToolResults := func() {
+		if len(pendingToolResults) == 0 {
+			return
+		}
+		result = append(result, map[string]any{
+			"role":    "user",
+			"content": pendingToolResults,
+		})
+		pendingToolResults = nil
+	}
 
 	for _, msg := range messages {
 		switch {
 		case msg.Role == "system":
 			systemParts = append(systemParts, msg.Content)
 		case msg.Role == "tool":
-			// Anthropic requires tool results as user messages with tool_result content blocks.
-			result = append(result, map[string]any{
-				"role": "user",
-				"content": []map[string]any{
-					{
-						"type":        "tool_result",
-						"tool_use_id": msg.ToolCallID,
-						"content":     msg.Content,
-					},
-				},
+			pendingToolResults = append(pendingToolResults, map[string]any{
+				"type":        "tool_result",
+				"tool_use_id": msg.ToolCallID,
+				"content":     msg.Content,
 			})
 		case msg.Role == "assistant" && len(msg.ToolCalls) > 0:
+			flushToolResults()
 			content := make([]map[string]any, 0, len(msg.ToolCalls)+1)
 			if msg.Content != "" {
 				content = append(content, map[string]any{
@@ -585,12 +602,14 @@ func buildAnthropicChatMessages(messages []*llmcore.LLMMessage) ([]map[string]an
 				"content": content,
 			})
 		default:
+			flushToolResults()
 			result = append(result, map[string]any{
 				"role":    msg.Role,
 				"content": msg.Content,
 			})
 		}
 	}
+	flushToolResults()
 
 	var systemPrompt string
 	if len(systemParts) > 0 {

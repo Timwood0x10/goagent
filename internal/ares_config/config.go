@@ -680,7 +680,7 @@ func LoadFromEnv(cfg *Config) error {
 	if v := os.Getenv("ARES_JWT_SECRET"); v != "" {
 		cfg.Security.JWTSecret = v
 	}
-	if v := os.Getenv("ARES_AUTH_ENABLED"); v != "" {
+	if v := os.Getenv("ARES_AUTH_ENABLED"); v != "" && v != "0" && !strings.EqualFold(v, "false") {
 		cfg.Security.AuthEnabled = true
 	}
 

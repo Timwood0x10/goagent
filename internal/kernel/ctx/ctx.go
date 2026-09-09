@@ -22,9 +22,12 @@ func WithCallerID(ctx context.Context, agentID string) context.Context {
 }
 
 // CallerID extracts the calling agent's identity from the context.
-// Returns "" when absent — a root call (e.g. user-submitted task, system
-// bootstrap) where no agent is the caller.
+// Returns "" when absent or when ctx is nil — a root call (e.g. user-submitted
+// task, system bootstrap) where no agent is the caller.
 func CallerID(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
 	id, _ := ctx.Value(callerIDKey{}).(string)
 	return id
 }

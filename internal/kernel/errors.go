@@ -8,6 +8,4 @@ import "errors"
 var (
 	// ErrNilStepOutcome reports that the executor returned a nil quantum step outcome.
 	ErrNilStepOutcome = errors.New("kernel: executor returned a nil step outcome")
-	// ErrNoCandidate reports that no capable candidate was available.
-	ErrNoCandidate = errors.New("kernel: no capable candidate")
 )

@@ -54,6 +54,9 @@ var _ patch.RuntimeComponent = (*GraphPatchExecutor)(nil)
 
 // Apply applies a runtime patch to the graph.
 func (e *GraphPatchExecutor) Apply(ctx context.Context, p patch.RuntimePatch) (*patch.RuntimePatch, error) {
+	if e.graph == nil {
+		return nil, errors.New("graph executor: graph is nil (call SetGraph first)")
+	}
 	switch p.Type {
 	case patch.PatchInsertNode:
 		return e.applyInsertNode(ctx, p)

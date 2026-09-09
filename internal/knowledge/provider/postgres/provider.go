@@ -144,10 +144,18 @@ func (p *PGProvider) Stream(ctx context.Context, intent knowledge.Intent) (<-cha
 		}
 		defer func() { _ = rows.Close() }()
 
+		// errCh has capacity 1 and the consumer reads at most one error, so
+		// the loop must NEVER send directly: a second scan failure would
+		// block forever, leaving objCh/errCh unclosed and rows leaked (the
+		// loadAndProcess consumer hangs). Record the first error here and
+		// emit it exactly once after the loop.
+		var firstErr error
 		for rows.Next() {
 			obj, err := p.scanRow(rows)
 			if err != nil {
-				errCh <- fmt.Errorf("scan row: %w", err)
+				if firstErr == nil {
+					firstErr = fmt.Errorf("scan row: %w", err)
+				}
 				continue
 			}
 			if obj == nil {
@@ -162,7 +170,12 @@ func (p *PGProvider) Stream(ctx context.Context, intent knowledge.Intent) (<-cha
 		}
 
 		if err := rows.Err(); err != nil {
-			errCh <- fmt.Errorf("rows iteration: %w", err)
+			if firstErr == nil {
+				firstErr = fmt.Errorf("rows iteration: %w", err)
+			}
+		}
+		if firstErr != nil {
+			errCh <- firstErr
 		}
 		return nil
 	})

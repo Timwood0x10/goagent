@@ -233,15 +233,36 @@ func (a *subAgent) Stop(ctx context.Context) error {
 		a.mu.Unlock()
 		return errors.ErrAgentNotRunning
 	}
+	if a.status == models.AgentStatusStopping {
+		// A concurrent Stop already owns the shutdown; treat the stop as
+		// done rather than error — the caller's goal (agent stopped) is
+		// being achieved, and erroring would race the winner for no gain.
+		a.mu.Unlock()
+		return nil
+	}
 	a.status = models.AgentStatusStopping
+	// Detach the channel under the lock so exactly one Stop closes it;
+	// a second closer would panic ("close of closed channel") and take
+	// the process down with it.
 	stopCh := a.stopCh
+	a.stopCh = nil
 	a.mu.Unlock()
 
-	// Signal all goroutines to stop and wait for them.
 	if stopCh != nil {
 		close(stopCh)
 	}
-	a.streamWg.Wait()
+	// Wait for stream goroutines, but honour ctx cancellation so a stuck
+	// goroutine cannot block Stop forever.
+	waitDone := make(chan struct{})
+	go func() {
+		a.streamWg.Wait()
+		close(waitDone)
+	}()
+	select {
+	case <-waitDone:
+	case <-ctx.Done():
+		log.Warn("sub agent stop: stream wait timed out", KeyAgentID, a.id, "error", ctx.Err())
+	}
 
 	a.emitEvent(ctx, ares_events.EventAgentStopped, map[string]any{
 		KeyAgentID: a.id,
@@ -273,6 +294,8 @@ func (a *subAgent) Process(ctx context.Context, input any) (any, error) {
 	a.status = models.AgentStatusBusy
 	a.mu.Unlock()
 
+	a.streamWg.Add(1)
+	defer a.streamWg.Done()
 	defer a.setStatus(models.AgentStatusReady)
 
 	task, ok := input.(*models.Task)
@@ -301,6 +324,9 @@ func (a *subAgent) IsAlive() bool {
 
 // Execute executes a task to completion and returns its result.
 func (a *subAgent) Execute(ctx context.Context, task *models.Task) (*models.TaskResult, error) {
+	if task == nil {
+		return nil, errors.ErrInvalidInput
+	}
 	if a.executor == nil {
 		return nil, errors.ErrNilPointer
 	}
@@ -433,14 +459,14 @@ func (a *subAgent) ProcessStream(ctx context.Context, input any) (<-chan base.Ag
 	a.status = models.AgentStatusBusy
 	a.mu.Unlock()
 
-	defer a.setStatus(models.AgentStatusReady)
-
 	task, ok := input.(*models.Task)
 	if !ok {
+		a.setStatus(models.AgentStatusReady)
 		return nil, errors.ErrInvalidInput
 	}
 
 	if a.executor == nil {
+		a.setStatus(models.AgentStatusReady)
 		return nil, errors.ErrInvalidState
 	}
 
@@ -454,6 +480,10 @@ func (a *subAgent) ProcessStream(ctx context.Context, input any) (<-chan base.Ag
 	go func() {
 		defer close(ch)
 		defer a.streamWg.Done()
+		// Reset to Ready only when the task goroutine finishes — NOT when
+		// the outer function returns the channel. The previous outer defer
+		// fired immediately, breaking Busy/Ready admission control.
+		defer a.setStatus(models.AgentStatusReady)
 		defer func() {
 			if r := recover(); r != nil {
 				// Capture panic to prevent process crash.

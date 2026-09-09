@@ -29,9 +29,27 @@ func completedAt(started time.Time, at time.Time) *ares_events.Event {
 	}
 }
 
+// TestLatencyPenaltyZeroScaleIsProductionDefault locks the production
+// posture: an observer constructed with NO scale option (zero value — how
+// bootstrap builds it) must apply the DEFAULT penalty, not silently disable
+// it. A regression once treated zero as "disabled", switching the M4
+// latency penalty off in every deployment.
+func TestLatencyPenaltyZeroScaleIsProductionDefault(t *testing.T) {
+	obs := &RuntimeObserver{} // zero value — the bootstrap construction shape
+	now := time.Now().Truncate(time.Second)
+
+	// A task that took one default-scale applies the 0.5 factor.
+	got := obs.latencyPenalty(completedAt(now.Add(-defaultLatencyScale), now))
+	assert.InDelta(t, 0.5, got, 1e-9,
+		"zero-value observer (production posture) must use defaultLatencyScale, not disable the penalty")
+
+	// Only an EXPLICIT negative value disables.
+	off := &RuntimeObserver{latencyScale: -1}
+	assert.Equal(t, 1.0, off.latencyPenalty(completedAt(now.Add(-time.Hour), now)))
+}
+
 func TestLatencyPenaltyCurve(t *testing.T) {
-	obs := &RuntimeObserver{latencyScale: 30 * time.Second}
-	// RFC3339 carries no sub-second precision, so pin the event time to a
+	obs := &RuntimeObserver{latencyScale: 30 * time.Second} // RFC3339 carries no sub-second precision, so pin the event time to a
 	// whole second — the created_at round-trip is then exact.
 	now := time.Now().Truncate(time.Second)
 
@@ -130,11 +148,17 @@ func TestEventToSampleAppliesLatencyPenalty(t *testing.T) {
 }
 
 func TestLatencyPenaltyDisabledByDefaultScale(t *testing.T) {
-	// A zero scale falls back to the default constant (never disables
-	// silently); the penalty is always measurable this way.
+	// Zero scale means "unset" → falls back to defaultLatencyScale (penalty
+	// is ON). Negative scale means "explicitly disabled" → penalty is 1.
 	obs := &RuntimeObserver{}
 	now := time.Now().Truncate(time.Second)
 	got := obs.latencyPenalty(completedAt(now.Add(-30*time.Second), now))
-	assert.InDelta(t, 0.5, got, 1e-9, "zero scale must fall back to defaultLatencyScale")
 	assert.False(t, math.IsNaN(got))
+	// With the default scale, a 30s-old task gets a measurable penalty < 1.
+	assert.Less(t, got, 1.0, "zero scale must fall back to defaultLatencyScale")
+
+	// Explicitly negative scale disables the penalty entirely.
+	obs2 := &RuntimeObserver{latencyScale: -1}
+	got2 := obs2.latencyPenalty(completedAt(now.Add(-30*time.Second), now))
+	assert.InDelta(t, 1.0, got2, 1e-9, "negative scale means disabled, penalty is 1")
 }

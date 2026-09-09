@@ -137,11 +137,13 @@ func (m *AuthMiddleware) auditAuth(r *http.Request, decision, subject, role stri
 }
 
 // bearerToken extracts the token from an Authorization header. Only the
-// "Bearer " scheme is accepted; any other scheme is treated as missing so a
-// token cannot be smuggled in via a different scheme.
+// "Bearer" scheme is accepted (case-insensitive per RFC 7235); any other
+// scheme is treated as missing so a token cannot be smuggled in via a
+// different scheme.
 func bearerToken(authHeader string) string {
-	if !strings.HasPrefix(authHeader, "Bearer ") {
+	const prefix = "bearer "
+	if len(authHeader) < len(prefix) || !strings.EqualFold(authHeader[:len(prefix)], prefix) {
 		return ""
 	}
-	return strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
+	return strings.TrimSpace(authHeader[len(prefix):])
 }

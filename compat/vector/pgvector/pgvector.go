@@ -13,6 +13,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/Timwood0x10/ares/compat/vector"
@@ -23,6 +24,7 @@ import (
 
 // Adapter satisfies compat/vector.VectorStore against pgvector.
 type Adapter struct {
+	mu    sync.Mutex // guards pool and repo against concurrent Close
 	pool  *postgres.Pool
 	repo  *repositories.KnowledgeRepository
 	table string // defaults to "knowledge_chunks_1024"
@@ -133,7 +135,11 @@ func (a *Adapter) HealthCheck(ctx context.Context) error {
 
 // Close releases backend-specific resources. The underlying Pool is owned by
 // the caller; this adapter only drops its references and does NOT close the pool.
+// Uses atomic pointer swap so concurrent readers see either a live adapter or
+// a clean nil — never a half-torn-down struct.
 func (a *Adapter) Close() error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	a.pool = nil
 	a.repo = nil
 	return nil

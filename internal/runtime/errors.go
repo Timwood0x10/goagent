@@ -11,7 +11,6 @@ var (
 	ErrPluginTimeout     = errors.New("plugin timeout")
 	ErrPluginNotFound    = errors.New("plugin not found")
 	ErrDuplicatePlugin   = errors.New("plugin name already registered")
-	ErrBusNotStarted     = errors.New("plugin bus not started")
 	ErrBusAlreadyStarted = errors.New("plugin bus already started")
 	// ErrToolNotRegistered is returned by ToolPlugin.AfterStep when a step
 	// invokes a tool that is not in the plugin's allowlist. The allowlist is

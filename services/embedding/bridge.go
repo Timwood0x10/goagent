@@ -16,37 +16,59 @@ func main() {
 	client := &http.Client{Timeout: 30 * time.Second}
 
 	http.HandleFunc("/embed", func(w http.ResponseWriter, r *http.Request) {
-		body, _ := io.ReadAll(r.Body)
+		body, err := io.ReadAll(io.LimitReader(r.Body, 10<<20)) // 10 MB cap
+		if err != nil {
+			http.Error(w, "read request body", http.StatusBadRequest)
+			return
+		}
 		var req struct {
 			Text   string `json:"text"`
 			Prefix string `json:"prefix"`
 		}
-		_ = json.Unmarshal(body, &req)
+		if err := json.Unmarshal(body, &req); err != nil {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
 
 		payload := map[string]any{
 			"model": "qwen3-embedding:0.6b",
 			"input": req.Prefix + req.Text,
 		}
-		data, _ := json.Marshal(payload)
+		data, err := json.Marshal(payload)
+		if err != nil {
+			http.Error(w, "marshal upstream payload", http.StatusInternalServerError)
+			return
+		}
 		reqCtx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
-		httpReq, _ := http.NewRequestWithContext(reqCtx, "POST",
+		httpReq, err := http.NewRequestWithContext(reqCtx, "POST",
 			"http://localhost:11434/api/embed", bytes.NewReader(data))
+		if err != nil {
+			http.Error(w, "build upstream request", http.StatusInternalServerError)
+			return
+		}
 		httpReq.Header.Set("Content-Type", "application/json")
 		resp, err := client.Do(httpReq)
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		defer func() { _ = resp.Body.Close() }()
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+		if err != nil {
+			http.Error(w, "read upstream response", http.StatusBadGateway)
+			return
+		}
 
 		var ollamaResp struct {
 			Embeddings [][]float64 `json:"embeddings"`
 		}
-		_ = json.Unmarshal(respBody, &ollamaResp)
+		if err := json.Unmarshal(respBody, &ollamaResp); err != nil {
+			http.Error(w, "decode upstream response", http.StatusBadGateway)
+			return
+		}
 		if len(ollamaResp.Embeddings) == 0 {
-			http.Error(w, "no embeddings", 500)
+			http.Error(w, "no embeddings", http.StatusInternalServerError)
 			return
 		}
 

@@ -589,6 +589,13 @@ func (m *MutableDAG) ResetFromSteps(steps []*Step) error {
 	m.dag = newDAG
 	m.steps = newSteps
 	m.version++
+	m.hub.Publish(GraphEvent{
+		Change: GraphChange{
+			Type:      ChangeReset,
+			Timestamp: time.Now(),
+		},
+		Success: true,
+	})
 	return nil
 }
 
@@ -824,6 +831,23 @@ func (m *MutableDAG) ReplaceNode(ctx context.Context, oldID string, newStep *Ste
 		delete(m.dag.Nodes, oldID)
 		delete(m.steps, oldID)
 		m.steps[newStep.ID] = newStep
+		// Add new DependsOn edges contributed by the replacement step.
+		// The migration loop above only rewires EXISTING edges; DependsOn
+		// entries that were not previously edges (the new step declares
+		// dependencies the old step did not have) must be added explicitly,
+		// otherwise the node is scheduled before its declared prerequisites.
+		for _, dep := range newStep.DependsOn {
+			duplicate := false
+			for _, target := range m.dag.Edges[dep] {
+				if target == newStep.ID {
+					duplicate = true
+					break
+				}
+			}
+			if !duplicate {
+				m.dag.Edges[dep] = append(m.dag.Edges[dep], newStep.ID)
+			}
+		}
 	} else {
 		// Same-ID replacement: edges contributed by the OLD step's
 		// DependsOn that are absent from the new step's DependsOn must be

@@ -173,11 +173,8 @@ func (f *Fabric) foldRestoreEvent(ev *ares_events.Event) error {
 	case ares_events.EventTaskCreated:
 		t := &Task{ID: id}
 		// Capability/Origin are written by recordLocked as strings on every
-		// must-persist event; a wrong-typed or missing value means the log
-		// was corrupted or hand-written. Reject the record (the caller logs
-		// and skips it) rather than folding a task whose capability silently
-		// became "" — a zero capability task can never be matched by a
-		// scheduler candidate and would be an unrunnable ghost in the map.
+		// must-persist event. An empty capability is legal (unconstrained
+		// task) — accept it; only a wrong-typed value indicates corruption.
 		capability, ok := p[restoreKeyCapability].(string)
 		if !ok {
 			return fmt.Errorf("missing or non-string %q for task %q", restoreKeyCapability, id)

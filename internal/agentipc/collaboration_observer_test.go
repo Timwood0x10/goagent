@@ -227,14 +227,13 @@ func TestSend_PanickingHandlerWritesNoFalseSuccess(t *testing.T) {
 		t.Fatalf("register: %v", err)
 	}
 
-	func() {
-		defer func() {
-			if r := recover(); r == nil {
-				t.Error("Send must propagate a synchronous handler panic to its caller")
-			}
-		}()
-		_ = bus.Send(context.Background(), "sender", "panicky", "peer", nil)
-	}()
+	// A panicking handler must NOT propagate to the caller — Send contains
+	// it via recover and returns ErrHandlerPanic, so one buggy handler
+	// cannot terminate the process.
+	err := bus.Send(context.Background(), "sender", "panicky", "peer", nil)
+	if !errors.Is(err, ErrHandlerPanic) {
+		t.Fatalf("err = %v, want ErrHandlerPanic", err)
+	}
 
 	for _, rec := range obs.got {
 		if rec.Outcome == feedback.OutcomeSuccess {

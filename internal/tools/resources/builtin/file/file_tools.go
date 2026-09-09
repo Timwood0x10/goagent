@@ -1,6 +1,7 @@
 package builtin
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -273,38 +274,40 @@ func (t *FileTools) readFile(ctx context.Context, params map[string]interface{})
 		return core.NewErrorResult(fmt.Sprintf("file not found: %s", filePath)), nil
 	}
 
-	// Read file
-	content, err := os.ReadFile(filePath) // #nosec G304
-	if err != nil {
-		return core.NewErrorResult(fmt.Sprintf("failed to read file: %v", err)), nil
-	}
-
-	// Process offset and limit if provided
-	lines := strings.Split(string(content), "\n")
+	// Read file line-by-line with offset/limit so a large file is never
+	// fully loaded into memory when the caller only wants a window.
 	offset := getInt(params, paramOffset, 0)
-	limit := getInt(params, paramLimit, len(lines))
-
-	// Validate offset
+	limit := getInt(params, paramLimit, 0)
 	if offset < 0 {
 		offset = 0
 	}
-	if offset >= len(lines) {
+
+	f, err := os.Open(filePath) // #nosec G304
+	if err != nil {
+		return core.NewErrorResult(fmt.Sprintf("failed to read file: %v", err)), nil
+	}
+	defer func() { _ = f.Close() }()
+
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024) // 10MB max line
+	var resultLines []string
+	totalLines := 0
+	for scanner.Scan() {
+		if totalLines >= offset {
+			if limit > 0 && len(resultLines) >= limit {
+				totalLines++
+				continue // keep counting totalLines but skip storing
+			}
+			resultLines = append(resultLines, scanner.Text())
+		}
+		totalLines++
+	}
+	if err := scanner.Err(); err != nil {
+		return core.NewErrorResult(fmt.Sprintf("failed to read file: %v", err)), nil
+	}
+	if offset >= totalLines {
 		return core.NewErrorResult("offset exceeds file length"), nil
 	}
-
-	// Validate limit
-	if limit <= 0 {
-		limit = len(lines) - offset
-	}
-
-	end := offset + limit
-	if end > len(lines) {
-		end = len(lines)
-	}
-
-	// Return requested lines
-	resultLines := lines[offset:end]
-	totalLines := len(lines)
 
 	return core.NewResult(true, map[string]interface{}{
 		"operation":   "read",

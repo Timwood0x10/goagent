@@ -180,8 +180,16 @@ func (t *CodeRunner) Execute(ctx context.Context, params map[string]interface{})
 		return core.NewErrorResult(fmt.Sprintf("code validation failed: %v", err)), nil
 	}
 
-	// Get execution parameters.
-	timeoutSeconds := getInt(params, "timeout_seconds", 30)
+	// Get execution parameters. The per-call "timeout_seconds" param takes
+	// precedence; fall back to the SetTimeout-configured default (not a
+	// hardcoded 30s) so ops-level timeout configuration is honoured.
+	t.mu.RLock()
+	defaultTimeout := int(t.timeout / time.Second)
+	t.mu.RUnlock()
+	if defaultTimeout <= 0 {
+		defaultTimeout = 30
+	}
+	timeoutSeconds := getInt(params, "timeout_seconds", defaultTimeout)
 	if timeoutSeconds > 60 {
 		timeoutSeconds = 60
 	}

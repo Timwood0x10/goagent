@@ -327,16 +327,22 @@ func (m *MemoryCache) Get(key string) ([]byte, bool) {
 		return nil, false
 	}
 
-	return item.value, true
+	// Return a copy so the caller cannot mutate the cached backing array.
+	out := make([]byte, len(item.value))
+	copy(out, item.value)
+	return out, true
 }
 
-// Set stores a value in memory cache.
+// Set stores a value in memory cache. The value is copied so the caller
+// cannot mutate the cached entry through the original slice.
 func (m *MemoryCache) Set(key string, value []byte, ttl time.Duration) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	v := make([]byte, len(value))
+	copy(v, value)
 	m.items[key] = cacheItem{
-		value:      value,
+		value:      v,
 		expiration: time.Now().Add(ttl),
 	}
 }

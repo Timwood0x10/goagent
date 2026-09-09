@@ -117,14 +117,7 @@ func (f *Fabric) Agents() []string {
 	for id := range f.agents {
 		out = append(out, id)
 	}
-	// stable order for tests
-	for i := 0; i < len(out); i++ {
-		for j := i + 1; j < len(out); j++ {
-			if out[j] < out[i] {
-				out[i], out[j] = out[j], out[i]
-			}
-		}
-	}
+	sort.Strings(out)
 	return out
 }
 

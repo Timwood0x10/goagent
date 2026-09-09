@@ -162,24 +162,42 @@ func (t *Timeline) FilterByType(eventType EventType) []TimelineEvent {
 func (t *Timeline) Summary() TimelineSummary {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
+	return computeSummary(t.events)
+}
 
-	var summary TimelineSummary
-	summary.EventCount = len(t.events)
+// SummaryByAgent computes a TimelineSummary restricted to events whose
+// AgentID matches the given value. Returns a zero-value summary when no
+// events match.
+func (t *Timeline) SummaryByAgent(agentID string) TimelineSummary {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
 
+	filtered := make([]TimelineEvent, 0, len(t.events))
 	for _, e := range t.events {
+		if e.AgentID == agentID {
+			filtered = append(filtered, e)
+		}
+	}
+	return computeSummary(filtered)
+}
+
+// computeSummary derives a TimelineSummary from a pre-filtered event slice.
+// Caller must ensure exclusive access (no concurrent mutation of events).
+func computeSummary(events []TimelineEvent) TimelineSummary {
+	var summary TimelineSummary
+	summary.EventCount = len(events)
+
+	for _, e := range events {
 		summary.ToolDuration += typeDuration(e, EventToolCall, EventToolResult)
 		summary.LLMDuration += typeDuration(e, EventLLMCall, EventLLMResult)
 		summary.WaitDuration += typeDuration(e, EventWaiting)
 		summary.ErrorDuration += typeDuration(e, EventError)
 	}
 
-	// Total = max(end) - min(start). Only consider events that have
-	// a non-zero EndAt, since start-only events (e.g. agent.start,
-	// task.start) do not set EndAt.
-	if len(t.events) > 0 {
-		minStart := t.events[0].StartAt
+	if len(events) > 0 {
+		minStart := events[0].StartAt
 		var maxEnd time.Time
-		for _, e := range t.events {
+		for _, e := range events {
 			if e.StartAt.Before(minStart) {
 				minStart = e.StartAt
 			}

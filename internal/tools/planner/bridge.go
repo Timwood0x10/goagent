@@ -134,7 +134,8 @@ func (b *ToolExecutionBridge) Execute(
 	if errs := validator.Validate(plan); len(errs) > 0 {
 		for _, e := range errs {
 			// Hard-block on structural errors.
-			if e.Code == "cycle_detected" || e.Code == "missing_dependency" || e.Code == "incompatible_io" {
+			if e.Code == "cycle_detected" || e.Code == "missing_dependency" || e.Code == "incompatible_io" ||
+				e.Code == "duplicate_id" || e.Code == "empty_id" {
 				return core.Result{}, fmt.Errorf("tool_bridge: plan DAG invalid: %w", e)
 			}
 			// Advisory warnings only (IO incompatibility, etc).

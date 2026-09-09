@@ -100,6 +100,13 @@ func isBlockedIP(ip net.IP) bool {
 	if ip.IsUnspecified() {
 		return true
 	}
+	// CGNAT / carrier-grade NAT (RFC 6598): 100.64.0.0/10. Used by Kubernetes
+	// pod CIDRs and ISP-grade NAT — reachable from inside a cluster but must
+	// not be an SSRF target. Not covered by IsPrivate (which only checks
+	// RFC 1918 ranges).
+	if v4 := ip.To4(); v4 != nil && v4[0] == 100 && v4[1] >= 64 && v4[1] <= 127 {
+		return true
+	}
 	return false
 }
 
@@ -131,8 +138,9 @@ func SSRFDialer() *net.Dialer {
 
 // SSRFTransport returns an *http.Transport whose DialContext is backed by
 // SSRFDialer, so every TCP connection — including each redirect hop — is
-// re-validated against the SSRF block list at connect time. It is cloned from
-// http.DefaultTransport to preserve proxy and keep-alive defaults.
+// re-validated against the SSRF block list at connect time. Proxy is
+// explicitly disabled: inheriting ProxyFromEnvironment from
+// http.DefaultTransport would let a proxy bypass the dial-time IP check.
 func SSRFTransport() *http.Transport {
 	base, ok := http.DefaultTransport.(*http.Transport)
 	if !ok {
@@ -140,6 +148,7 @@ func SSRFTransport() *http.Transport {
 	}
 	t := base.Clone()
 	t.DialContext = SSRFDialer().DialContext
+	t.Proxy = nil // do not inherit ProxyFromEnvironment
 	return t
 }
 

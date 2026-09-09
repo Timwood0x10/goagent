@@ -71,11 +71,10 @@ func (m *MCPManager) notifyToolChange() {
 
 // managedClient holds an MCPClient and its metadata.
 type managedClient struct {
-	client  *MCPClient
-	config  MCPServerConfig
-	connAt  time.Time
-	lastErr error
-	tools   []string // registered tool names
+	client *MCPClient
+	config MCPServerConfig
+	connAt time.Time
+	tools  []string // registered tool names
 }
 
 // NewMCPManager creates a new MCPManager.
@@ -200,7 +199,10 @@ func (m *MCPManager) connectWithTransport(ctx context.Context, name string, sc *
 		OnChange:   onChange,
 	})
 
-	if err := client.Connect(ctx, transport); err != nil {
+	// Use a background lifetime context so the MCP subprocess survives
+	// after the caller's context is cancelled (e.g. skill_activate returns
+	// and its dispatcher cancels ctx, killing lazily-spawned servers).
+	if err := client.ConnectWithLifetime(ctx, context.Background(), transport); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
 
@@ -320,9 +322,6 @@ func (m *MCPManager) ListServers() []MCPServerStatus {
 			Connected: mc.client.IsConnected(),
 			ToolCount: mc.client.ToolCount(),
 			ConnAt:    mc.connAt,
-		}
-		if mc.lastErr != nil {
-			status.Error = mc.lastErr.Error()
 		}
 		// The client does not expose a server version string; leaving Version
 		// empty avoids filling the status field with a misleading state value.

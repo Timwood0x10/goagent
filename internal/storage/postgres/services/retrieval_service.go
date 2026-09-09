@@ -170,7 +170,8 @@ type RetrievalService struct {
 	conflictResolver    *experience.ConflictResolver
 
 	// Embedding pipeline for unified query embedding.
-	pipeline memembed.EmbeddingPipeline
+	pipelineMu sync.RWMutex // guards pipeline
+	pipeline   memembed.EmbeddingPipeline
 }
 
 // NewRetrievalService creates a new RetrievalService instance.
@@ -216,6 +217,8 @@ func NewRetrievalService(
 // When set, getEmbedding uses the pipeline with canonical query specs instead of
 // calling the embedding client directly.
 func (s *RetrievalService) SetEmbeddingPipeline(pipeline memembed.EmbeddingPipeline) {
+	s.pipelineMu.Lock()
+	defer s.pipelineMu.Unlock()
 	s.pipeline = pipeline
 }
 
@@ -380,6 +383,10 @@ func (s *RetrievalService) validateRequest(req *SearchRequest) error {
 	}
 	if req.TopK <= 0 {
 		req.TopK = 10
+	}
+	// Cap TopK to prevent unbounded result sets from scanning millions of rows.
+	if req.TopK > 100 {
+		req.TopK = 100
 	}
 	return nil
 }

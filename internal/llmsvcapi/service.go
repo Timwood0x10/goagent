@@ -32,9 +32,13 @@ func (c *Config) toInternal() *llmservice.Config {
 	if c == nil {
 		return nil
 	}
-	// Convert fallback configs.
+	// Convert fallback configs, skipping nil entries to avoid a nil-pointer
+	// dereference when a caller passes a sparse slice.
 	var fallbacks []*llm.Config
 	for _, f := range c.Fallbacks {
+		if f == nil {
+			continue
+		}
 		fallbacks = append(fallbacks, &llm.Config{
 			Provider:        string(f.Provider),
 			Model:           f.Model,

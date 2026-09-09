@@ -63,10 +63,14 @@ func NewOllamaAdapter(config *Config) *OllamaAdapter {
 // Generate generates text from prompt.
 func (a *OllamaAdapter) Generate(ctx context.Context, prompt string) (string, error) {
 	reqBody := map[string]interface{}{
-		keyOllamaModel:       a.config.Model,
-		"prompt":             prompt,
-		keyOllamaStream:      false,
-		keyOllamaTemperature: a.config.Temperature,
+		keyOllamaModel:  a.config.Model,
+		"prompt":        prompt,
+		keyOllamaStream: false,
+		// Ollama expects sampling parameters inside an "options" object;
+		// top-level "temperature" is silently ignored.
+		"options": map[string]interface{}{
+			keyOllamaTemperature: a.config.Temperature,
+		},
 	}
 
 	body, err := json.Marshal(reqBody)
