@@ -37,8 +37,10 @@ import (
 // testOnlyPluginAllowlist maps constructor names with zero production
 // references to the reason they are still allowed to exist. Every entry is a
 // debt marker: the goal state is an EMPTY allowlist.
+// (NewArenaPlugin was removed with internal/runtime/arena.go: the plugin-bus
+// fault-injection demo had zero production consumers and was superseded by
+// the arena/ package's RegressionTester family — RUNTIME.md §8-A6.)
 var testOnlyPluginAllowlist = map[string]string{
-	"NewArenaPlugin":         "chaos/arena demo plugin; wiring tracked under chaos REVIEW #12 follow-up",
 	"NewCheckpointPlugin":    "downstream registration item of W-L1 (loop clock flush) — needs a real CheckpointStore in cmd/ares wiring",
 	"NewEvolutionPlugin":     "evolution record plugin; needs cmd/ares wiring alongside the population adapter",
 	"NewInterruptPlugin":     "HITL interrupt plugin; no human-approval transport exists yet",

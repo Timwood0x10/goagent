@@ -393,66 +393,13 @@ var storageMigrations = []string{
 	`CREATE INDEX IF NOT EXISTS idx_embedding_dead_letter_task 
 		ON embedding_dead_letter(task_id, table_name)`,
 
-	// 9. distilled_memories table - Distilled conversation memories for cross-session context
-	`CREATE TABLE IF NOT EXISTS distilled_memories (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			tenant_id TEXT NOT NULL,
-			user_id TEXT,
-			session_id VARCHAR(64) NOT NULL,
-			content TEXT NOT NULL,
-			embedding VECTOR(1024) NOT NULL,
-			embedding_model TEXT NOT NULL DEFAULT 'intfloat/e5-large',
-			embedding_version INT NOT NULL DEFAULT 1,
-			memory_type VARCHAR(50) NOT NULL CHECK (memory_type IN ('preference', 'interaction', 'profile', 'knowledge')),
-			importance FLOAT DEFAULT 0.5 CHECK (importance >= 0 AND importance <= 1),
-			metadata JSONB DEFAULT '{}'::jsonb,
-			access_count INTEGER DEFAULT 0,
-			last_accessed_at TIMESTAMP,
-			expires_at TIMESTAMP DEFAULT NOW() + INTERVAL '90 days',
-			created_at TIMESTAMP DEFAULT NOW(),
-			updated_at TIMESTAMP DEFAULT NOW()
-		)`,
-
-	`ALTER TABLE distilled_memories ENABLE ROW LEVEL SECURITY`,
-
-	`DROP POLICY IF EXISTS tenant_isolation_distilled_memories ON distilled_memories`,
-	`CREATE POLICY tenant_isolation_distilled_memories ON distilled_memories
-		USING (tenant_id = current_setting('app.tenant_id', true))`,
-
-	// Create indexes for distilled_memories
-	`CREATE INDEX IF NOT EXISTS idx_distilled_memories_embedding
-		ON distilled_memories
-		USING ivfflat (embedding vector_cosine_ops)
-		WITH (lists = 100)`,
-
-	`CREATE INDEX IF NOT EXISTS idx_distilled_memories_user
-		ON distilled_memories(user_id, created_at)`,
-
-	`CREATE INDEX IF NOT EXISTS idx_distilled_memories_session
-		ON distilled_memories(session_id)`,
-
-	`CREATE INDEX IF NOT EXISTS idx_distilled_memories_type
-		ON distilled_memories(memory_type)`,
-
-	`CREATE INDEX IF NOT EXISTS idx_distilled_memories_importance
-		ON distilled_memories(importance DESC)`,
-
-	`CREATE INDEX IF NOT EXISTS idx_distilled_memories_expires
-		ON distilled_memories(expires_at) WHERE expires_at IS NOT NULL`,
-
-	`CREATE INDEX IF NOT EXISTS idx_distilled_memories_tenant
-		ON distilled_memories(tenant_id)`,
-
-	// 10. Add content_hash column for deduplication.
-	`ALTER TABLE distilled_memories ADD COLUMN IF NOT EXISTS content_hash TEXT`,
-
-	// 11. Unique constraint on (tenant_id, content_hash) for upsert dedup.
-	`CREATE UNIQUE INDEX IF NOT EXISTS idx_distilled_memories_dedup
-		ON distilled_memories(tenant_id, content_hash)
-		WHERE content_hash IS NOT NULL`,
-
-	// 12. Add updated_at column for existing tables.
-	`ALTER TABLE distilled_memories ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`,
+	// 9-12. distilled_memories table family (table, RLS, indexes,
+	// content_hash, dedup index, updated_at) — REMOVED (RUNTIME.md §8-A4):
+	// the repository and tools that read/wrote it were deleted as a schema
+	// ghost (zero production constructors), so fresh deployments must not
+	// create the table. Existing databases keep their table untouched
+	// (CREATE TABLE IF NOT EXISTS removal is inert for them); dropping it
+	// is a data decision for operators, not a schema migration.
 }
 
 // MigrateStorage runs the storage system database migrations.

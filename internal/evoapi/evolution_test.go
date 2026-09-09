@@ -1,4 +1,4 @@
-package evolution
+package evoapi
 
 import (
 	"context"

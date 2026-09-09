@@ -1,6 +1,7 @@
 // Package apifwd verifies the M5 forwarding layers keep the full public API
-// surface: every symbol and method that existed in api/tools, api/mcp, and
-// api/service/llm before internalization must remain usable through the
+// surface: every symbol and method that existed in api/tools, api/mcp,
+// api/service/llm, api/evolution (with genome and mutation subpackages),
+// and api/discovery before internalization must remain usable through the
 // forwarding layer. The checks are compile-time typed assignments; the test
 // body is a no-op.
 package apifwd
@@ -8,11 +9,18 @@ package apifwd
 import (
 	"context"
 	"testing"
+	"time"
 
+	"github.com/Timwood0x10/ares/api/discovery"
+	"github.com/Timwood0x10/ares/api/evolution"
+	"github.com/Timwood0x10/ares/api/evolution/genome"
+	"github.com/Timwood0x10/ares/api/evolution/mutation"
 	"github.com/Timwood0x10/ares/api/mcp"
 	llmsvc "github.com/Timwood0x10/ares/api/service/llm"
 	tools "github.com/Timwood0x10/ares/api/tools"
+	internaldiscovery "github.com/Timwood0x10/ares/internal/discovery"
 	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
+	internalmutation "github.com/Timwood0x10/ares/internal/runtime/ares_evolution/mutation"
 	"github.com/Timwood0x10/ares/internal/tools/resources/core"
 )
 
@@ -107,6 +115,165 @@ var (
 	_ func() llmcore.LLMProvider                                                           = (*llmsvc.Service)(nil).GetProvider
 	_ func() string                                                                        = (*llmsvc.Service)(nil).GetModel
 	_ func()                                                                               = (*llmsvc.Service)(nil).Close
+)
+
+// api/evolution symbols (M5 §8-A7).
+var (
+	_ evolution.Strategy
+	_ evolution.Lineage
+	_ evolution.Agent
+	_ evolution.CallbackData
+	_ evolution.DreamCycle
+	_ evolution.DreamCycleConfig
+	_ evolution.Population
+	_ evolution.PopulationConfig
+	_ evolution.ScorerFunc
+	_ evolution.Mutator
+	_ evolution.MutationConfig
+	_ evolution.Promoter
+	_ evolution.PromotionCriteria
+
+	_ func() evolution.DreamCycleConfig                                                   = evolution.DefaultDreamCycleConfig
+	_ func(any, any, ...any) (evolution.DreamCycle, error)                                = evolution.NewDreamCycle
+	_ func() evolution.PopulationConfig                                                   = evolution.DefaultPopulationConfig
+	_ func(*evolution.Strategy, evolution.PopulationConfig) (evolution.Population, error) = evolution.NewPopulation
+	_ func(string, evolution.MutationConfig) (evolution.Mutator, error)                   = evolution.NewMutator
+	_ func() evolution.PromotionCriteria                                                  = evolution.DefaultPromotionCriteria
+	_ func(*evolution.PromotionCriteria) evolution.Promoter                               = evolution.NewPromoter
+)
+
+// evolution.DreamCycle method set (method expressions: signature pinning
+// without evaluating a nil receiver).
+var (
+	_ func(evolution.DreamCycle, context.Context, evolution.CallbackData) error = evolution.DreamCycle.Run
+	_ func(evolution.DreamCycle, bool)                                          = evolution.DreamCycle.SetEnabled
+	_ func(evolution.DreamCycle) bool                                           = evolution.DreamCycle.IsEnabled
+	_ func(evolution.DreamCycle) int64                                          = evolution.DreamCycle.TaskCount
+)
+
+// evolution.Population method set.
+var (
+	_ func(evolution.Population) []evolution.Agent      = evolution.Population.Agents
+	_ func(evolution.Population) int                    = evolution.Population.Size
+	_ func(evolution.Population) int                    = evolution.Population.CurrentGeneration
+	_ func(evolution.Population) float64                = evolution.Population.BestScore
+	_ func(evolution.Population) *evolution.Strategy    = evolution.Population.BestStrategy
+	_ func(evolution.Population, evolution.ScorerFunc)  = evolution.Population.ScoreAgents
+	_ func(evolution.Population, context.Context) error = evolution.Population.Evolve
+)
+
+// evolution.Mutator method set.
+var (
+	_ func(evolution.Mutator, context.Context, *evolution.Strategy) (*evolution.Strategy, error) = evolution.Mutator.Mutate
+)
+
+// evolution.Promoter method set.
+var (
+	_ func(evolution.Promoter, context.Context, string, float64, float64) (string, error) = evolution.Promoter.Evaluate
+	_ func(evolution.Promoter, context.Context, string) error                             = evolution.Promoter.Promote
+	_ func(evolution.Promoter, context.Context, string) error                             = evolution.Promoter.Demote
+)
+
+// api/evolution/genome symbols.
+var (
+	_ genome.CrossoverType
+	_ genome.PromptCrossoverMode
+	_ genome.Crosser
+	_ genome.CrosserConfig
+
+	_ = genome.CrossoverUniform
+	_ = genome.CrossoverSinglePoint
+	_ = genome.CrossoverTwoPoint
+	_ = genome.CrossoverScattered
+
+	_ = genome.PromptInherit
+	_ = genome.PromptHalfSplit
+	_ = genome.PromptUniform
+
+	_ func(genome.CrosserConfig) (*genome.Crosser, error) = genome.NewCrosser
+)
+
+// genome.Crosser method set.
+var (
+	_ func(context.Context, *mutation.Strategy, *mutation.Strategy) (*mutation.Strategy, error)                       = (*genome.Crosser)(nil).Crossover
+	_ func(context.Context, *mutation.Strategy, *mutation.Strategy, genome.CrossoverType) (*mutation.Strategy, error) = (*genome.Crosser)(nil).CrossWithType
+)
+
+// api/evolution/mutation symbols.
+var (
+	_ mutation.MutationType
+	_ mutation.Strategy
+	_ mutation.Mutator
+	_ mutation.MutatorConfig
+
+	_ = mutation.MutationParameter
+	_ = mutation.MutationPrompt
+	_ = mutation.MutationTool
+	_ = mutation.MutationCrossover
+	_ = mutation.MutationRoot
+
+	_ func(*internalmutation.Strategy) *mutation.Strategy     = mutation.FromInternal
+	_ func(mutation.MutatorConfig) (*mutation.Mutator, error) = mutation.NewMutator
+	_ func(*mutation.Strategy) *internalmutation.Strategy     = (*mutation.Strategy).ToInternal
+)
+
+// mutation.Mutator method set.
+var (
+	_ func(context.Context, *mutation.Strategy) (*mutation.Strategy, error)        = (*mutation.Mutator)(nil).Mutate
+	_ func(context.Context, *mutation.Strategy, int) ([]*mutation.Strategy, error) = (*mutation.Mutator)(nil).MutateN
+)
+
+// api/discovery symbols (M5 §8-A7).
+var (
+	_ func(discovery.EngineConfig) *discovery.Engine = discovery.NewEngine
+	_ func() discovery.EngineConfig                  = func() discovery.EngineConfig { return discovery.EngineConfig{} }
+
+	_ discovery.ServiceType
+	_ discovery.Confidence
+	_ discovery.ServiceIdentity
+	_ discovery.DiscoveryRecord
+	_ discovery.DiscoveredService
+	_ discovery.HealthStatus
+	_ discovery.EventType
+	_ discovery.Event
+	_ discovery.ServiceStore
+	_ discovery.RegisterRequest
+	_ discovery.UpdateTagsRequest
+	_ discovery.EngineConfig
+	_ discovery.Engine
+
+	_ = discovery.ServiceTypeMCP
+	_ = discovery.ServiceTypeHTTP
+	_ = discovery.ServiceTypeGRPC
+	_ = discovery.ServiceTypeCLI
+	_ = discovery.ServiceTypeDocker
+
+	_ = discovery.ConfidenceLow
+	_ = discovery.ConfidenceMedium
+	_ = discovery.ConfidenceHigh
+	_ = discovery.ConfidenceMax
+
+	_ = discovery.EventServiceAdded
+	_ = discovery.EventServiceRemoved
+	_ = discovery.EventServiceUpdated
+	_ = discovery.EventHealthChanged
+	_ = discovery.EventDiscoveryComplete
+
+	_ = discovery.NewMemoryStore
+)
+
+// discovery.Engine method set.
+var (
+	_ func(context.Context, time.Duration)                                = (*discovery.Engine)(nil).Start
+	_ func(context.Context) error                                         = (*discovery.Engine)(nil).DiscoverNow
+	_ func(context.Context) error                                         = (*discovery.Engine)(nil).CheckHealth
+	_ func(context.Context, discovery.RegisterRequest) error              = (*discovery.Engine)(nil).Register
+	_ func(context.Context, string) error                                 = (*discovery.Engine)(nil).Unregister
+	_ func(context.Context, string, discovery.UpdateTagsRequest) error    = (*discovery.Engine)(nil).UpdateTags
+	_ func(context.Context) ([]*discovery.DiscoveredService, error)       = (*discovery.Engine)(nil).List
+	_ func(context.Context, string) (*discovery.DiscoveredService, error) = (*discovery.Engine)(nil).Get
+	_ func(func(discovery.Event))                                         = (*discovery.Engine)(nil).OnEvent
+	_ func(internaldiscovery.DiscoveryProvider)                           = (*discovery.Engine)(nil).AddProvider
 )
 
 // TestForwardingSurface is a compile-time check; nothing to run.

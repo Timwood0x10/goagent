@@ -24,7 +24,7 @@ POST /api/tasks (agent.go:381)
       → 有界并发 execute（⚠️ 生产并发度=1，见 §6-3）
   executeWithCandidates (scheduler.go:659)：
       评分选人 score = capability重叠×(1−load)×confidence×(1+priority) (task/scheduler.go:71)
-      → fabric.Schedule → Acquire (CAS+epoch fencing, fabric.go:267)
+      → fabric.Schedule → Acquire (CAS+epoch fencing, fabric.go:283)
       → 心跳续租 ttl/3 (scheduler.go:786)
   RunQuantum (quantum.go:48)：
       Start → Quantum++ → executor.ExecuteStep
@@ -64,7 +64,7 @@ POST /api/tasks (agent.go:381)
 
 - **无 leader**：依赖完成让任务变 READY，调度器只是 `ResumableTasks()` 的消费者；DAG 成环在提交时 Kahn 检测拒绝（agent.go:2595）。
 - **三重驱动**：500ms ticker；任务事件订阅（完成即触发下一轮）；独立抢占 watcher（高优 READY 协作抢占低优 RUNNING，只在量子间，scheduler.go:328）。
-- **防双执行两层**：`Acquire` CAS（READY/SUSPENDED 只有一个赢家）+ 全局 `epoch++` fencing——A 租约过期被 B 接管后，A 迟到的 complete/release 被 `ErrEpochMismatch` 拒绝（fabric.go:669）。
+- **防双执行两层**：`Acquire` CAS（READY/SUSPENDED 只有一个赢家）+ 全局 `epoch++` fencing——A 租约过期被 B 接管后，A 迟到的 complete/release 被 `ErrEpochMismatch` 拒绝（fabric.go:695）。
 - **防饿死**：全零分候选 → 去置信度的兜底排名（task/scheduler.go:98）；`ErrNoCapableCandidate` 是合法等待态，每 tick 重试。
 - **恢复绑定**：`boundExecutors[taskID]` 绕过候选池（scheduler.go:598），终态自动解绑（:888）。
 - **stale-winner 三分支**（scheduler.go:736）：有替补→Release；有恢复循环→Release+提名；都没有→保租约等 TTL。
@@ -127,10 +127,10 @@ SUSPENDED─(下轮 drain re-acquire)→LEASED；过期租约→CheckExpiredLeas
 |---|---|
 | PostgreSQL | events、event_summaries、evolution_strategies、evolution_rollback_events、agent_checkpoints、evidence_records、experiences(向量+异步回填 embedding)、knowledge_chunks、secrets、tools… |
 | SQLite | akf_objects/akf_representations（知识图谱）、skills FTS5 |
-| 内存 | **生产事件总线**（serve.go:191 MemoryEventStore——PG 版完整但未接线）、默认 evidence store、无 PG 时策略库 |
+| 内存 | 无 PG 时的生产事件总线（compactableStore：归档+压缩）、默认 evidence store、无 PG 时策略库（PG 模式事件总线见 PostgreSQL 行，M4.1 起接线） |
 | 文件 | round_N.json 归档（原子写+轮转）、~/.ares/experience.json |
 
-## 6. 断线台账（诚实清单；2026-09-09 全清——17 项全 ✅，对账补遗见下）
+## 6. 断线台账（诚实清单；2026-09-09 全清——17 项全 ✅；§8 收敛遗留同步全清）
 
 | # | 断线 | 证据 | 状态 |
 |---|---|---|---|
@@ -161,3 +161,18 @@ SUSPENDED─(下轮 drain re-acquire)→LEASED；过期租约→CheckExpiredLeas
 - PluginBus 能力插件：只注册 LoopPlugin（轮次时钟），CapCheckpoint/CapMemory/CapEvolution 无生产注册者。
 - legacy evolution scheduler / dream cycle：config gate 关闭。
 - compat/（内部引用已清零，目录留待 0.4.x release-note 决策）、api/（纯转发层，examples 在用）、arena、dashboard 遗留面。
+
+## 8. 架构收敛遗留（2026-09-09 架构评审台账；同日全收敛——7/7 处置完毕）
+
+| # | 问题 | 状态与处置 |
+|---|------|------------|
+| **A1** | 双认知路径并存 | ✅ 定性收敛（2026-09-09）：agentloop 是 SDK `Agent.Run` 的 by-design 同步 ReAct 执行体（examples 经 sdk 间接消费），L2 router 是 serve 的图生长执行面——产品语义不同，非重复实现；两者共享 llmcore 契约原语（LLMMessage/Tool/ToolExecutor），漂移面集中在 tool whitelist 语义（已有 engine_test 锁定）。退役 agentloop = SDK 产品决策，超出代码收敛范围。 |
+| **A2** | fabric→runtime 反向依赖无测试保护 | ✅ 已修（2026-09-09）：新增 `internal/fabric/task/architecture_test.go` `TestFabricCoreMustNotImportRuntime`——锁 task 顶层 + agent + planprojection 三包禁 import internal/runtime（测试跳过；workflow/ 子树的 evolution-patch 应用面为既定评审过的 seam，gate 注释明示边界）。 |
+| **A3** | `CostUSD` 恒 0，缺模型价目表 | ✅ 已决策移除（2026-09-09）：USD 货币化不做——token 维度即成本信号（costPenalty 1/(1+tokens/100k)），StrategySample.CostUSD 占位字段与 cost_usd payload 键已删。observability 的 `ARES_cost_usd_total` 是独立既有指标面，另行评估。 |
+| **A4** | `distilled_memories` 幽灵 DB 表 | ✅ 已修（2026-09-09）：migrate_storage.go 的整族 DDL（表+RLS+7 索引+content_hash+去重索引+updated_at，即原语句 9-12）删除——新部署不再建废表；存量库不受影响（语句本就 IF NOT EXISTS，删除对其惰性）。删表数据属操作员决策，不进 schema migration。 |
+| **A5** | `compat/` 整删待决策 | 保持（既定边界）：patch 线（v0.3.x）删导出包是 breaking change，整删属 0.4.x release-note 决策（compat/doc.go 书面政策）。内部引用已清零（2026-09-09）。 |
+| **A6** | AKG BETA、新老 `arena` 并存 | ✅ 已修（2026-09-09）：实况修正——`internal/runtime/arena.go`（ArenaPlugin，plugin-bus 时代的故障注入 demo）零生产消费，已下葬（architecture_test 符号清单同步）；`internal/runtime/arena/`（RegressionTester 家族）是活包（5 生产消费者），无双实现残留。AKG BETA 状态见 knowledgeapi doc（稳定性计划属产品线）。 |
+| **A7** | `api/evolution`、`api/discovery` 未内部化 | ✅ 已修（2026-09-09）：M5 三步完成——api/evolution（含 genome/mutation 子包）→ `internal/evoapi`，api/discovery → `internal/discoveryapi`；api/ 侧转发层 + test/apifwd 编译锁扩展（含方法集断言）；go doc 前后符号 IDENTICAL；examples 6 目录经转发层继续编译。api/ 目录现为纯转发层，整删只差 examples 迁移 + 0.4.x 决策。 |
+
+### 台账说明
+本节 2026-09-09 全收敛：A1 定性、A2 锁、A3 决策移除、A4/A6 下葬、A7 内部化；A5 保持既定 0.4.x 边界。无开放项。

@@ -413,7 +413,7 @@ Pipeline 的设计哲学很直白：**只依赖接口、不依赖具体类型，
 | EnableCrossTurnExtraction | true | 跨轮提取默认开 |
 | PrecisionOverRecall | true | 优先级高于召回率 |
 
-四种记忆分类（`api/experience`，内部包 `ares_memory/distillation/memory.go` 通过别名转发到公共定义）：
+四种记忆分类（权威定义在 `internal/llmexp`；`ares_memory/distillation/memory.go` 与 `api/experience`（deprecated 转发）各自别名到它）：
 
 ```go
 type MemoryType string

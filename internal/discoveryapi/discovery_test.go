@@ -1,10 +1,10 @@
-package discovery_test
+package discoveryapi_test
 
 import (
 	"context"
 	"testing"
 
-	"github.com/Timwood0x10/ares/api/discovery"
+	discovery "github.com/Timwood0x10/ares/internal/discoveryapi"
 )
 
 func TestEngine_RegisterAndList(t *testing.T) {

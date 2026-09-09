@@ -83,7 +83,7 @@ Two optional interfaces (detected via type assertion):
 - `IdempotentTool.IsIdempotent() bool` — pure-computation tools return true; tools with side effects (file I/O, network, state mutation) either don't implement it or return false.
 - `TaggableTool.Tags() map[string]string` — semantic tags for LLM routing/discovery. Standard keys: `domain` / `input_type` / `output_type` / `side_effects` / `requires_network` / `mutates_state`.
 
-The outward-facing shape is `ToolSchema`: `Name` / `Description` / `Category` / `Parameters` / `Tags`. It comes from `Registry.GetSchemas()` and is converted to `api/core.Tool` via `ToolSchemaToLLMTool` before being advertised to the LLM.
+The outward-facing shape is `ToolSchema`: `Name` / `Description` / `Category` / `Parameters` / `Tags`. It comes from `Registry.GetSchemas()` and is converted to `internal/llmcore.Tool` via `ToolSchemaToLLMTool` (`api/core` is the deprecated forward post-M5) before being advertised to the LLM.
 
 ### 2.2 Registry: register, validate, progressive disclosure
 
@@ -246,7 +246,7 @@ graph LR
     end
     subgraph Registered only with injected deps
         KNOW[knowledge_search / add / update / delete<br/>correct_knowledge]
-        MEM[memory_search · user_profile<br/>distilled_memory_search]
+        MEM[memory_search · user_profile]
         PLANTOOL[task_planner]
     end
     MATH --> C[core.Registry<br/>visible via toolsource.RegistrySource]
@@ -277,7 +277,7 @@ Tabulated (per `builtin.go`):
 | Crypto | `hash_tool` | domain=crypto |
 | PDF | `pdf_tool` | domain=pdf; shares file_tools' allowed dir |
 | Knowledge (injected) | `knowledge_search/add/update/delete`, `correct_knowledge` | depend on `GeneralToolsDeps` backends |
-| Memory (injected) | `memory_search`, `user_profile`, `distilled_memory_search` | depend on MemoryMgr / DistilledRepo |
+| Memory (injected) | `memory_search`, `user_profile` | depend on MemoryMgr |
 | Planning (injected) | `task_planner` | depends on `LLMClient` |
 
 Two "aha" implementations worth calling out:

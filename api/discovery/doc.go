@@ -1,4 +1,4 @@
-// Migration note: scheduled to fold into github.com/Timwood0x10/ares/sdk
-// (removal targeted for v0.5.0); internal callers remain during the window.
-// Package discovery provides legacy service discovery.
+// Package discovery is the DEPRECATED public alias of internal/discoveryapi
+// (M5). New code MUST import internal/discoveryapi; this package exists
+// only for external consumers and is scheduled for removal.
 package discovery

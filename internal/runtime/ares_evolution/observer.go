@@ -48,14 +48,6 @@ type StrategySample struct {
 	// reports no usage) — the cost penalty then stays at 1.
 	TotalTokens int
 
-	// CostUSD is the task's estimated USD cost. Tokens → USD needs a
-	// per-model price table that has no data source in this repo yet, so
-	// the field stays 0.0 and the penalty works on the TOKEN dimension
-	// only (scale-free: expensive is "many tokens", not "many dollars").
-	// The design doc's USD term becomes computable once a price table
-	// lands; the plumbing (field + payload key) is in place.
-	CostUSD float64
-
 	// At is when the sample was recorded.
 	At time.Time
 }
@@ -356,7 +348,6 @@ func (o *RuntimeObserver) eventToSample(evt *ares_events.Event) (StrategySample,
 		Score:       score,
 		TaskType:    taskType,
 		TotalTokens: sampleTokenTotal(evt),
-		CostUSD:     0,
 		At:          time.Now(),
 	}, true
 }
@@ -392,13 +383,9 @@ func (o *RuntimeObserver) writeEvidence(ctx context.Context, sample StrategySamp
 		return
 	}
 	payload, err := json.Marshal(map[string]any{
-		"value":        sample.Score,
-		"success":      sample.Success,
-		"total_tokens": sample.TotalTokens,
-		// cost_usd rides as 0 (see StrategySample.CostUSD): the token
-		// dimension carries the cost signal; a future price table can
-		// populate this key without a schema change.
-		"cost_usd":            sample.CostUSD,
+		"value":               sample.Score,
+		"success":             sample.Success,
+		"total_tokens":        sample.TotalTokens,
 		evidenceKeyStrategyID: sample.StrategyID,
 		"task_type":           sample.TaskType,
 	})

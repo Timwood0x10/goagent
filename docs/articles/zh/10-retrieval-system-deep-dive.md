@@ -23,7 +23,7 @@
 
 老一版这篇文章说"`RetrievalService` 那个混合搜索引擎写好了但一直没接线（`advancedRetrieval` 在 API 层恒为 nil），现在用的只是一个纯向量的 `SimpleRetrievalService`"。我这次实际翻代码，**这个说法是反的**，这里必须更正：
 
-- **代码里根本没有 `api/retrieval/service.go` 这个文件**。整个 `api/` 下只有 `api/embedding`、`api/experience`、`api/knowledge`、`api/discovery` 等，**没有 retrieval 包**。两条检索服务都住在 `internal/storage/postgres/services/` 下。
+- **代码里根本没有 `api/retrieval/service.go` 这个文件**。`api/` 下的 `api/embedding`、`api/experience`、`api/knowledge`、`api/discovery` 等已降级为 internal/ 对应包（如 `internal/embedding`）的 deprecated 转发层（M5 内部化），**没有 retrieval 包**。两条检索服务都住在 `internal/storage/postgres/services/` 下。
 - **真正被接进生产的是 `RetrievalService`，不是 `SimpleRetrievalService`**。`internal/runtime/memory/production_manager.go` 里 `services.NewRetrievalService(...)` 显式构造了它，并由 `internal/runtime/memory/production_manager_tasks.go` 的 `ProductionMemoryManager.SearchSimilarTasks(ctx, query, limit)` 在实际运行时调用 `retrievalService.Search(...)`。
 - **`SimpleRetrievalService` 反而是"写了但没有任何非测试代码调用"的那一个**。全仓 grep `NewSimpleRetrievalService` 只有它自己那个文件在定义，没有调用方（待核实：没有搜索到生产接线）。
 - 此外还有一条独立、也确实接线了的 **RAG 向量召回路径**：`internal/ares_bootstrap/retriever_wiring.go` 的 `wireRetrievers` 把 `MemoryRetriever`（对蒸馏经验做向量检索）和 `KnowledgeRetriever`（对 AKG 知识做混合检索）注入 MemoryManager，`EnableRAG=true` 时通过 `manager_rag.go` 的 `runRetrieval` 触发。

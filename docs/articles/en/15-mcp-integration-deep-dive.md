@@ -496,7 +496,8 @@ func setupMCP(_ context.Context, mcpMgr *ares_mcp.MCPManager, registry *api_tool
 			}
 		}
 	}
-	// also bridge into the public api/tools registry so dashboards see them...
+	// also bridge into the internal/apitools registry so dashboards see them...
+	// (api/tools is the deprecated forwarding layer post-M5)
 	return internalReg, nil
 }
 ```

@@ -497,7 +497,7 @@ func setupMCP(_ context.Context, mcpMgr *ares_mcp.MCPManager, registry *api_tool
 			}
 		}
 	}
-	// 再桥接进 public api/tools registry（dashboard 之类能看到）...
+	// 再桥接进 internal/apitools registry（api/tools 是 deprecated 转发，dashboard 之类能看到）...
 	return internalReg, nil
 }
 ```

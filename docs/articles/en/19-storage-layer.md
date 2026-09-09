@@ -19,7 +19,7 @@ Memory, Experience, Knowledge, and Events all have to land somewhere — and the
 | `task_results_1024` | Task execution results, 1024 dims | `input/output JSONB`, `status/latency_ms`, `ivfflat` |
 | `secrets` | Encrypted sensitive data | `value BYTEA` (default `aes-gcm`), `key_version`, unique `(tenant_id,key)` |
 | `embedding_queue` / `embedding_dead_letter` | Async embedding task queue / dead-letter | dedupe_key unique idempotency, status index |
-| `distilled_memories` | Cross-session distilled memory, 1024 dims | `memory_type` CHECK `preference/interaction/profile/knowledge`, `importance`, `expires_at` (default 90 days), `content_hash` + unique `(tenant_id, content_hash)`, `ivfflat lists=100` |
+| `distilled_memories` | Cross-session distilled memory, 1024 dims — **deprecated** (read/write paths removed pre-M5; the DDL stays in migrate_storage.go only for existing-database idempotency) | `memory_type` CHECK `preference/interaction/profile/knowledge`, `importance`, `expires_at` (default 90 days), `content_hash` + unique `(tenant_id, content_hash)`, `ivfflat lists=100` |
 
 **Group 2 — event sourcing & evolution (`migrate.go`, mostly without RLS)**
 
@@ -94,7 +94,7 @@ The async embedding client lives in `internal/storage/postgres/embedding/`:
 
 ```
 embedding/
-├── service.go   # EmbeddingClient satisfies api/embedding.EmbeddingService (compile-time assertion)
+├── service.go   # EmbeddingClient satisfies internal/embedding.EmbeddingService (compile-time assertion; api/embedding is the deprecated forward)
 ├── cache.go     # EmbeddingCache: Redis + in-memory, BLAKE2b-128 keys
 ├── client.go    # HTTP client: /embed, /embed_batch, /health
 ├── fallback.go  # FallbackClient: fallback strategies (cache-only / trigger keyword / error)

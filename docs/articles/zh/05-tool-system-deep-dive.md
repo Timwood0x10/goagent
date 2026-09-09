@@ -82,7 +82,7 @@ type Tool interface {
 - `IdempotentTool.IsIdempotent() bool` —— 纯计算工具返回 true；有副作用的（文件 I/O、网络、状态变更）不实现或返回 false。
 - `TaggableTool.Tags() map[string]string` —— 给 LLM 路由/discovery 用的语义标签，标准 key 有 `domain` / `input_type` / `output_type` / `side_effects` / `requires_network` / `mutates_state`。
 
-对外广而告之用的是 `ToolSchema`：`Name` / `Description` / `Category` / `Parameters` / `Tags`。它来自 `Registry.GetSchemas()`，并会在广告给 LLM 前被 `ToolSchemaToLLMTool` 转成 `api/core.Tool`。
+对外广而告之用的是 `ToolSchema`：`Name` / `Description` / `Category` / `Parameters` / `Tags`。它来自 `Registry.GetSchemas()`，并会在广告给 LLM 前被 `ToolSchemaToLLMTool` 转成 `internal/llmcore.Tool`（`api/core` 为 M5 后的 deprecated 转发）。
 
 ### 2.2 Registry：注册、校验、渐进披露
 
@@ -245,7 +245,7 @@ graph LR
     end
     subgraph 依赖注入才注册
         KNOW[knowledge_search / add / update / delete<br/>correct_knowledge]
-        MEM[memory_search · user_profile<br/>distilled_memory_search]
+        MEM[memory_search · user_profile]
         PLANTOOL[task_planner]
     end
     MATH --> C[core.Registry<br/>toolsource.RegistrySource 可见]
@@ -276,7 +276,7 @@ graph LR
 | 加密 | `hash_tool` | domain=crypto |
 | PDF | `pdf_tool` | domain=pdf；与 file_tools 同一 allowed dir |
 | 知识（注入依赖） | `knowledge_search/add/update/delete`、`correct_knowledge` | 依赖 `GeneralToolsDeps` 里的后端 |
-| 记忆（注入依赖） | `memory_search`、`user_profile`、`distilled_memory_search` | 依赖 MemoryMgr / DistilledRepo |
+| 记忆（注入依赖） | `memory_search`、`user_profile` | 依赖 MemoryMgr |
 | 规划（注入依赖） | `task_planner` | 依赖 `LLMClient` |
 
 有两个"秒懂"级实现值得点名：

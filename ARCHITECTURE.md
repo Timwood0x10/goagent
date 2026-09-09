@@ -18,8 +18,8 @@ ARES 是 **"Agent 操作系统"**：Agent 不是被编排的工作流节点，�
 | 一条主线：cmd/ares 唯一 CLI 入口；L2 router 是唯一生产执行路径 | cmd/ares 7 文件；fabric/agent/l2graph.go |
 | 无领导者调度："B 完成→C 就绪"由织物状态机推导，不靠中心编排 | fabric/task/dag.go |
 | 执行量子可恢复：yield 时 checkpoint 持久化，resume 从断点续跑 | fabric/task/quantum.go:48 |
-| Epoch fencing：过期持有者不能驱动已易主任务 | fabric/task/fabric.go:267 Acquire / ownerLocked:669 |
-| 协作式抢占：不做 OS 式硬抢占，只在量子边界 | fabric.go:570 Preempt |
+| Epoch fencing：过期持有者不能驱动已易主任务 | fabric/task/fabric.go:283 Acquire / ownerLocked:695 |
+| 协作式抢占：不做 OS 式硬抢占，只在量子边界 | fabric.go:596 Preempt |
 | 规划者不执行工具，只生长图（深度上限 10） | fabric/agent/planner_cognition.go |
 | syscall 调用者身份来自 kernelctx，绝不信任 LLM 参数 | agentsyscall/syscall.go |
 | 接口定义在消费者侧 | 全仓惯例 |
@@ -72,7 +72,7 @@ M2-b 修缮批 ✅（同日，源自全仓深审 DEEP_CODE_REVIEW）：持久化
 2. **answer 合成器** ✅：content-less answer 节点经 answerSynthesizer（复用 assembleContext 前驱历史 + 无工具 LLM 调用）合成终答；失败降级 gap body 不烧重试预算；正常 content 路径零改动。
 3. 经验→spawn 先验读侧 ✅：执行 agent 盖章 executing_agent_id（payload 克隆防泄漏）→ planner 读 Fabric.CognitiveState 注入先验 system 消息（4096 rune 截断）；无先验消息逐字节不变。
 4. skill 置信写侧 ✅（M4.4，2026-09-08 二批）：recordLocked 给所有持久事件盖 capability 键（M4.4 写侧数据源）→ bootstrap startSkillOutcomeWriter 订阅 task.completed/failed → `Experience.Record(skill=capability, pattern=capability, rate)`——与读侧 `Fabric.Schedule` 查询 key 严格一致（老 recorder 的两处死结：sub_task.result 无发射方 + task_desc pattern 读侧永不查询）。连带修读侧遮蔽 bug：kernel scheduler 对 tracker 未测量候选（ConfidenceForMeasured=false 且先验存在）置零让先验填充，测量值恒胜先验（live feedback outranks stale priors）；无先验时中性 1.0 不变。闭环测试：skill_outcome_writer_test（事件→Experience→ConfidenceSource 三段）。
-5. fitness cost/latency 惩罚 ✅（latency 侧 + token 成本侧，M4 二批）：observer 对 task.completed 按 created_at 计算 wall latency，乘性惩罚 1/(1+t/30s)；token 成本侧全链路：planner 每量子把 resp.Usage 写进 StepOutcome.Result.Metadata（input_tokens/output_tokens 跨包契约）→ scheduler 回写累加进 CheckpointEnvelope（schema v4，InputTokens/OutputTokens 跨量子累加，v3 前向兼容）→ recordLocked 在 task.completed 顶层盖 input/output/total_tokens → observer costPenalty 乘性惩罚 1/(1+tokens/100k)（正确性恒主导、未计量不发明成本、失败永不救赎）+ StrategySample.TotalTokens/CostUSD 字段 + 证据 payload 键。USD 计价仍缺每模型价目表（CostUSD 恒 0，管道已就位，TODO 已移除）。
+5. fitness cost/latency 惩罚 ✅（latency 侧 + token 成本侧，M4 二批）：observer 对 task.completed 按 created_at 计算 wall latency，乘性惩罚 1/(1+t/30s)；token 成本侧全链路：planner 每量子把 resp.Usage 写进 StepOutcome.Result.Metadata（input_tokens/output_tokens 跨包契约）→ scheduler 回写累加进 CheckpointEnvelope（schema v4，InputTokens/OutputTokens 跨量子累加，v3 前向兼容）→ recordLocked 在 task.completed 顶层盖 input/output/total_tokens → observer costPenalty 乘性惩罚 1/(1+tokens/100k)（正确性恒主导、未计量不发明成本、失败永不救赎）+ StrategySample.TotalTokens + 证据 payload 键。**USD 计价已决策移除**（2026-09-09：token 维度即成本信号，无价目表则不货币化——CostUSD 占位字段与 cost_usd payload 键已删）。
 6. 回归门 arena 接线 ✅（M4 三批）：ArenaRegressionGate 进 lifecycle verify 管线（G1 guardrail → G2 shadow → G3 eval → arena regression → staging）——G3 eval 门打绝对分，本门打相对分：candidate vs active 的 PromptTemplate 在 eval_suite preserved cases 上 A/B（arena.RegressionTester 配对运行 + Welch t 检验），仅显著回退拒绝（Confident && NewAvg<OldAvg），平局放行交 staging。opt-in（evolution.gates.regression_enabled，每 check 2×runs LLM 轮），armed 但缺 suite/LLM client → bootstrap fail-closed（errRegressionGateNotConfigured sentinel 同 EvalGate 模式）。
 7. PG 模式 events retention ✅（M4 三批，按 TODO 指明路线）：PG 无 round 归档/compaction 是设计使然（表即持久历史，round 文件是冗余拷贝）；真正缺口是表增长无界 → PostgresEventStore.CleanupExpiredBefore(cutoff) + storage.events_retention_days（默认 0=永不清除，删除事件会收窄 restore 窗口）→ eventsRetentionCleanerFor 纯决策函数挂进 bootstrap ExpiryCleaners（evidence store 同模式，小时级维护工人）。
 

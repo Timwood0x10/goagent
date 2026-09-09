@@ -10,14 +10,14 @@ import (
 //
 // Note: The storage/vector tables (knowledge_chunks_1024, experiences_1024,
 // embedding_queue, embedding_dead_letter, tools, conversations,
-// task_results_1024, secrets, distilled_memories) are owned by
+// task_results_1024, secrets) are owned by
 // migrate_storage.go (storageMigrations) which defines them with full
 // Row-Level Security policies and complete indexes. They must NOT be
 // duplicated here to avoid schema drift between the two definitions.
-// distilled_memories' DDL is retained deliberately for existing databases
-// (CREATE TABLE IF NOT EXISTS is idempotent), but the repository and tools
-// that read/wrote it were removed (schema ghost, RUNTIME.md #9): no code
-// path touches the table anymore.
+// The distilled_memories DDL was REMOVED (RUNTIME.md §8-A4): its repository
+// and tools were deleted as a schema ghost, so fresh deployments no longer
+// create the table; existing databases keep theirs (removal is inert for
+// them).
 var coreMigrationStatements = []string{
 	`CREATE TABLE IF NOT EXISTS user_profiles (
 			user_id VARCHAR(255) PRIMARY KEY,

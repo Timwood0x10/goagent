@@ -414,7 +414,7 @@ Key `DistillationConfig` defaults (all word-for-word verifiable in `distiller.go
 | EnableCrossTurnExtraction | true | cross-turn extraction on by default |
 | PrecisionOverRecall | true | precision takes priority over recall |
 
-Four memory classifications (in `api/experience`, re-exported by `ares_memory/distillation/memory.go`):
+Four memory classifications (canonical definitions live in `internal/llmexp`; both `ares_memory/distillation/memory.go` and `api/experience` (deprecated forwarding) alias to it):
 
 ```go
 type MemoryType string

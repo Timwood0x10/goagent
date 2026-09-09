@@ -19,7 +19,7 @@ arses 里 Memory、Experience、Knowledge、Events 都要落地。它们落在�
 | `task_results_1024` | 任务执行结果，1024 维 | `input/output JSONB`、`status/latency_ms`，`ivfflat` |
 | `secrets` | 加密敏感数据 | `value BYTEA`（默认 `aes-gcm`）、`key_version`、`(tenant_id,key)` 唯一 |
 | `embedding_queue` / `embedding_dead_letter` | 异步 embedding 任务队列 / 死信 | dedupe_key 唯一幂等、status 索引 |
-| `distilled_memories` | 跨会话蒸馏记忆，1024 维 | `memory_type` CHECK `preference/interaction/profile/knowledge`、`importance`、`expires_at`（默认 90 天）、`content_hash` + `(tenant_id, content_hash)` 唯一去重，`ivfflat lists=100` |
+| `distilled_memories` | 跨会话蒸馏记忆，1024 维——**已废弃**（M5 前删除读写路径；DDL 保留仅为存量库幂等） | `memory_type` CHECK `preference/interaction/profile/knowledge`、`importance`、`expires_at`（默认 90 天）、`content_hash` + `(tenant_id, content_hash)` 唯一去重，`ivfflat lists=100` |
 
 **组 2——事件溯源与进化（`migrate.go`，核心表，多数无 RLS）**
 
@@ -94,7 +94,7 @@ flowchart LR
 
 ```
 embedding/
-├── service.go   # EmbeddingClient 实现 api/embedding.EmbeddingService（空壳断言）
+├── service.go   # EmbeddingClient 实现 internal/embedding.EmbeddingService（api/embedding 为 deprecated 转发；空壳断言）
 ├── cache.go     # EmbeddingCache：Redis + 内存双栈，BLAKE2b-128 键
 ├── client.go    # HTTP 客户端：/embed、/embed_batch、/health
 ├── fallback.go  # FallbackClient：兜底策略（纯缓存 / 触发关键词 / 直接报错）

@@ -39,9 +39,11 @@ aresrecovery
 core
 detector
 discovery
+discoveryapi
 embedding
 errors
 evidence
+evoapi
 fabric
 feedback
 introspect

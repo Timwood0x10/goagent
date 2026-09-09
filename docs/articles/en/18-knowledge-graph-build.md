@@ -130,9 +130,9 @@ For completeness: `internal/ares_skills/indexer.go`'s `parseFrontMatter` parses 
 
 ## 7. The public API & adapter
 
-`api/knowledge/` (`knowledge.go`/`service.go`/`doc.go`) **type-aliases** `internal/knowledge`'s `KnowledgeObject/Relation/WorkingGraph/KnowledgeStore/Normalizer/EntityMatcher/Validator/Summarizer/KnowledgePipeline` into the public package, so external integrators can build/query graphs without importing `internal/`.
+`internal/knowledgeapi` is the canonical type domain (still aliasing `internal/knowledge`'s `KnowledgeObject/Relation/WorkingGraph/KnowledgeStore/Normalizer/EntityMatcher/Validator/Summarizer/KnowledgePipeline` implementation types); `api/knowledge/` is the deprecated forwarding layer.
 
-`internal/knowledge/service/adapter.go` (**112 lines** as counted; the old "+126" was off) bridges the public `api/knowledge` to the internal runtime/retriever.
+`internal/knowledge/service/adapter.go` (**112 lines** as counted; the old "+126" was off) bridges `internal/knowledgeapi` to the internal runtime/retriever.
 
 ---
 
