@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Timwood0x10/ares/api/embedding"
+	"github.com/Timwood0x10/ares/internal/embedding"
 	"github.com/Timwood0x10/ares/internal/knowledge"
 	"github.com/Timwood0x10/ares/internal/knowledge/provider/store"
 	memorystore "github.com/Timwood0x10/ares/internal/knowledge/store/memory"

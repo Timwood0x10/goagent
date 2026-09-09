@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	apiembedding "github.com/Timwood0x10/ares/api/embedding"
+	apiembedding "github.com/Timwood0x10/ares/internal/embedding"
 	"github.com/Timwood0x10/ares/internal/evidence"
 	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
 	wfgraph "github.com/Timwood0x10/ares/internal/fabric/task/workflow/graph"

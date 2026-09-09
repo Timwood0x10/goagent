@@ -4,10 +4,10 @@ import (
 	"sort"
 	"strings"
 
-	llmcore "github.com/Timwood0x10/ares/api/core"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 )
 
-// ToolSchemaToLLMTool converts a ToolSchema from the registry to api/core.Tool
+// ToolSchemaToLLMTool converts a ToolSchema from the registry to internal/llmcore.Tool
 // for passing to the LLM Chat API.
 func ToolSchemaToLLMTool(schema ToolSchema) llmcore.Tool {
 	return llmcore.Tool{
@@ -21,7 +21,7 @@ func ToolSchemaToLLMTool(schema ToolSchema) llmcore.Tool {
 }
 
 // ParameterSchemaToMap converts *ParameterSchema to map[string]interface{}
-// for the JSON Schema format expected by api/core.FunctionDefinition.Parameters.
+// for the JSON Schema format expected by internal/llmcore.FunctionDefinition.Parameters.
 // Returns nil if the schema is nil.
 func ParameterSchemaToMap(schema *ParameterSchema) map[string]interface{} {
 	if schema == nil {

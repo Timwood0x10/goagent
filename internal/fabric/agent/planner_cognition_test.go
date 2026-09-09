@@ -11,12 +11,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/agents"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	"github.com/Timwood0x10/ares/internal/fabric/planprojection"
 	"github.com/Timwood0x10/ares/internal/fabric/task"
 	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 	resources "github.com/Timwood0x10/ares/internal/tools/resources/core"
 )
 
@@ -29,7 +29,7 @@ type fakePlannerChat struct {
 	calls int
 }
 
-func (c *fakePlannerChat) Chat(_ context.Context, _ []*core.LLMMessage, _ []core.Tool, _ map[string]any) (*core.GenerateResponse, error) {
+func (c *fakePlannerChat) Chat(_ context.Context, _ []*llmcore.LLMMessage, _ []llmcore.Tool, _ map[string]any) (*llmcore.GenerateResponse, error) {
 	c.mu.Lock()
 	c.calls++
 	round := c.calls
@@ -37,23 +37,23 @@ func (c *fakePlannerChat) Chat(_ context.Context, _ []*core.LLMMessage, _ []core
 
 	switch round {
 	case 1:
-		return &core.GenerateResponse{
-			ToolCalls: []core.ToolCall{{
+		return &llmcore.GenerateResponse{
+			ToolCalls: []llmcore.ToolCall{{
 				ID:       "tc-1",
 				Type:     "function",
-				Function: core.FunctionCall{Name: "grep", Arguments: `{"query":"first"}`},
+				Function: llmcore.FunctionCall{Name: "grep", Arguments: `{"query":"first"}`},
 			}},
 		}, nil
 	case 2:
-		return &core.GenerateResponse{
-			ToolCalls: []core.ToolCall{{
+		return &llmcore.GenerateResponse{
+			ToolCalls: []llmcore.ToolCall{{
 				ID:       "tc-2",
 				Type:     "function",
-				Function: core.FunctionCall{Name: "read", Arguments: `{"query":"second"}`},
+				Function: llmcore.FunctionCall{Name: "read", Arguments: `{"query":"second"}`},
 			}},
 		}, nil
 	default:
-		return &core.GenerateResponse{Content: "the answer is 42"}, nil
+		return &llmcore.GenerateResponse{Content: "the answer is 42"}, nil
 	}
 }
 
@@ -399,16 +399,16 @@ func (s *stubStrategySource) GetActiveStrategy(context.Context) (*agents.ActiveS
 // plan quantum.
 type recordingChat struct {
 	mu     sync.Mutex
-	msgs   [][]*core.LLMMessage
+	msgs   [][]*llmcore.LLMMessage
 	params []map[string]any
 }
 
-func (c *recordingChat) Chat(_ context.Context, msgs []*core.LLMMessage, _ []core.Tool, params map[string]any) (*core.GenerateResponse, error) {
+func (c *recordingChat) Chat(_ context.Context, msgs []*llmcore.LLMMessage, _ []llmcore.Tool, params map[string]any) (*llmcore.GenerateResponse, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.msgs = append(c.msgs, msgs)
 	c.params = append(c.params, params)
-	return &core.GenerateResponse{Content: "done"}, nil
+	return &llmcore.GenerateResponse{Content: "done"}, nil
 }
 
 // TestPlannerCognition_StrategySteersGrowth locks the actuator read:

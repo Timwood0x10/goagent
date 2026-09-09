@@ -213,7 +213,7 @@ linters:
         linters:
           - goconst
       # API tool schema parameter/result field names.
-      - path: api/tools/builtin.go
+      - path: internal/apitools/builtin.go
         linters:
           - goconst
       # Memory manager event payload field names.
@@ -250,7 +250,7 @@ linters:
         linters:
           - goconst
       # MCP server config map keys.
-      - path: api/mcp/mcp.go
+      - path: internal/mcpclient/mcp.go
         linters:
           - goconst
       # Event compactor status strings.

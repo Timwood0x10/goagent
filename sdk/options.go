@@ -6,10 +6,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/Timwood0x10/ares/api/core"
-	"github.com/Timwood0x10/ares/api/tools"
+	tools "github.com/Timwood0x10/ares/internal/apitools"
 	"github.com/Timwood0x10/ares/internal/knowledge"
 	"github.com/Timwood0x10/ares/internal/knowledge/provider"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 	"github.com/Timwood0x10/ares/internal/tools/toolsource"
 )
 
@@ -78,8 +78,8 @@ type Option func(*config) error
 
 // config holds the internal configuration state while options are applied.
 type config struct {
-	llmCfg      *core.LLMConfig
-	baseCfg     *core.BaseConfig
+	llmCfg      *llmcore.LLMConfig
+	baseCfg     *llmcore.BaseConfig
 	memCfg      memoryCfg
 	evoCfg      evolutionCfg
 	knlCfg      knowledgeCfg
@@ -94,7 +94,7 @@ type config struct {
 	// instead of the default in-memory store.
 	sqliteStorePath string
 	mcpConns        []MCPConn
-	fallbacks       []*core.LLMConfig
+	fallbacks       []*llmcore.LLMConfig
 	trace           bool
 }
 
@@ -165,14 +165,14 @@ type knowledgeRTCfg struct {
 
 func defaultConfig() *config {
 	return &config{
-		llmCfg: &core.LLMConfig{
-			Provider:    core.LLMProviderOllama,
+		llmCfg: &llmcore.LLMConfig{
+			Provider:    llmcore.LLMProviderOllama,
 			Model:       defaultModel,
 			Temperature: 0.7,
 			MaxTokens:   2048,
 			Timeout:     60,
 		},
-		baseCfg: &core.BaseConfig{
+		baseCfg: &llmcore.BaseConfig{
 			RequestTimeout: 60,
 			MaxRetries:     3,
 		},
@@ -195,7 +195,7 @@ func defaultConfig() *config {
 // Default base URL is https://api.openai.com/v1.
 func WithOpenAI(model string) Option {
 	return func(c *config) error {
-		c.llmCfg.Provider = core.LLMProviderOpenAI
+		c.llmCfg.Provider = llmcore.LLMProviderOpenAI
 		c.llmCfg.Model = model
 		if c.llmCfg.BaseURL == "" {
 			c.llmCfg.BaseURL = "https://api.openai.com/v1"
@@ -209,7 +209,7 @@ func WithOpenAI(model string) Option {
 // require an API key.
 func WithOllama(model string) Option {
 	return func(c *config) error {
-		c.llmCfg.Provider = core.LLMProviderOllama
+		c.llmCfg.Provider = llmcore.LLMProviderOllama
 		c.llmCfg.Model = model
 		return nil
 	}
@@ -221,7 +221,7 @@ func WithOllama(model string) Option {
 // Default base URL is https://api.anthropic.com/v1.
 func WithAnthropic(model string) Option {
 	return func(c *config) error {
-		c.llmCfg.Provider = core.LLMProviderAnthropic
+		c.llmCfg.Provider = llmcore.LLMProviderAnthropic
 		c.llmCfg.Model = model
 		if c.llmCfg.BaseURL == "" {
 			c.llmCfg.BaseURL = "https://api.anthropic.com/v1"
@@ -236,7 +236,7 @@ func WithAnthropic(model string) Option {
 // Default base URL is https://openrouter.ai/api/v1.
 func WithOpenRouter(model string) Option {
 	return func(c *config) error {
-		c.llmCfg.Provider = core.LLMProviderOpenRouter
+		c.llmCfg.Provider = llmcore.LLMProviderOpenRouter
 		c.llmCfg.Model = model
 		if c.llmCfg.BaseURL == "" {
 			c.llmCfg.BaseURL = "https://openrouter.ai/api/v1"
@@ -262,9 +262,9 @@ func WithAPIKey(key string) Option {
 	}
 }
 
-// WithLLMConfig applies a full core.LLMConfig. Useful when you already have a
+// WithLLMConfig applies a full llmcore.LLMConfig. Useful when you already have a
 // configuration object from a YAML file or shared config store.
-func WithLLMConfig(cfg *core.LLMConfig) Option {
+func WithLLMConfig(cfg *llmcore.LLMConfig) Option {
 	return func(c *config) error {
 		if cfg == nil {
 			return errors.New("with llm config: config is nil")
@@ -278,7 +278,7 @@ func WithLLMConfig(cfg *core.LLMConfig) Option {
 // When the primary provider fails (timeout, rate limit, network error),
 // the Runtime automatically tries fallbacks in order. Call multiple times
 // to add multiple fallbacks.
-func WithFallbackLLM(cfg *core.LLMConfig) Option {
+func WithFallbackLLM(cfg *llmcore.LLMConfig) Option {
 	return func(c *config) error {
 		c.fallbacks = append(c.fallbacks, cfg)
 		return nil

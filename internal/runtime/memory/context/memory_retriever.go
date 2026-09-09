@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	apiembed "github.com/Timwood0x10/ares/api/embedding"
+	apiembed "github.com/Timwood0x10/ares/internal/embedding"
 	"github.com/Timwood0x10/ares/internal/evidence"
 	"github.com/Timwood0x10/ares/internal/runtime/memory/distillation"
 	memembed "github.com/Timwood0x10/ares/internal/runtime/memory/embedding"

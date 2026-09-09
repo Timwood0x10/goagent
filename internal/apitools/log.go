@@ -1,7 +1,7 @@
-// Package tools ...
-package tools
+// Package apitools ...
+package apitools
 
 import "github.com/Timwood0x10/ares/internal/logger"
 
 // log is the package-level structured logger.
-var log = logger.Module("tools")
+var log = logger.Module("apitools")

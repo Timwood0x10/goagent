@@ -1,30 +1,20 @@
+// Package knowledge is the DEPRECATED public alias of
+// internal/knowledgeapi (M5). New code MUST import internal/knowledgeapi;
+// this package exists only for external consumers and is scheduled for
+// removal.
 package knowledge
 
 import (
-	"context"
-	"errors"
+	"github.com/Timwood0x10/ares/internal/knowledgeapi"
 )
 
 // KnowledgeService is the public API for the AKG.
 // It exposes the four core operations of the Knowledge Fabric.
-type KnowledgeService interface {
-	// BuildGraph constructs a WorkingGraph for the given intent.
-	BuildGraph(ctx context.Context, intent Intent) (*WorkingGraph, error)
-
-	// CompileContext compresses a WorkingGraph into a token-efficient
-	// representation for LLM consumption.
-	CompileContext(ctx context.Context, graph *WorkingGraph) (string, error)
-
-	// Query searches the knowledge store for objects matching the query.
-	Query(ctx context.Context, query Query) ([]*KnowledgeObject, error)
-
-	// Distill converts raw memory into structured KnowledgeObjects.
-	Distill(ctx context.Context, rawMemory []byte, tenantID string) ([]*KnowledgeObject, error)
-}
+type KnowledgeService = knowledgeapi.KnowledgeService
 
 // Sentinel errors for the knowledge service.
 var (
-	ErrNilIntent     = errors.New("knowledge: intent goal is empty")
-	ErrEmptyTenantID = errors.New("knowledge: tenant ID is empty")
-	ErrNilGraph      = errors.New("knowledge: graph is nil")
+	ErrNilIntent     = knowledgeapi.ErrNilIntent
+	ErrEmptyTenantID = knowledgeapi.ErrEmptyTenantID
+	ErrNilGraph      = knowledgeapi.ErrNilGraph
 )

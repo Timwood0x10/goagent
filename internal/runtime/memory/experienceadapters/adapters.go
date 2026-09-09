@@ -12,9 +12,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Timwood0x10/ares/api/experience"
 	"github.com/Timwood0x10/ares/internal/ares_events"
 	"github.com/Timwood0x10/ares/internal/knowledge/adapter"
+	experience "github.com/Timwood0x10/ares/internal/llmexp"
 	memctx "github.com/Timwood0x10/ares/internal/runtime/memory/context"
 	"github.com/Timwood0x10/ares/internal/runtime/memory/distillation"
 	"github.com/Timwood0x10/ares/internal/scoreutil"

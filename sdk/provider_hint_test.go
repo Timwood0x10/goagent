@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Timwood0x10/ares/api/core"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 )
 
 // TestProviderKeyHint covers the early-misconfiguration warning returned at
@@ -23,37 +23,37 @@ import (
 func TestProviderKeyHint(t *testing.T) {
 	cases := []struct {
 		name       string
-		provider   core.LLMProvider
+		provider   llmcore.LLMProvider
 		apiKey     string
 		wantSubstr string // empty wantSubstr means "no hint expected"
 	}{
 		{
 			name:       "openai without key names env var and option",
-			provider:   core.LLMProviderOpenAI,
+			provider:   llmcore.LLMProviderOpenAI,
 			apiKey:     "",
 			wantSubstr: "OPENAI_API_KEY",
 		},
 		{
 			name:       "anthropic without key names its env var",
-			provider:   core.LLMProviderAnthropic,
+			provider:   llmcore.LLMProviderAnthropic,
 			apiKey:     "",
 			wantSubstr: "ANTHROPIC_API_KEY",
 		},
 		{
 			name:       "openrouter without key names its env var",
-			provider:   core.LLMProviderOpenRouter,
+			provider:   llmcore.LLMProviderOpenRouter,
 			apiKey:     "",
 			wantSubstr: "OPENROUTER_API_KEY",
 		},
 		{
 			name:       "ollama without key is legitimate",
-			provider:   core.LLMProviderOllama,
+			provider:   llmcore.LLMProviderOllama,
 			apiKey:     "",
 			wantSubstr: "",
 		},
 		{
 			name:       "openai with key stays silent",
-			provider:   core.LLMProviderOpenAI,
+			provider:   llmcore.LLMProviderOpenAI,
 			apiKey:     "sk-test",
 			wantSubstr: "",
 		},

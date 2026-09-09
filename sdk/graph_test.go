@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Timwood0x10/ares/api/core"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 )
 
 // ---- helpers ----
@@ -19,8 +19,8 @@ import (
 func newTestRuntime(t *testing.T) *Runtime {
 	t.Helper()
 	rt := NewRuntime(WithOllama("llama3.2"), WithoutMemory(), WithTrace(false))
-	rt.llmSvc = &mockLLMSvc{responses: []*core.GenerateResponse{
-		{Content: "graph-llm-result", Usage: core.TokenUsage{PromptTokens: 1, CompletionTokens: 1}},
+	rt.llmSvc = &mockLLMSvc{responses: []*llmcore.GenerateResponse{
+		{Content: "graph-llm-result", Usage: llmcore.TokenUsage{PromptTokens: 1, CompletionTokens: 1}},
 	}}
 	return rt
 }
@@ -259,7 +259,7 @@ type recordingLLM struct {
 	inputs []string
 }
 
-func (m *recordingLLM) Generate(_ context.Context, req *core.GenerateRequest) (*core.GenerateResponse, error) {
+func (m *recordingLLM) Generate(_ context.Context, req *llmcore.GenerateRequest) (*llmcore.GenerateResponse, error) {
 	var last string
 	for _, msg := range req.Messages {
 		if msg.Role == roleUser {
@@ -269,12 +269,12 @@ func (m *recordingLLM) Generate(_ context.Context, req *core.GenerateRequest) (*
 	m.mu.Lock()
 	m.inputs = append(m.inputs, last)
 	m.mu.Unlock()
-	return &core.GenerateResponse{Content: "echo:" + last}, nil
+	return &llmcore.GenerateResponse{Content: "echo:" + last}, nil
 }
 
-func (m *recordingLLM) GetProvider() core.LLMProvider { return core.LLMProviderOllama }
-func (m *recordingLLM) GetModel() string              { return "mock-model" }
-func (m *recordingLLM) Close()                        {}
+func (m *recordingLLM) GetProvider() llmcore.LLMProvider { return llmcore.LLMProviderOllama }
+func (m *recordingLLM) GetModel() string                 { return "mock-model" }
+func (m *recordingLLM) Close()                           {}
 
 var _ llmService = (*recordingLLM)(nil)
 
@@ -325,7 +325,7 @@ type systemCapturingLLM struct {
 	systems []string
 }
 
-func (m *systemCapturingLLM) Generate(_ context.Context, req *core.GenerateRequest) (*core.GenerateResponse, error) {
+func (m *systemCapturingLLM) Generate(_ context.Context, req *llmcore.GenerateRequest) (*llmcore.GenerateResponse, error) {
 	var sys string
 	for _, msg := range req.Messages {
 		if msg.Role == roleSystem {
@@ -335,12 +335,12 @@ func (m *systemCapturingLLM) Generate(_ context.Context, req *core.GenerateReque
 	m.mu.Lock()
 	m.systems = append(m.systems, sys)
 	m.mu.Unlock()
-	return &core.GenerateResponse{Content: "ok"}, nil
+	return &llmcore.GenerateResponse{Content: "ok"}, nil
 }
 
-func (m *systemCapturingLLM) GetProvider() core.LLMProvider { return core.LLMProviderOllama }
-func (m *systemCapturingLLM) GetModel() string              { return "mock-model" }
-func (m *systemCapturingLLM) Close()                        {}
+func (m *systemCapturingLLM) GetProvider() llmcore.LLMProvider { return llmcore.LLMProviderOllama }
+func (m *systemCapturingLLM) GetModel() string                 { return "mock-model" }
+func (m *systemCapturingLLM) Close()                           {}
 
 var _ llmService = (*systemCapturingLLM)(nil)
 

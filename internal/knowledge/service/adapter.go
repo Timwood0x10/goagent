@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	apiknowledge "github.com/Timwood0x10/ares/api/knowledge"
 	"github.com/Timwood0x10/ares/internal/knowledge/runtime"
+	apiknowledge "github.com/Timwood0x10/ares/internal/knowledgeapi"
 )
 
 // ServiceAdapter implements apiknowledge.KnowledgeService by wrapping

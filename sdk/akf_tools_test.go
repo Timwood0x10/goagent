@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Timwood0x10/ares/api/tools"
+	tools "github.com/Timwood0x10/ares/internal/apitools"
 	mcp "github.com/Timwood0x10/ares/internal/knowledge/mcp"
 )
 

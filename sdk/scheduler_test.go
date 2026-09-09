@@ -5,10 +5,10 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/agents/sub"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	"github.com/Timwood0x10/ares/internal/kernel"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 )
 
 // countingExecutor wraps a sdkAgentExecutor and counts scheduler-driven
@@ -40,8 +40,8 @@ func (c *countingExecutor) ExecuteStep(ctx context.Context, task *models.Task) (
 func TestSubmitGoesThroughFabricScheduler(t *testing.T) {
 	rt := NewRuntime(WithOllama("llama3.2"), WithTrace(false))
 	defer rt.Close()
-	rt.llmSvc = &mockLLMSvc{responses: []*core.GenerateResponse{
-		{Content: "scheduled result", Usage: core.TokenUsage{PromptTokens: 2, CompletionTokens: 4}},
+	rt.llmSvc = &mockLLMSvc{responses: []*llmcore.GenerateResponse{
+		{Content: "scheduled result", Usage: llmcore.TokenUsage{PromptTokens: 2, CompletionTokens: 4}},
 	}}
 
 	rt.RegisterAgent("coder")
@@ -71,7 +71,7 @@ func TestSubmitGoesThroughFabricScheduler(t *testing.T) {
 func TestSubmitConcurrentThroughScheduler(t *testing.T) {
 	rt := NewRuntime(WithOllama("llama3.2"), WithTrace(false))
 	defer rt.Close()
-	rt.llmSvc = &mockLLMSvc{responses: []*core.GenerateResponse{
+	rt.llmSvc = &mockLLMSvc{responses: []*llmcore.GenerateResponse{
 		{Content: "r1"}, {Content: "r2"}, {Content: "r3"},
 	}}
 	rt.RegisterAgent("coder")

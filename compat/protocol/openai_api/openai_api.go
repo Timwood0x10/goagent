@@ -2,7 +2,7 @@
 //
 // It exposes ARES capabilities over the full OpenAI API wire format so any
 // OpenAI-API-compatible client (LangChain, LLM frameworks, custom apps)
-// plugs into the ARES runtime. The adapter binds api/core.LLMService to the
+// plugs into the ARES runtime. The adapter binds api/llmcore.LLMService to the
 // compat/protocol.ProtocolAdapter interface.
 //
 // Supported endpoints (within the raw body):
@@ -26,8 +26,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/compat/protocol"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 )
 
 const (
@@ -43,7 +43,7 @@ const (
 
 // Adapter satisfies compat/protocol.ProtocolAdapter for the OpenAI API format.
 type Adapter struct {
-	svc    core.LLMService
+	svc    llmcore.LLMService
 	models []ModelInfo
 }
 
@@ -51,10 +51,10 @@ type Adapter struct {
 //
 // Recognized keys:
 //
-//	service core.LLMService — REQUIRED. The LLM service to proxy requests to.
+//	service llmcore.LLMService — REQUIRED. The LLM service to proxy requests to.
 //	models  []ModelInfo     — optional. Pre-configured model list for GET /models.
 func New(config map[string]any) (*Adapter, error) {
-	svc, _ := config["service"].(core.LLMService)
+	svc, _ := config["service"].(llmcore.LLMService)
 	if svc == nil {
 		return nil, fmt.Errorf("compat/protocol/openai_api: service is required")
 	}
@@ -490,7 +490,7 @@ func (a *Adapter) handleChatCompletions(ctx context.Context, raw []byte) ([]byte
 		return newError(fmt.Sprintf("invalid messages: %v", err), "invalid_request_error", "invalid_messages"), nil
 	}
 
-	genReq := &core.GenerateRequest{
+	genReq := &llmcore.GenerateRequest{
 		Messages:       messages,
 		Model:          req.Model,
 		Temperature:    req.Temperature,
@@ -523,18 +523,18 @@ func (a *Adapter) handleChatCompletions(ctx context.Context, raw []byte) ([]byte
 	return out, nil
 }
 
-func mapMessages(msgs []chatMessage) ([]*core.LLMMessage, error) {
-	messages := make([]*core.LLMMessage, 0, len(msgs))
+func mapMessages(msgs []chatMessage) ([]*llmcore.LLMMessage, error) {
+	messages := make([]*llmcore.LLMMessage, 0, len(msgs))
 	for _, m := range msgs {
 		content := extractContent(m.Content)
-		llmMsg := &core.LLMMessage{
+		llmMsg := &llmcore.LLMMessage{
 			Role:       m.Role,
 			Content:    content,
 			ToolCallID: m.ToolCallID,
 			Name:       m.Name,
 		}
 		if len(m.ToolCalls) > 0 {
-			var toolCalls []core.ToolCall
+			var toolCalls []llmcore.ToolCall
 			if err := json.Unmarshal(m.ToolCalls, &toolCalls); err == nil {
 				llmMsg.ToolCalls = toolCalls
 			}
@@ -574,15 +574,15 @@ func extractContent(raw json.RawMessage) string {
 	return string(raw)
 }
 
-func mapToolDefs(tools []toolDef) []core.Tool {
+func mapToolDefs(tools []toolDef) []llmcore.Tool {
 	if len(tools) == 0 {
 		return nil
 	}
-	out := make([]core.Tool, 0, len(tools))
+	out := make([]llmcore.Tool, 0, len(tools))
 	for _, t := range tools {
-		td := core.Tool{
+		td := llmcore.Tool{
 			Type: t.Type,
-			Function: core.FunctionDefinition{
+			Function: llmcore.FunctionDefinition{
 				Name:        t.Function.Name,
 				Description: t.Function.Description,
 			},
@@ -606,7 +606,7 @@ func mapResponseFormat(rf *responseFormatObj) json.RawMessage {
 	return data
 }
 
-func buildChatResponse(genResp *core.GenerateResponse, model string, cfg *core.LLMConfig) chatResponse {
+func buildChatResponse(genResp *llmcore.GenerateResponse, model string, cfg *llmcore.LLMConfig) chatResponse {
 	now := time.Now().Unix()
 	respMsg := responseMsg{
 		Role:    roleAssistant,
@@ -663,7 +663,7 @@ func buildChatResponse(genResp *core.GenerateResponse, model string, cfg *core.L
 
 // ── Streaming handler ──────────────────────────────────────────────────────
 
-func (a *Adapter) handleStreamingChat(ctx context.Context, genReq *core.GenerateRequest, req chatRequest) ([]byte, error) {
+func (a *Adapter) handleStreamingChat(ctx context.Context, genReq *llmcore.GenerateRequest, req chatRequest) ([]byte, error) {
 	resp, err := a.svc.Generate(ctx, genReq)
 	if err != nil {
 		return newError(fmt.Sprintf("generate: %v", err), "server_error", "internal_error"), nil
@@ -882,7 +882,7 @@ func (a *Adapter) handleResponses(ctx context.Context, raw []byte) ([]byte, erro
 		model = a.svc.GetModel()
 	}
 
-	genReq := &core.GenerateRequest{
+	genReq := &llmcore.GenerateRequest{
 		Model:       model,
 		Temperature: req.Temperature,
 		MaxTokens:   req.MaxOutputTokens,
@@ -891,7 +891,7 @@ func (a *Adapter) handleResponses(ctx context.Context, raw []byte) ([]byte, erro
 		ToolChoice:  req.ToolChoice,
 		Metadata:    req.Metadata,
 		User:        req.User,
-		Messages: []*core.LLMMessage{
+		Messages: []*llmcore.LLMMessage{
 			{Role: "user", Content: fullPrompt},
 		},
 	}
@@ -987,7 +987,7 @@ func (a *Adapter) handleEmbeddings(ctx context.Context, raw []byte) ([]byte, err
 		model = a.svc.GetModel()
 	}
 
-	embReq := &core.EmbeddingRequest{Input: text, Model: model}
+	embReq := &llmcore.EmbeddingRequest{Input: text, Model: model}
 	embResp, err := a.svc.GenerateEmbedding(ctx, embReq)
 	if err != nil {
 		return newError(fmt.Sprintf("embedding: %v", err), "server_error", "internal_error"), nil

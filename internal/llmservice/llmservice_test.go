@@ -5,15 +5,15 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/llm"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 )
 
 // mockLLMClient implements LLMClient for testing.
 type mockLLMClient struct {
 	generateFunc       func(ctx context.Context, prompt string) (string, error)
 	generateStreamFunc func(ctx context.Context, prompt string) (<-chan llm.StreamChunk, error)
-	chatFunc           func(ctx context.Context, messages []*core.LLMMessage, tools []core.Tool) (*core.GenerateResponse, error)
+	chatFunc           func(ctx context.Context, messages []*llmcore.LLMMessage, tools []llmcore.Tool) (*llmcore.GenerateResponse, error)
 	isEnabledFunc      func() bool
 	getProviderFunc    func() string
 	getModelFunc       func() string
@@ -36,11 +36,11 @@ func (m *mockLLMClient) GenerateStream(ctx context.Context, prompt string) (<-ch
 	return ch, nil
 }
 
-func (m *mockLLMClient) Chat(ctx context.Context, messages []*core.LLMMessage, tools []core.Tool, params map[string]any) (*core.GenerateResponse, error) {
+func (m *mockLLMClient) Chat(ctx context.Context, messages []*llmcore.LLMMessage, tools []llmcore.Tool, params map[string]any) (*llmcore.GenerateResponse, error) {
 	if m.chatFunc != nil {
 		return m.chatFunc(ctx, messages, tools)
 	}
-	return &core.GenerateResponse{Content: "chat response"}, nil
+	return &llmcore.GenerateResponse{Content: "chat response"}, nil
 }
 
 func (m *mockLLMClient) IsEnabled() bool {
@@ -70,19 +70,19 @@ func (m *mockLLMClient) Close() {
 	}
 }
 
-// mockRepository implements core.LLMRepository for testing.
+// mockRepository implements llmcore.LLMRepository for testing.
 type mockRepository struct {
-	logGenerationFunc func(ctx context.Context, request *core.GenerateRequest, response *core.GenerateResponse) error
+	logGenerationFunc func(ctx context.Context, request *llmcore.GenerateRequest, response *llmcore.GenerateResponse) error
 }
 
-func (m *mockRepository) LogGeneration(ctx context.Context, request *core.GenerateRequest, response *core.GenerateResponse) error {
+func (m *mockRepository) LogGeneration(ctx context.Context, request *llmcore.GenerateRequest, response *llmcore.GenerateResponse) error {
 	if m.logGenerationFunc != nil {
 		return m.logGenerationFunc(ctx, request, response)
 	}
 	return nil
 }
 
-func (m *mockRepository) GetGenerationLog(ctx context.Context, logID string) (*core.GenerateRequest, *core.GenerateResponse, error) {
+func (m *mockRepository) GetGenerationLog(ctx context.Context, logID string) (*llmcore.GenerateRequest, *llmcore.GenerateResponse, error) {
 	return nil, nil, nil
 }
 
@@ -109,19 +109,19 @@ func (m *mockEmbedder) GetModel() string {
 func newTestService(client LLMClient) *Service {
 	return &Service{
 		client: client,
-		config: &core.BaseConfig{
+		config: &llmcore.BaseConfig{
 			RequestTimeout: 0,
 			MaxRetries:     0,
 			RetryDelay:     0,
 		},
-		llmConfig: &core.LLMConfig{
-			Provider: core.LLMProviderOpenAI,
+		llmConfig: &llmcore.LLMConfig{
+			Provider: llmcore.LLMProviderOpenAI,
 			Model:    "gpt-4",
 		},
 	}
 }
 
-func newTestServiceWithRepo(client LLMClient, repo core.LLMRepository) *Service {
+func newTestServiceWithRepo(client LLMClient, repo llmcore.LLMRepository) *Service {
 	s := newTestService(client)
 	s.repo = repo
 	return s
@@ -157,8 +157,8 @@ func TestNewService_NilLLMConfig(t *testing.T) {
 
 func TestNewService_NilBaseConfig(t *testing.T) {
 	s, err := NewService(&Config{
-		LLMConfig: &core.LLMConfig{
-			Provider: core.LLMProviderOpenAI,
+		LLMConfig: &llmcore.LLMConfig{
+			Provider: llmcore.LLMProviderOpenAI,
 			Model:    "gpt-4",
 			BaseURL:  "https://api.openai.com",
 		},
@@ -196,7 +196,7 @@ func TestService_Generate_NilRequest(t *testing.T) {
 
 func TestService_Generate_EmptyMessages(t *testing.T) {
 	s := newTestService(&mockLLMClient{})
-	_, err := s.Generate(context.Background(), &core.GenerateRequest{})
+	_, err := s.Generate(context.Background(), &llmcore.GenerateRequest{})
 	if err == nil {
 		t.Fatal("expected error for empty messages")
 	}
@@ -213,8 +213,8 @@ func TestService_Generate_Simple(t *testing.T) {
 	}
 	s := newTestService(mockClient)
 
-	resp, err := s.Generate(context.Background(), &core.GenerateRequest{
-		Messages: []*core.LLMMessage{
+	resp, err := s.Generate(context.Background(), &llmcore.GenerateRequest{
+		Messages: []*llmcore.LLMMessage{
 			{Role: "user", Content: "hi"},
 		},
 	})
@@ -238,12 +238,12 @@ func TestService_Generate_Simple(t *testing.T) {
 func TestService_Generate_WithTools(t *testing.T) {
 	chatCalled := false
 	mockClient := &mockLLMClient{
-		chatFunc: func(ctx context.Context, messages []*core.LLMMessage, tools []core.Tool) (*core.GenerateResponse, error) {
+		chatFunc: func(ctx context.Context, messages []*llmcore.LLMMessage, tools []llmcore.Tool) (*llmcore.GenerateResponse, error) {
 			chatCalled = true
 			if len(tools) == 0 {
 				t.Error("expected tools to be passed")
 			}
-			return &core.GenerateResponse{
+			return &llmcore.GenerateResponse{
 				Content:      "tool result",
 				FinishReason: "stop",
 			}, nil
@@ -251,14 +251,14 @@ func TestService_Generate_WithTools(t *testing.T) {
 	}
 	s := newTestService(mockClient)
 
-	resp, err := s.Generate(context.Background(), &core.GenerateRequest{
-		Messages: []*core.LLMMessage{
+	resp, err := s.Generate(context.Background(), &llmcore.GenerateRequest{
+		Messages: []*llmcore.LLMMessage{
 			{Role: "user", Content: "use a tool"},
 		},
-		Tools: []core.Tool{
+		Tools: []llmcore.Tool{
 			{
 				Type: "function",
-				Function: core.FunctionDefinition{
+				Function: llmcore.FunctionDefinition{
 					Name: "test_tool",
 				},
 			},
@@ -278,16 +278,16 @@ func TestService_Generate_WithTools(t *testing.T) {
 func TestService_Generate_WithToolMessages(t *testing.T) {
 	chatCalled := false
 	mockClient := &mockLLMClient{
-		chatFunc: func(ctx context.Context, messages []*core.LLMMessage, tools []core.Tool) (*core.GenerateResponse, error) {
+		chatFunc: func(ctx context.Context, messages []*llmcore.LLMMessage, tools []llmcore.Tool) (*llmcore.GenerateResponse, error) {
 			chatCalled = true
-			return &core.GenerateResponse{Content: "tool call result"}, nil
+			return &llmcore.GenerateResponse{Content: "tool call result"}, nil
 		},
 	}
 	s := newTestService(mockClient)
 
-	resp, err := s.Generate(context.Background(), &core.GenerateRequest{
-		Messages: []*core.LLMMessage{
-			{Role: "assistant", Content: "", ToolCalls: []core.ToolCall{{ID: "call_1"}}},
+	resp, err := s.Generate(context.Background(), &llmcore.GenerateRequest{
+		Messages: []*llmcore.LLMMessage{
+			{Role: "assistant", Content: "", ToolCalls: []llmcore.ToolCall{{ID: "call_1"}}},
 		},
 	})
 	if err != nil {
@@ -299,8 +299,8 @@ func TestService_Generate_WithToolMessages(t *testing.T) {
 	_ = resp
 
 	chatCalled = false
-	_, _ = s.Generate(context.Background(), &core.GenerateRequest{
-		Messages: []*core.LLMMessage{
+	_, _ = s.Generate(context.Background(), &llmcore.GenerateRequest{
+		Messages: []*llmcore.LLMMessage{
 			{Role: "tool", Content: "result", ToolCallID: "call_1"},
 		},
 	})
@@ -318,8 +318,8 @@ func TestService_Generate_ClientError(t *testing.T) {
 	}
 	s := newTestService(mockClient)
 
-	_, err := s.Generate(context.Background(), &core.GenerateRequest{
-		Messages: []*core.LLMMessage{
+	_, err := s.Generate(context.Background(), &llmcore.GenerateRequest{
+		Messages: []*llmcore.LLMMessage{
 			{Role: "user", Content: "hi"},
 		},
 	})
@@ -336,15 +336,15 @@ func TestService_Generate_RepoLogError(t *testing.T) {
 		},
 	}
 	repo := &mockRepository{
-		logGenerationFunc: func(ctx context.Context, request *core.GenerateRequest, response *core.GenerateResponse) error {
+		logGenerationFunc: func(ctx context.Context, request *llmcore.GenerateRequest, response *llmcore.GenerateResponse) error {
 			repoCalled = true
 			return errors.New("log failure")
 		},
 	}
 	s := newTestServiceWithRepo(mockClient, repo)
 
-	resp, err := s.Generate(context.Background(), &core.GenerateRequest{
-		Messages: []*core.LLMMessage{
+	resp, err := s.Generate(context.Background(), &llmcore.GenerateRequest{
+		Messages: []*llmcore.LLMMessage{
 			{Role: "user", Content: "hi"},
 		},
 	})
@@ -362,8 +362,8 @@ func TestService_Generate_RepoLogError(t *testing.T) {
 func TestService_Generate_ChatFinishReason(t *testing.T) {
 	// When Chat returns a response with empty FinishReason and no ToolCalls
 	mockClient := &mockLLMClient{
-		chatFunc: func(ctx context.Context, messages []*core.LLMMessage, tools []core.Tool) (*core.GenerateResponse, error) {
-			return &core.GenerateResponse{
+		chatFunc: func(ctx context.Context, messages []*llmcore.LLMMessage, tools []llmcore.Tool) (*llmcore.GenerateResponse, error) {
+			return &llmcore.GenerateResponse{
 				Content:      "no tool calls",
 				FinishReason: "",
 				ToolCalls:    nil,
@@ -372,12 +372,12 @@ func TestService_Generate_ChatFinishReason(t *testing.T) {
 	}
 	s := newTestService(mockClient)
 
-	resp, err := s.Generate(context.Background(), &core.GenerateRequest{
-		Messages: []*core.LLMMessage{
+	resp, err := s.Generate(context.Background(), &llmcore.GenerateRequest{
+		Messages: []*llmcore.LLMMessage{
 			{Role: "user", Content: "hi"},
 		},
-		Tools: []core.Tool{
-			{Type: "function", Function: core.FunctionDefinition{Name: "test"}},
+		Tools: []llmcore.Tool{
+			{Type: "function", Function: llmcore.FunctionDefinition{Name: "test"}},
 		},
 	})
 	if err != nil {
@@ -390,22 +390,22 @@ func TestService_Generate_ChatFinishReason(t *testing.T) {
 
 func TestService_Generate_ChatFinishReason_ToolCalls(t *testing.T) {
 	mockClient := &mockLLMClient{
-		chatFunc: func(ctx context.Context, messages []*core.LLMMessage, tools []core.Tool) (*core.GenerateResponse, error) {
-			return &core.GenerateResponse{
+		chatFunc: func(ctx context.Context, messages []*llmcore.LLMMessage, tools []llmcore.Tool) (*llmcore.GenerateResponse, error) {
+			return &llmcore.GenerateResponse{
 				Content:      "",
 				FinishReason: "",
-				ToolCalls:    []core.ToolCall{{ID: "call_1"}},
+				ToolCalls:    []llmcore.ToolCall{{ID: "call_1"}},
 			}, nil
 		},
 	}
 	s := newTestService(mockClient)
 
-	resp, err := s.Generate(context.Background(), &core.GenerateRequest{
-		Messages: []*core.LLMMessage{
+	resp, err := s.Generate(context.Background(), &llmcore.GenerateRequest{
+		Messages: []*llmcore.LLMMessage{
 			{Role: "user", Content: "call a tool"},
 		},
-		Tools: []core.Tool{
-			{Type: "function", Function: core.FunctionDefinition{Name: "test"}},
+		Tools: []llmcore.Tool{
+			{Type: "function", Function: llmcore.FunctionDefinition{Name: "test"}},
 		},
 	})
 	if err != nil {
@@ -478,7 +478,7 @@ func TestService_GenerateEmbedding_NilRequest(t *testing.T) {
 
 func TestService_GenerateEmbedding_EmptyInput(t *testing.T) {
 	s := newTestService(&mockLLMClient{})
-	_, err := s.GenerateEmbedding(context.Background(), &core.EmbeddingRequest{Input: ""})
+	_, err := s.GenerateEmbedding(context.Background(), &llmcore.EmbeddingRequest{Input: ""})
 	if err == nil {
 		t.Fatal("expected error for empty input")
 	}
@@ -489,7 +489,7 @@ func TestService_GenerateEmbedding_EmptyInput(t *testing.T) {
 
 func TestService_GenerateEmbedding_NoClient(t *testing.T) {
 	s := newTestService(&mockLLMClient{})
-	_, err := s.GenerateEmbedding(context.Background(), &core.EmbeddingRequest{Input: "test"})
+	_, err := s.GenerateEmbedding(context.Background(), &llmcore.EmbeddingRequest{Input: "test"})
 	if err == nil {
 		t.Fatal("expected error when no embedding client configured")
 	}
@@ -501,7 +501,7 @@ func TestService_GenerateEmbedding_NoClient(t *testing.T) {
 func TestService_GenerateEmbedding_UnsupportedClient(t *testing.T) {
 	s := newTestService(&mockLLMClient{})
 	s.embeddingClient = struct{}{}
-	_, err := s.GenerateEmbedding(context.Background(), &core.EmbeddingRequest{Input: "test"})
+	_, err := s.GenerateEmbedding(context.Background(), &llmcore.EmbeddingRequest{Input: "test"})
 	if err == nil {
 		t.Fatal("expected error for unsupported embedding client")
 	}
@@ -518,7 +518,7 @@ func TestService_GenerateEmbedding_Success(t *testing.T) {
 		},
 	}
 
-	resp, err := s.GenerateEmbedding(context.Background(), &core.EmbeddingRequest{Input: "test text"})
+	resp, err := s.GenerateEmbedding(context.Background(), &llmcore.EmbeddingRequest{Input: "test text"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -545,7 +545,7 @@ func TestService_GenerateEmbedding_WithoutModelGetter(t *testing.T) {
 	s := newTestService(&mockLLMClient{})
 	s.embeddingClient = e
 
-	resp, err := s.GenerateEmbedding(context.Background(), &core.EmbeddingRequest{Input: "text"})
+	resp, err := s.GenerateEmbedding(context.Background(), &llmcore.EmbeddingRequest{Input: "text"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -568,7 +568,7 @@ func TestService_GenerateEmbedding_ClientError(t *testing.T) {
 		},
 	}
 
-	_, err := s.GenerateEmbedding(context.Background(), &core.EmbeddingRequest{Input: "test"})
+	_, err := s.GenerateEmbedding(context.Background(), &llmcore.EmbeddingRequest{Input: "test"})
 	if err == nil {
 		t.Fatal("expected error from embedding client")
 	}
@@ -580,8 +580,8 @@ func TestService_GenerateEmbedding_ClientError(t *testing.T) {
 // ----- Accessor tests -----
 
 func TestService_GetConfig(t *testing.T) {
-	llmCfg := &core.LLMConfig{
-		Provider: core.LLMProviderAnthropic,
+	llmCfg := &llmcore.LLMConfig{
+		Provider: llmcore.LLMProviderAnthropic,
 		Model:    "claude-3",
 	}
 	s := &Service{llmConfig: llmCfg}
@@ -610,8 +610,8 @@ func TestService_IsEnabled(t *testing.T) {
 }
 
 func TestService_GetProvider(t *testing.T) {
-	s := &Service{llmConfig: &core.LLMConfig{Provider: core.LLMProviderOllama}}
-	if s.GetProvider() != core.LLMProviderOllama {
+	s := &Service{llmConfig: &llmcore.LLMConfig{Provider: llmcore.LLMProviderOllama}}
+	if s.GetProvider() != llmcore.LLMProviderOllama {
 		t.Errorf("expected ollama, got %q", s.GetProvider())
 	}
 
@@ -622,7 +622,7 @@ func TestService_GetProvider(t *testing.T) {
 }
 
 func TestService_GetModel(t *testing.T) {
-	s := &Service{llmConfig: &core.LLMConfig{Model: "llama3"}}
+	s := &Service{llmConfig: &llmcore.LLMConfig{Model: "llama3"}}
 	if s.GetModel() != "llama3" {
 		t.Errorf("expected llama3, got %q", s.GetModel())
 	}
@@ -653,7 +653,7 @@ func TestService_Close(t *testing.T) {
 
 func TestService_buildPrompt(t *testing.T) {
 	s := &Service{}
-	messages := []*core.LLMMessage{
+	messages := []*llmcore.LLMMessage{
 		{Role: "system", Content: "You are a helper"},
 		{Role: "user", Content: "Hello"},
 		{Role: "assistant", Content: "Hi there"},
@@ -669,7 +669,7 @@ func TestService_hasToolMessages(t *testing.T) {
 	s := &Service{}
 
 	// No tool data
-	noTool := []*core.LLMMessage{
+	noTool := []*llmcore.LLMMessage{
 		{Role: "user", Content: "hello"},
 	}
 	if s.hasToolMessages(noTool) {
@@ -677,15 +677,15 @@ func TestService_hasToolMessages(t *testing.T) {
 	}
 
 	// ToolCalls present
-	withToolCalls := []*core.LLMMessage{
-		{Role: "assistant", Content: "", ToolCalls: []core.ToolCall{{ID: "call_1"}}},
+	withToolCalls := []*llmcore.LLMMessage{
+		{Role: "assistant", Content: "", ToolCalls: []llmcore.ToolCall{{ID: "call_1"}}},
 	}
 	if !s.hasToolMessages(withToolCalls) {
 		t.Error("expected true for messages with ToolCalls")
 	}
 
 	// ToolCallID present
-	withToolCallID := []*core.LLMMessage{
+	withToolCallID := []*llmcore.LLMMessage{
 		{Role: "tool", Content: "result", ToolCallID: "call_1"},
 	}
 	if !s.hasToolMessages(withToolCallID) {
@@ -699,12 +699,12 @@ func TestService_hasToolMessages(t *testing.T) {
 }
 
 func TestService_getModel(t *testing.T) {
-	s := &Service{llmConfig: &core.LLMConfig{Model: "gpt-4o"}}
+	s := &Service{llmConfig: &llmcore.LLMConfig{Model: "gpt-4o"}}
 	if model := s.getModel(); model != "gpt-4o" {
 		t.Errorf("expected gpt-4o, got %q", model)
 	}
 
-	s2 := &Service{llmConfig: &core.LLMConfig{Model: ""}}
+	s2 := &Service{llmConfig: &llmcore.LLMConfig{Model: ""}}
 	if model := s2.getModel(); model != "default" {
 		t.Errorf("expected 'default', got %q", model)
 	}

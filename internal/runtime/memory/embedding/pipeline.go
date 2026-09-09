@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Timwood0x10/ares/api/embedding"
+	aresembed "github.com/Timwood0x10/ares/internal/embedding"
 	"github.com/Timwood0x10/ares/internal/errors"
 )
 
@@ -23,13 +23,13 @@ type EmbeddingPipeline interface {
 }
 
 type embeddingPipeline struct {
-	svc   embedding.EmbeddingService
+	svc   aresembed.EmbeddingService
 	model string
 	dim   int
 }
 
 // NewEmbeddingPipeline creates a pipeline wrapping the given service.
-func NewEmbeddingPipeline(svc embedding.EmbeddingService) (EmbeddingPipeline, error) {
+func NewEmbeddingPipeline(svc aresembed.EmbeddingService) (EmbeddingPipeline, error) {
 	if svc == nil {
 		return nil, errors.New("embedding service is nil")
 	}

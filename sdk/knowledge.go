@@ -9,8 +9,8 @@ import (
 
 	_ "github.com/lib/pq"
 
-	apiembed "github.com/Timwood0x10/ares/api/embedding"
 	ares_bootstrap "github.com/Timwood0x10/ares/internal/ares_bootstrap"
+	apiembed "github.com/Timwood0x10/ares/internal/embedding"
 	"github.com/Timwood0x10/ares/internal/evidence"
 	"github.com/Timwood0x10/ares/internal/knowledge"
 	"github.com/Timwood0x10/ares/internal/knowledge/adapter"

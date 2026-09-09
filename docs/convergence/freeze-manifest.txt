@@ -16,10 +16,16 @@ arena
 README.md
 
 [internal]
+# M5 internalization (2026-09-09): type/interface domains for the former
+# api/* exposure move here so sdk/ layers import internal directly and break
+# the sdk<->api back-edge. api/* degrades to a pure forwarding layer. The
+# implementation domains (llm, llmservice, knowledge, storage/*) keep their
+# owned packages; these *api/*core/*exp/*client packages never re-implement.
 agentipc
 agentloop
 agents
 agentsyscall
+apitools
 ares_bootstrap
 ares_callbacks
 ares_config
@@ -33,6 +39,7 @@ aresrecovery
 core
 detector
 discovery
+embedding
 errors
 evidence
 fabric
@@ -40,9 +47,14 @@ feedback
 introspect
 kernel
 knowledge
+knowledgeapi
 llm
+llmcore
+llmexp
 llmservice
+llmsvcapi
 logger
+mcpclient
 runtime
 scoreutil
 storage

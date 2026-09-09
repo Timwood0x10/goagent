@@ -1,13 +1,13 @@
-// Migration note: scheduled to fold into github.com/Timwood0x10/ares/sdk
-// (removal targeted for v0.5.0); internal callers remain during the window.
-// Package knowledge provides the public API for the ARES Knowledge
-// Fabric (AKF) — the Agent Knowledge Graph (AKG).
+// Package knowledge is the DEPRECATED public alias of
+// internal/knowledgeapi (M5). New code MUST import internal/knowledgeapi;
+// this package exists only for external consumers and is scheduled for
+// removal.
 //
 // This package exposes the core AKF types (KnowledgeObject,
 // WorkingGraph, Representation, Relation, Evidence) and the pipeline
 // interfaces (Normalizer, EntityMatcher, Validator, Summarizer) to
-// external modules. The internal implementation lives in
-// internal/knowledge; this file re-exports its public contract via
+// external modules. The canonical definitions live in
+// internal/knowledgeapi; this file re-exports its public contract via
 // type aliases so external callers can construct, process, and query
 // knowledge graphs without importing internal packages.
 //

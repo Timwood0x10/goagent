@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/sync/errgroup"
 
-	apiembed "github.com/Timwood0x10/ares/api/embedding"
+	apiembed "github.com/Timwood0x10/ares/internal/embedding"
 	areserrors "github.com/Timwood0x10/ares/internal/errors"
 	memembed "github.com/Timwood0x10/ares/internal/runtime/memory/embedding"
 	truncpkg "github.com/Timwood0x10/ares/internal/truncate"

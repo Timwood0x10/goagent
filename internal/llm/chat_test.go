@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Timwood0x10/ares/api/core"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 )
 
 func TestChat_OpenAI_WithTools(t *testing.T) {
@@ -54,13 +54,13 @@ func TestChat_OpenAI_WithTools(t *testing.T) {
 		t.Fatalf("NewClient() error = %v", err)
 	}
 
-	messages := []*core.LLMMessage{
+	messages := []*llmcore.LLMMessage{
 		{Role: "user", Content: "What is the weather in Seattle?"},
 	}
-	tools := []core.Tool{
+	tools := []llmcore.Tool{
 		{
 			Type: "function",
-			Function: core.FunctionDefinition{
+			Function: llmcore.FunctionDefinition{
 				Name:        "get_weather",
 				Description: "Get weather for a city",
 				Parameters: map[string]interface{}{
@@ -122,7 +122,7 @@ func TestChat_OpenAI_TextOnly(t *testing.T) {
 		t.Fatalf("NewClient() error = %v", err)
 	}
 
-	resp, err := client.Chat(context.Background(), []*core.LLMMessage{
+	resp, err := client.Chat(context.Background(), []*llmcore.LLMMessage{
 		{Role: "user", Content: "Hello"},
 	}, nil, nil)
 	if err != nil {
@@ -175,10 +175,10 @@ func TestChat_OpenRouter_WithTools(t *testing.T) {
 		t.Fatalf("NewClient() error = %v", err)
 	}
 
-	resp, err := client.Chat(context.Background(), []*core.LLMMessage{
+	resp, err := client.Chat(context.Background(), []*llmcore.LLMMessage{
 		{Role: "user", Content: "Search for test"},
-	}, []core.Tool{
-		{Type: "function", Function: core.FunctionDefinition{Name: "search", Description: "Search the web"}},
+	}, []llmcore.Tool{
+		{Type: "function", Function: llmcore.FunctionDefinition{Name: "search", Description: "Search the web"}},
 	}, nil)
 	if err != nil {
 		t.Fatalf("Chat() error = %v", err)
@@ -200,7 +200,7 @@ func TestChat_OpenAI_NoAPIKey(t *testing.T) {
 		t.Fatalf("NewClient() error = %v", err)
 	}
 
-	_, err = client.Chat(context.Background(), []*core.LLMMessage{
+	_, err = client.Chat(context.Background(), []*llmcore.LLMMessage{
 		{Role: "user", Content: "Hello"},
 	}, nil, nil)
 	if err == nil {
@@ -260,12 +260,12 @@ func TestChat_Anthropic_WithTools(t *testing.T) {
 		t.Fatalf("NewClient() error = %v", err)
 	}
 
-	resp, err := client.Chat(context.Background(), []*core.LLMMessage{
+	resp, err := client.Chat(context.Background(), []*llmcore.LLMMessage{
 		{Role: "user", Content: "What is the weather in Seattle?"},
-	}, []core.Tool{
+	}, []llmcore.Tool{
 		{
 			Type: "function",
-			Function: core.FunctionDefinition{
+			Function: llmcore.FunctionDefinition{
 				Name:        "get_weather",
 				Description: "Get weather for a city",
 				Parameters: map[string]interface{}{
@@ -339,7 +339,7 @@ func TestChat_Anthropic_SystemMessage(t *testing.T) {
 		t.Fatalf("NewClient() error = %v", err)
 	}
 
-	resp, err := client.Chat(context.Background(), []*core.LLMMessage{
+	resp, err := client.Chat(context.Background(), []*llmcore.LLMMessage{
 		{Role: "system", Content: "You are a helpful assistant."},
 		{Role: "user", Content: "Hello"},
 	}, nil, nil)
@@ -386,10 +386,10 @@ func TestChat_Anthropic_ToolResult(t *testing.T) {
 		t.Fatalf("NewClient() error = %v", err)
 	}
 
-	resp, err := client.Chat(context.Background(), []*core.LLMMessage{
+	resp, err := client.Chat(context.Background(), []*llmcore.LLMMessage{
 		{Role: "user", Content: "What is the weather?"},
-		{Role: "assistant", Content: "", ToolCalls: []core.ToolCall{
-			{ID: "toolu_123", Type: "function", Function: core.FunctionCall{Name: "get_weather", Arguments: `{"city":"Seattle"}`}},
+		{Role: "assistant", Content: "", ToolCalls: []llmcore.ToolCall{
+			{ID: "toolu_123", Type: "function", Function: llmcore.FunctionCall{Name: "get_weather", Arguments: `{"city":"Seattle"}`}},
 		}},
 		{Role: "tool", ToolCallID: "toolu_123", Content: "Sunny, 72F"},
 	}, nil, nil)
@@ -433,7 +433,7 @@ func TestChat_Anthropic_NoAPIKey(t *testing.T) {
 		t.Fatalf("NewClient() error = %v", err)
 	}
 
-	_, err = client.Chat(context.Background(), []*core.LLMMessage{
+	_, err = client.Chat(context.Background(), []*llmcore.LLMMessage{
 		{Role: "user", Content: "Hello"},
 	}, nil, nil)
 	if err == nil {
@@ -475,10 +475,10 @@ func TestChat_Ollama_WithTools(t *testing.T) {
 		t.Fatalf("NewClient() error = %v", err)
 	}
 
-	resp, err := client.Chat(context.Background(), []*core.LLMMessage{
+	resp, err := client.Chat(context.Background(), []*llmcore.LLMMessage{
 		{Role: "user", Content: "What is 2+2?"},
-	}, []core.Tool{
-		{Type: "function", Function: core.FunctionDefinition{Name: "calculate", Description: "Calculate math"}},
+	}, []llmcore.Tool{
+		{Type: "function", Function: llmcore.FunctionDefinition{Name: "calculate", Description: "Calculate math"}},
 	}, nil)
 	if err != nil {
 		t.Fatalf("Chat() error = %v", err)
@@ -502,7 +502,7 @@ func TestChat_UnsupportedProvider(t *testing.T) {
 		t.Fatalf("NewClient() error = %v", err)
 	}
 
-	_, err = client.Chat(context.Background(), []*core.LLMMessage{
+	_, err = client.Chat(context.Background(), []*llmcore.LLMMessage{
 		{Role: "user", Content: "Hello"},
 	}, nil, nil)
 	if err == nil {
@@ -562,10 +562,10 @@ func TestChat_OpenAI_ToolResultMessage(t *testing.T) {
 		t.Fatalf("NewClient() error = %v", err)
 	}
 
-	resp, err := client.Chat(context.Background(), []*core.LLMMessage{
+	resp, err := client.Chat(context.Background(), []*llmcore.LLMMessage{
 		{Role: "user", Content: "What is the weather?"},
-		{Role: "assistant", Content: "", ToolCalls: []core.ToolCall{
-			{ID: "call_123", Type: "function", Function: core.FunctionCall{Name: "get_weather", Arguments: `{"city":"Seattle"}`}},
+		{Role: "assistant", Content: "", ToolCalls: []llmcore.ToolCall{
+			{ID: "call_123", Type: "function", Function: llmcore.FunctionCall{Name: "get_weather", Arguments: `{"city":"Seattle"}`}},
 		}},
 		{Role: "tool", ToolCallID: "call_123", Content: "Sunny, 72F"},
 	}, nil, nil)
@@ -632,7 +632,7 @@ func TestFailoverClient_Chat_AllProviders(t *testing.T) {
 		cooldowns:        make(map[string]time.Time),
 	}
 
-	resp, err := fc.Chat(context.Background(), []*core.LLMMessage{
+	resp, err := fc.Chat(context.Background(), []*llmcore.LLMMessage{
 		{Role: "user", Content: "Hello"},
 	}, nil, nil)
 	if err != nil {

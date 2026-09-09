@@ -11,11 +11,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	"github.com/Timwood0x10/ares/internal/fabric/planprojection"
 	"github.com/Timwood0x10/ares/internal/fabric/task"
 	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 )
 
 // synthesisChat is the shared ChatClient fake for the M4.2 tests: it
@@ -26,14 +26,14 @@ import (
 type synthesisChat struct {
 	mu     sync.Mutex
 	calls  int
-	msgs   []*core.LLMMessage
-	tools  []core.Tool
+	msgs   []*llmcore.LLMMessage
+	tools  []llmcore.Tool
 	params []map[string]any
-	resp   *core.GenerateResponse
+	resp   *llmcore.GenerateResponse
 	err    error
 }
 
-func (c *synthesisChat) Chat(_ context.Context, msgs []*core.LLMMessage, tools []core.Tool, params map[string]any) (*core.GenerateResponse, error) {
+func (c *synthesisChat) Chat(_ context.Context, msgs []*llmcore.LLMMessage, tools []llmcore.Tool, params map[string]any) (*llmcore.GenerateResponse, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.calls++
@@ -126,7 +126,7 @@ func newSynthesisRouter(t *testing.T, reg *SessionRegistry, fabric *taskfabric.F
 func TestStampedContentBypassesSynthesis(t *testing.T) {
 	ctx := context.Background()
 	reg, fabric, answerID := newSynthesisSession(t, ctx, "synth-stamped")
-	chat := &synthesisChat{resp: &core.GenerateResponse{Content: "synthesized must not run"}}
+	chat := &synthesisChat{resp: &llmcore.GenerateResponse{Content: "synthesized must not run"}}
 	router := newSynthesisRouter(t, reg, fabric, chat, slog.Default())
 
 	task := synthAnswerTask("synth-stamped", answerID)
@@ -151,7 +151,7 @@ func TestContentlessNodeSynthesizesFromPredecessors(t *testing.T) {
 	ctx := context.Background()
 	const sessionID = "synth-synth"
 	reg, fabric, answerID := newSynthesisSession(t, ctx, sessionID)
-	chat := &synthesisChat{resp: &core.GenerateResponse{Content: "the answer is 42"}}
+	chat := &synthesisChat{resp: &llmcore.GenerateResponse{Content: "the answer is 42"}}
 	router := newSynthesisRouter(t, reg, fabric, chat, slog.Default())
 
 	out, err := router.ExecuteStep(ctx, synthAnswerTask(sessionID, answerID))
@@ -199,7 +199,7 @@ func TestSynthesisFailureEmitsGapBody(t *testing.T) {
 		chat *synthesisChat
 	}{
 		{"llm_error", &synthesisChat{err: fmt.Errorf("provider down")}},
-		{"empty_response", &synthesisChat{resp: &core.GenerateResponse{}}},
+		{"empty_response", &synthesisChat{resp: &llmcore.GenerateResponse{}}},
 	}
 	for _, fm := range failureModes {
 		t.Run(fm.name, func(t *testing.T) {

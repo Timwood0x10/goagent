@@ -3,8 +3,8 @@ package agentfabric
 import (
 	"context"
 
-	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/core/models"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 	resources "github.com/Timwood0x10/ares/internal/tools/resources/core"
 )
 
@@ -73,7 +73,7 @@ func (f CognitionFunc) ExecuteStep(ctx context.Context, task *models.Task) (*Ste
 // live plan growth can be steered at runtime. (Relocated from the retired
 // chat loop; the contract is unchanged.)
 type ChatClient interface {
-	Chat(ctx context.Context, messages []*core.LLMMessage, tools []core.Tool, params map[string]any) (*core.GenerateResponse, error)
+	Chat(ctx context.Context, messages []*llmcore.LLMMessage, tools []llmcore.Tool, params map[string]any) (*llmcore.GenerateResponse, error)
 }
 
 // ToolBinder is the minimal tool surface the cognition bodies need

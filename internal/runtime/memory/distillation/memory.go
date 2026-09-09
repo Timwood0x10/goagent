@@ -9,7 +9,7 @@
 package distillation
 
 import (
-	"github.com/Timwood0x10/ares/api/experience"
+	experience "github.com/Timwood0x10/ares/internal/llmexp"
 )
 
 // Public type aliases. These keep the internal package's existing API

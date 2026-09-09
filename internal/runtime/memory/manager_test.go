@@ -9,10 +9,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/Timwood0x10/ares/api/core"
-	"github.com/Timwood0x10/ares/api/embedding"
 	"github.com/Timwood0x10/ares/internal/ares_events"
 	"github.com/Timwood0x10/ares/internal/core/models"
+	"github.com/Timwood0x10/ares/internal/embedding"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 	"github.com/Timwood0x10/ares/internal/runtime/memory/distillation"
 )
 
@@ -566,19 +566,19 @@ func TestToLLMMessage(t *testing.T) {
 
 func TestFromCoreMessage(t *testing.T) {
 	now := time.Now()
-	coreMsg := &core.Message{
+	coreMsg := &llmcore.Message{
 		SessionID: "session_1",
-		Role:      core.MessageRoleUser,
+		Role:      llmcore.MessageRoleUser,
 		Content:   "Hello from core",
 		Time:      now,
-		Metadata: core.Metadata{
+		Metadata: llmcore.Metadata{
 			"turn_id":      "turn_1",
 			"tool_call_id": "call_1",
 		},
 	}
 
 	msg := FromCoreMessage("session_1", coreMsg)
-	if msg.Role != string(core.MessageRoleUser) {
+	if msg.Role != string(llmcore.MessageRoleUser) {
 		t.Errorf("expected role 'user', got %q", msg.Role)
 	}
 	if msg.Content != "Hello from core" {
@@ -600,12 +600,12 @@ func TestFromCoreMessage_Nil(t *testing.T) {
 }
 
 func TestFromLLMMessage(t *testing.T) {
-	llmMsg := &core.LLMMessage{
+	llmMsg := &llmcore.LLMMessage{
 		Role:       "assistant",
 		Content:    "Let me search",
 		ToolCallID: "call_1",
-		ToolCalls: []core.ToolCall{
-			{ID: "tc1", Type: "function", Function: core.FunctionCall{Name: "search", Arguments: `{"q":"test"}`}},
+		ToolCalls: []llmcore.ToolCall{
+			{ID: "tc1", Type: "function", Function: llmcore.FunctionCall{Name: "search", Arguments: `{"q":"test"}`}},
 		},
 	}
 

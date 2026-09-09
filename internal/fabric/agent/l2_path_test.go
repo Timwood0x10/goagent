@@ -9,11 +9,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	"github.com/Timwood0x10/ares/internal/fabric/planprojection"
 	"github.com/Timwood0x10/ares/internal/fabric/task"
 	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 )
 
 // dualPathChat is a scripted ChatClient that returns the SAME tool call
@@ -24,7 +24,7 @@ type dualPathChat struct {
 	calls int
 }
 
-func (c *dualPathChat) Chat(_ context.Context, _ []*core.LLMMessage, _ []core.Tool, _ map[string]any) (*core.GenerateResponse, error) {
+func (c *dualPathChat) Chat(_ context.Context, _ []*llmcore.LLMMessage, _ []llmcore.Tool, _ map[string]any) (*llmcore.GenerateResponse, error) {
 	c.mu.Lock()
 	c.calls++
 	round := c.calls
@@ -32,18 +32,18 @@ func (c *dualPathChat) Chat(_ context.Context, _ []*core.LLMMessage, _ []core.To
 
 	switch round {
 	case 1:
-		return &core.GenerateResponse{
-			ToolCalls: []core.ToolCall{{
+		return &llmcore.GenerateResponse{
+			ToolCalls: []llmcore.ToolCall{{
 				ID:   "dp-1",
 				Type: "function",
-				Function: core.FunctionCall{
+				Function: llmcore.FunctionCall{
 					Name:      "grep",
 					Arguments: `{"query":"pattern"}`,
 				},
 			}},
 		}, nil
 	default:
-		return &core.GenerateResponse{Content: "the answer is 42"}, nil
+		return &llmcore.GenerateResponse{Content: "the answer is 42"}, nil
 	}
 }
 

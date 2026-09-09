@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Timwood0x10/ares/api/core"
-	"github.com/Timwood0x10/ares/api/tools"
 	"github.com/Timwood0x10/ares/internal/agentsyscall"
+	tools "github.com/Timwood0x10/ares/internal/apitools"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	"github.com/Timwood0x10/ares/internal/fabric/agent"
 	"github.com/Timwood0x10/ares/internal/kernel"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 )
 
 // This file wires the spawn_agent / create_task syscalls into the SDK
@@ -182,19 +182,19 @@ func (r *Runtime) StopPlanLoop(planID string) error {
 	return r.syscallKernel.StopPlanLoop(planID)
 }
 
-// syscallLLMTools converts the syscall schemas to the LLM-facing api/core.Tool
+// syscallLLMTools converts the syscall schemas to the LLM-facing api/llmcore.Tool
 // list so resolveTools can append them to every agent's tool set (the agent
 // sees spawn_agent / create_task regardless of its own WithTools list).
-func syscallLLMTools() []core.Tool {
+func syscallLLMTools() []llmcore.Tool {
 	schemas := agentsyscall.ToolSchemas()
 	if len(schemas) == 0 {
 		return nil
 	}
-	out := make([]core.Tool, 0, len(schemas))
+	out := make([]llmcore.Tool, 0, len(schemas))
 	for _, s := range schemas {
-		out = append(out, core.Tool{
+		out = append(out, llmcore.Tool{
 			Type: "function",
-			Function: core.FunctionDefinition{
+			Function: llmcore.FunctionDefinition{
 				Name:        s.Name,
 				Description: s.Description,
 				Parameters:  s.Parameters,

@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/agents/base"
 	"github.com/Timwood0x10/ares/internal/agents/sub"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	"github.com/Timwood0x10/ares/internal/fabric/agent"
 	"github.com/Timwood0x10/ares/internal/fabric/planprojection"
 	"github.com/Timwood0x10/ares/internal/fabric/task"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 )
 
 // collabStubAgent satisfies sub.Agent minimally: the session-routed
@@ -46,7 +46,7 @@ func (a *collabStubAgent) ExecuteStep(_ context.Context, _ *models.Task) (*sub.S
 // errChat is a ChatClient that always fails (drives the plan task to FAILED).
 type errChat struct{ err error }
 
-func (e *errChat) Chat(context.Context, []*core.LLMMessage, []core.Tool, map[string]any) (*core.GenerateResponse, error) {
+func (e *errChat) Chat(context.Context, []*llmcore.LLMMessage, []llmcore.Tool, map[string]any) (*llmcore.GenerateResponse, error) {
 	return nil, e.err
 }
 
@@ -93,7 +93,7 @@ func TestCollabTopicAnsweredByL2Session(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	kh := newL2TopicKernel(t, ctx, &canaryScript{responses: []core.GenerateResponse{{Content: "session says hi"}}})
+	kh := newL2TopicKernel(t, ctx, &canaryScript{responses: []llmcore.GenerateResponse{{Content: "session says hi"}}})
 
 	bridge, err := wireEvolutionIPC(
 		[]sub.Agent{&collabStubAgent{id: "peer-research", typ: "research"}},
@@ -139,7 +139,7 @@ func TestCollabTopicSessionsUniquePerInvocation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	kh := newL2TopicKernel(t, ctx, &canaryScript{responses: []core.GenerateResponse{{Content: "hi"}}})
+	kh := newL2TopicKernel(t, ctx, &canaryScript{responses: []llmcore.GenerateResponse{{Content: "hi"}}})
 
 	bridge, err := wireEvolutionIPC(
 		[]sub.Agent{&collabStubAgent{id: "peer-research", typ: "research"}},

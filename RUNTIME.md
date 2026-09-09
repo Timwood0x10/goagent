@@ -152,7 +152,7 @@ SUSPENDED─(下轮 drain re-acquire)→LEASED；过期租约→CheckExpiredLeas
 | 16 | ~~flushAppends 无 deadline~~（**误报**，2026-09-08 核实） | fabric.go:693/697 `flushAppendTimeout=10s`、`flushOrderWaitTimeout=30s` 均已存在；排序屏障超时→跳过、must-persist 失败→记 divergence 日志，丢/重试语义已被代码行为定义 | ✅ 已具备，非缺陷（DEEP_CODE_REVIEW 误报；grep 的 `\|` 字面量误判） |
 | 17 | **HasCapableExecutor 与派发器"能否调度"双实现** | executor_registry.go `buildCandidates`；fabric_executor.go `appendFabricCandidates` | ✅ 已修（2026-09-08）：新增共享 `buildCandidates(taskID)`，`HasCapableExecutor` 与调度共用同一候选源，谓词=对共享候选 `Score(task.Capability, cand)>0`。**连带修复隐藏 bug**：旧 fabric 分支构造候选不带 Confidence → `Score` 恒 0 → 该分支实为死代码（fabric-only 能力 agent 被判"无候选"）；`TestHasCapableExecutorSourcesFabricCandidates` 锁死新行为 |
 
-另（深审 DEEP_CODE_REVIEW 对账补充）：restore.go 持久化恢复的未检查断言已修（坏 payload 拒绝折叠）；10 处类型断言/11 处 nilnil/4 处无目标 nolint 已处置；arena 四个弃用成员确认为"仅测试调用"，已留 `TODO(tech-debt)` 痕。**api/ 有 91 个文件仍在 import——"下葬"不可行，必须先迁引用（M5 口径修正）**。
+另（深审 DEEP_CODE_REVIEW 对账补充）：restore.go 持久化恢复的未检查断言已修（坏 payload 拒绝折叠）；10 处类型断言/11 处 nilnil/4 处无目标 nolint 已处置；arena 四个弃用成员确认为"仅测试调用"，已留 `TODO(tech-debt)` 痕。**api/ 91 引用已清零（M5 内部化，2026-09-09）：internal/sdk/cmd/compat 无 api/ import，api/ 降级纯转发层供 examples；剩余 api/discovery|evolution 无内部消费者**。
 
 ## 7. 旁观者模块（不在热路径）
 

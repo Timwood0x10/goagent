@@ -11,12 +11,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	"github.com/Timwood0x10/ares/internal/fabric/agent"
 	"github.com/Timwood0x10/ares/internal/fabric/planprojection"
 	"github.com/Timwood0x10/ares/internal/fabric/task"
 	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 	resources "github.com/Timwood0x10/ares/internal/tools/resources/core"
 )
 
@@ -27,15 +27,15 @@ import (
 type canaryScript struct {
 	mu        sync.Mutex
 	calls     int
-	responses []core.GenerateResponse
+	responses []llmcore.GenerateResponse
 }
 
-func canaryToolCall(id, name, args string) core.GenerateResponse {
-	return core.GenerateResponse{
-		ToolCalls: []core.ToolCall{{
+func canaryToolCall(id, name, args string) llmcore.GenerateResponse {
+	return llmcore.GenerateResponse{
+		ToolCalls: []llmcore.ToolCall{{
 			ID:   id,
 			Type: "function",
-			Function: core.FunctionCall{
+			Function: llmcore.FunctionCall{
 				Name:      name,
 				Arguments: args,
 			},
@@ -43,7 +43,7 @@ func canaryToolCall(id, name, args string) core.GenerateResponse {
 	}
 }
 
-func (c *canaryScript) Chat(_ context.Context, _ []*core.LLMMessage, _ []core.Tool, _ map[string]any) (*core.GenerateResponse, error) {
+func (c *canaryScript) Chat(_ context.Context, _ []*llmcore.LLMMessage, _ []llmcore.Tool, _ map[string]any) (*llmcore.GenerateResponse, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.calls++
@@ -120,7 +120,7 @@ func (b *canaryBinder) stats() (total, failed int, maxLatency time.Duration) {
 // terminal answer, and the expected tool-call count.
 type canarySession struct {
 	id        string
-	script    []core.GenerateResponse
+	script    []llmcore.GenerateResponse
 	answer    string
 	wantTools int
 }
@@ -133,7 +133,7 @@ type canaryRouterChat struct {
 	scripts map[string]*canaryScript
 }
 
-func (c *canaryRouterChat) Chat(ctx context.Context, msgs []*core.LLMMessage, tools []core.Tool, params map[string]any) (*core.GenerateResponse, error) {
+func (c *canaryRouterChat) Chat(ctx context.Context, msgs []*llmcore.LLMMessage, tools []llmcore.Tool, params map[string]any) (*llmcore.GenerateResponse, error) {
 	c.mu.Lock()
 	scripts := make(map[string]*canaryScript, len(c.scripts))
 	for k, v := range c.scripts {
@@ -162,29 +162,29 @@ func TestCanary_FullStackL2Sessions(t *testing.T) {
 	defer cancel()
 
 	sessions := []canarySession{
-		{id: "canary-1", script: []core.GenerateResponse{
+		{id: "canary-1", script: []llmcore.GenerateResponse{
 			canaryToolCall("c1-1", "grep", `{"query":"q1"}`),
 			canaryToolCall("c1-2", "read", `{"query":"q2"}`),
 			{Content: "answer one"},
 		}, answer: "answer one", wantTools: 2},
-		{id: "canary-2", script: []core.GenerateResponse{
+		{id: "canary-2", script: []llmcore.GenerateResponse{
 			canaryToolCall("c2-1", "grep", `{"query":"q3"}`),
 			canaryToolCall("c2-2", "read", `{"query":"q4"}`),
 			{Content: "answer two"},
 		}, answer: "answer two", wantTools: 2},
-		{id: "canary-3", script: []core.GenerateResponse{
+		{id: "canary-3", script: []llmcore.GenerateResponse{
 			canaryToolCall("c3-1", "grep", `{"query":"q5"}`),
 			canaryToolCall("c3-2", "read", `{"query":"q6"}`),
 			canaryToolCall("c3-3", "echo", `{"query":"q7"}`),
 			{Content: "answer three"},
 		}, answer: "answer three", wantTools: 3},
-		{id: "canary-4", script: []core.GenerateResponse{
+		{id: "canary-4", script: []llmcore.GenerateResponse{
 			{Content: "immediate answer"},
 		}, answer: "immediate answer", wantTools: 0},
-		{id: "canary-5", script: []core.GenerateResponse{
-			{ToolCalls: []core.ToolCall{
-				{ID: "c5-1", Type: "function", Function: core.FunctionCall{Name: "grep", Arguments: `{"query":"q8"}`}},
-				{ID: "c5-2", Type: "function", Function: core.FunctionCall{Name: "read", Arguments: `{"query":"q9"}`}},
+		{id: "canary-5", script: []llmcore.GenerateResponse{
+			{ToolCalls: []llmcore.ToolCall{
+				{ID: "c5-1", Type: "function", Function: llmcore.FunctionCall{Name: "grep", Arguments: `{"query":"q8"}`}},
+				{ID: "c5-2", Type: "function", Function: llmcore.FunctionCall{Name: "read", Arguments: `{"query":"q9"}`}},
 			}},
 			{Content: "answer five"},
 		}, answer: "answer five", wantTools: 2},

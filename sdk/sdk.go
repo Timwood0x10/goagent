@@ -34,21 +34,21 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/Timwood0x10/ares/api/core"
-	apiembed "github.com/Timwood0x10/ares/api/embedding"
-	"github.com/Timwood0x10/ares/api/mcp"
-	"github.com/Timwood0x10/ares/api/service/llm"
-	"github.com/Timwood0x10/ares/api/tools"
 	"github.com/Timwood0x10/ares/internal/agentloop"
 	"github.com/Timwood0x10/ares/internal/agentsyscall"
+	tools "github.com/Timwood0x10/ares/internal/apitools"
 	ares_bootstrap "github.com/Timwood0x10/ares/internal/ares_bootstrap"
 	ares_events "github.com/Timwood0x10/ares/internal/ares_events"
+	apiembed "github.com/Timwood0x10/ares/internal/embedding"
 	"github.com/Timwood0x10/ares/internal/fabric/agent"
 	"github.com/Timwood0x10/ares/internal/fabric/task"
 	"github.com/Timwood0x10/ares/internal/kernel"
 	"github.com/Timwood0x10/ares/internal/knowledge"
 	"github.com/Timwood0x10/ares/internal/knowledge/adapter"
 	khruntime "github.com/Timwood0x10/ares/internal/knowledge/runtime"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
+	llm "github.com/Timwood0x10/ares/internal/llmsvcapi"
+	mcp "github.com/Timwood0x10/ares/internal/mcpclient"
 	memory "github.com/Timwood0x10/ares/internal/runtime/memory"
 	aresexp "github.com/Timwood0x10/ares/internal/runtime/memory/experience"
 	"github.com/Timwood0x10/ares/internal/storage/postgres"
@@ -81,8 +81,8 @@ const (
 // without spinning up a real provider. *llm.Service satisfies it; the field
 // is assigned the concrete service in New().
 type llmService interface {
-	Generate(ctx context.Context, req *core.GenerateRequest) (*core.GenerateResponse, error)
-	GetProvider() core.LLMProvider
+	Generate(ctx context.Context, req *llmcore.GenerateRequest) (*llmcore.GenerateResponse, error)
+	GetProvider() llmcore.LLMProvider
 	GetModel() string
 	Close()
 }
@@ -189,7 +189,7 @@ type Runtime struct {
 	// appended to every agent's tool list so SDK users can autonomously
 	// decompose tasks. Populated by wireSyscalls; nil before the first
 	// Submit.
-	syscallTools []core.Tool
+	syscallTools []llmcore.Tool
 	// syscallKernel is the agentsyscall kernel built by wireSyscalls, kept so
 	// the loop lifetime (WithLoopLifetime) wiring is observable and plan-loop
 	// control (LivePlanLoops/StopPlanLoop) is reachable from the runtime. Nil

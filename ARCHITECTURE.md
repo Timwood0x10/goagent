@@ -77,7 +77,7 @@ M2-b 修缮批 ✅（同日，源自全仓深审 DEEP_CODE_REVIEW）：持久化
 7. PG 模式 events retention ✅（M4 三批，按 TODO 指明路线）：PG 无 round 归档/compaction 是设计使然（表即持久历史，round 文件是冗余拷贝）；真正缺口是表增长无界 → PostgresEventStore.CleanupExpiredBefore(cutoff) + storage.events_retention_days（默认 0=永不清除，删除事件会收窄 restore 窗口）→ eventsRetentionCleanerFor 纯决策函数挂进 bootstrap ExpiryCleaners（evidence store 同模式，小时级维护工人）。
 
 ### M5 — api/、agents/ 下葬（前置 M1-M3；口径已修正）
-- **api/ 实况修正（深审核实）：91 个文件仍在 import api/（serve/agent/bootstrap/llm/memory/knowledge/fabric 等）——"deprecated 下葬"名存实亡。必须先按 MIGRATION.md 迁移全部引用，才谈删除。**
+- **api/ 内部化 ✅（2026-09-09，M5 三批并行落地）**：真实定义全部迁入 internal/（api/core→internal/llmcore、api/embedding→internal/embedding、api/experience→internal/llmexp、api/knowledge→internal/knowledgeapi、api/tools→internal/apitools、api/mcp→internal/mcpclient、api/service/llm→internal/llmsvcapi）；api/ 侧七包降级为纯转发层（type alias+函数委托，go doc 符号前后 diff 验证 + test/apifwd 编译期钉死 37 符号）。**internal/sdk/cmd/compat 的 api/ import 清零（grep 0 条）**；examples/ 17 文件经转发层继续编译。剩：api/ 转发层本体 + api/discovery|evolution（无 internal 消费者）+ examples 迁移，才能物理删除目录。
 - agents/ 只留 StrategySource 等活符号，sub 壳下葬。
 - compat/ 仅 1 个外部引用（ares_bootstrap/provide_llm.go），标准日落目标；删除时按惯例留 `TODO(tech-debt)`。
 

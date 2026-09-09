@@ -9,11 +9,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	"github.com/Timwood0x10/ares/internal/fabric/planprojection"
 	"github.com/Timwood0x10/ares/internal/fabric/task"
 	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 	resources "github.com/Timwood0x10/ares/internal/tools/resources/core"
 )
 
@@ -22,12 +22,12 @@ import (
 // grows an answer node.
 type l1ChatAlwaysGrep struct{}
 
-func (c *l1ChatAlwaysGrep) Chat(_ context.Context, _ []*core.LLMMessage, _ []core.Tool, _ map[string]any) (*core.GenerateResponse, error) {
-	return &core.GenerateResponse{
-		ToolCalls: []core.ToolCall{{
+func (c *l1ChatAlwaysGrep) Chat(_ context.Context, _ []*llmcore.LLMMessage, _ []llmcore.Tool, _ map[string]any) (*llmcore.GenerateResponse, error) {
+	return &llmcore.GenerateResponse{
+		ToolCalls: []llmcore.ToolCall{{
 			ID:   "tc-grep",
 			Type: "function",
-			Function: core.FunctionCall{
+			Function: llmcore.FunctionCall{
 				Name:      "grep",
 				Arguments: `{"query":"test"}`,
 			},
@@ -42,21 +42,21 @@ type l1ChatGrepThenAnswer struct {
 	calls int
 }
 
-func (c *l1ChatGrepThenAnswer) Chat(_ context.Context, _ []*core.LLMMessage, _ []core.Tool, _ map[string]any) (*core.GenerateResponse, error) {
+func (c *l1ChatGrepThenAnswer) Chat(_ context.Context, _ []*llmcore.LLMMessage, _ []llmcore.Tool, _ map[string]any) (*llmcore.GenerateResponse, error) {
 	c.calls++
 	if c.calls == 1 {
-		return &core.GenerateResponse{
-			ToolCalls: []core.ToolCall{{
+		return &llmcore.GenerateResponse{
+			ToolCalls: []llmcore.ToolCall{{
 				ID:   "tc-grep-1",
 				Type: "function",
-				Function: core.FunctionCall{
+				Function: llmcore.FunctionCall{
 					Name:      "grep",
 					Arguments: `{"query":"first"}`,
 				},
 			}},
 		}, nil
 	}
-	return &core.GenerateResponse{Content: "done"}, nil
+	return &llmcore.GenerateResponse{Content: "done"}, nil
 }
 
 // buildTestL1DAG builds an L1 ToolClass DAG with configurable enabled/budget

@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/agents/actionlog"
 	"github.com/Timwood0x10/ares/internal/agents/base"
 	"github.com/Timwood0x10/ares/internal/agents/outputguard"
 	"github.com/Timwood0x10/ares/internal/ares_events"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	"github.com/Timwood0x10/ares/internal/errors"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 	"github.com/Timwood0x10/ares/internal/runtime/protocol/ahp"
 	resources "github.com/Timwood0x10/ares/internal/tools/resources/core"
 )
@@ -83,7 +83,7 @@ type MessageHandler interface {
 // strategy. (Relocated from the retired tool-loop executor; the
 // contract is unchanged.)
 type ChatClient interface {
-	Chat(ctx context.Context, messages []*core.LLMMessage, tools []core.Tool, params map[string]any) (*core.GenerateResponse, error)
+	Chat(ctx context.Context, messages []*llmcore.LLMMessage, tools []llmcore.Tool, params map[string]any) (*llmcore.GenerateResponse, error)
 }
 
 // ToolBinder binds tools to the agent.

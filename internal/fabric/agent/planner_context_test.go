@@ -9,11 +9,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	"github.com/Timwood0x10/ares/internal/fabric/planprojection"
 	"github.com/Timwood0x10/ares/internal/fabric/task"
 	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 )
 
 // contextChat captures the messages the planner sends to the LLM so the test
@@ -21,20 +21,20 @@ import (
 // tool outputs).
 type contextChat struct {
 	mu       sync.Mutex
-	messages []*core.LLMMessage
+	messages []*llmcore.LLMMessage
 	calls    int
-	tools    []core.Tool
+	tools    []llmcore.Tool
 }
 
-func (c *contextChat) Chat(_ context.Context, msgs []*core.LLMMessage, tools []core.Tool, _ map[string]any) (*core.GenerateResponse, error) {
+func (c *contextChat) Chat(_ context.Context, msgs []*llmcore.LLMMessage, tools []llmcore.Tool, _ map[string]any) (*llmcore.GenerateResponse, error) {
 	c.mu.Lock()
 	c.calls++
-	c.messages = make([]*core.LLMMessage, len(msgs))
+	c.messages = make([]*llmcore.LLMMessage, len(msgs))
 	copy(c.messages, msgs)
 	c.tools = tools
 	c.mu.Unlock()
 
-	return &core.GenerateResponse{Content: "final answer"}, nil
+	return &llmcore.GenerateResponse{Content: "final answer"}, nil
 }
 
 // TestAssembleContextFromGraphPath verifies the context assembly:

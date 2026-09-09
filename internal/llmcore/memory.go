@@ -1,5 +1,5 @@
-// Package core provides core abstractions for memory operations.
-package core
+// Package llmcore provides core abstractions for memory operations.
+package llmcore
 
 import "time"
 

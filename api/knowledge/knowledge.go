@@ -1,14 +1,18 @@
+// Package knowledge is the DEPRECATED public alias of
+// internal/knowledgeapi (M5). New code MUST import internal/knowledgeapi;
+// this package exists only for external consumers and is scheduled for
+// removal.
 package knowledge
 
 import (
-	"github.com/Timwood0x10/ares/internal/knowledge"
+	"github.com/Timwood0x10/ares/internal/knowledgeapi"
 )
 
 // ObjectType identifies the type of a knowledge object.
-type ObjectType = knowledge.ObjectType
+type ObjectType = knowledgeapi.ObjectType
 
 // Evidence records the provenance of a KnowledgeObject.
-type Evidence = knowledge.Evidence
+type Evidence = knowledgeapi.Evidence
 
 // KnowledgeObject is the universal knowledge representation.
 //
@@ -16,94 +20,94 @@ type Evidence = knowledge.Evidence
 //   - Raw:        Original bytes from the source, preserved for re-distillation.
 //   - Normalized: Cleaned, standardized text for embedding and matching.
 //   - Summary:    LLM-friendly summary for token-efficient retrieval.
-type KnowledgeObject = knowledge.KnowledgeObject
+type KnowledgeObject = knowledgeapi.KnowledgeObject
 
 // Representation stores an embedding vector for a KnowledgeObject.
-type Representation = knowledge.Representation
+type Representation = knowledgeapi.Representation
 
 // Relation connects two KnowledgeObjects with a named relationship.
-type Relation = knowledge.Relation
+type Relation = knowledgeapi.Relation
 
 // WorkingGraph is a task-specific cognitive graph.
 // Lifecycle: Build → Consume → Destroy. Never persisted.
-type WorkingGraph = knowledge.WorkingGraph
+type WorkingGraph = knowledgeapi.WorkingGraph
 
 // Query defines filter criteria for KnowledgeStore queries.
-type Query = knowledge.Query
+type Query = knowledgeapi.Query
 
 // KnowledgeStore is an optional persistence layer for KnowledgeObjects.
 // It serves as Cache, Persistence, and History — not a required hop.
 // Provider → Pipeline → KnowledgeRuntime bypasses Store entirely.
-type KnowledgeStore = knowledge.KnowledgeStore
+type KnowledgeStore = knowledgeapi.KnowledgeStore
 
 // Intent describes what knowledge is needed and within what constraints.
-type Intent = knowledge.Intent
+type Intent = knowledgeapi.Intent
 
 // Scope defines the boundaries for knowledge retrieval.
-type Scope = knowledge.Scope
+type Scope = knowledgeapi.Scope
 
 // Constraint is a key-value filter with an operator.
-type Constraint = knowledge.Constraint
+type Constraint = knowledgeapi.Constraint
 
 // TokenBudget allocates token usage between graph context and LLM reasoning.
-type TokenBudget = knowledge.TokenBudget
+type TokenBudget = knowledgeapi.TokenBudget
 
 // Normalizer converts Raw bytes into Normalized text.
-type Normalizer = knowledge.Normalizer
+type Normalizer = knowledgeapi.Normalizer
 
 // EntityMatcher attempts to match a KnowledgeObject against existing entities.
-type EntityMatcher = knowledge.EntityMatcher
+type EntityMatcher = knowledgeapi.EntityMatcher
 
 // Validator checks whether a merge result is consistent.
-type Validator = knowledge.Validator
+type Validator = knowledgeapi.Validator
 
 // Summarizer compresses Normalized text into a concise Summary.
-type Summarizer = knowledge.Summarizer
+type Summarizer = knowledgeapi.Summarizer
 
 // ResolveResult is the outcome of entity matching.
-type ResolveResult = knowledge.ResolveResult
+type ResolveResult = knowledgeapi.ResolveResult
 
 // ValidationResult is the outcome of conflict validation.
-type ValidationResult = knowledge.ValidationResult
+type ValidationResult = knowledgeapi.ValidationResult
 
 // Conflict describes a field-level disagreement between sources.
-type Conflict = knowledge.Conflict
+type Conflict = knowledgeapi.Conflict
 
 // KnowledgePipeline orchestrates processing of KnowledgeObjects through
 // Normalizer → EntityMatcher → Validator → Summarizer stages.
-type KnowledgePipeline = knowledge.KnowledgePipeline
+type KnowledgePipeline = knowledgeapi.KnowledgePipeline
 
 // Object type constants.
 const (
-	ObjectMemory       = knowledge.ObjectMemory
-	ObjectUser         = knowledge.ObjectUser
-	ObjectProject      = knowledge.ObjectProject
-	ObjectCode         = knowledge.ObjectCode
-	ObjectIssue        = knowledge.ObjectIssue
-	ObjectCommit       = knowledge.ObjectCommit
-	ObjectDecision     = knowledge.ObjectDecision
-	ObjectDocument     = knowledge.ObjectDocument
-	ObjectToolResult   = knowledge.ObjectToolResult
-	ObjectWorkflow     = knowledge.ObjectWorkflow
-	ObjectRuntime      = knowledge.ObjectRuntime
-	ObjectArchitecture = knowledge.ObjectArchitecture
+	ObjectMemory       = knowledgeapi.ObjectMemory
+	ObjectUser         = knowledgeapi.ObjectUser
+	ObjectProject      = knowledgeapi.ObjectProject
+	ObjectCode         = knowledgeapi.ObjectCode
+	ObjectIssue        = knowledgeapi.ObjectIssue
+	ObjectCommit       = knowledgeapi.ObjectCommit
+	ObjectDecision     = knowledgeapi.ObjectDecision
+	ObjectDocument     = knowledgeapi.ObjectDocument
+	ObjectToolResult   = knowledgeapi.ObjectToolResult
+	ObjectWorkflow     = knowledgeapi.ObjectWorkflow
+	ObjectRuntime      = knowledgeapi.ObjectRuntime
+	ObjectArchitecture = knowledgeapi.ObjectArchitecture
 )
 
 // Built-in relation names.
 const (
-	RelDependsOn   = knowledge.RelDependsOn
-	RelCalls       = knowledge.RelCalls
-	RelCauses      = knowledge.RelCauses
-	RelFixes       = knowledge.RelFixes
-	RelBelongsTo   = knowledge.RelBelongsTo
-	RelUses        = knowledge.RelUses
-	RelImplements  = knowledge.RelImplements
-	RelSimilarTo   = knowledge.RelSimilarTo
-	RelGeneratedBy = knowledge.RelGeneratedBy
-	RelDecidedBy   = knowledge.RelDecidedBy
-	RelSupersedes  = knowledge.RelSupersedes
-	RelLearnsFrom  = knowledge.RelLearnsFrom
+	RelDependsOn   = knowledgeapi.RelDependsOn
+	RelCalls       = knowledgeapi.RelCalls
+	RelCauses      = knowledgeapi.RelCauses
+	RelFixes       = knowledgeapi.RelFixes
+	RelBelongsTo   = knowledgeapi.RelBelongsTo
+	RelUses        = knowledgeapi.RelUses
+	RelImplements  = knowledgeapi.RelImplements
+	RelSimilarTo   = knowledgeapi.RelSimilarTo
+	RelGeneratedBy = knowledgeapi.RelGeneratedBy
+	RelDecidedBy   = knowledgeapi.RelDecidedBy
+	RelSupersedes  = knowledgeapi.RelSupersedes
+	RelLearnsFrom  = knowledgeapi.RelLearnsFrom
 )
 
 // NewKnowledgePipeline creates a KnowledgePipeline with the given processors.
-var NewKnowledgePipeline = knowledge.NewKnowledgePipeline
+var NewKnowledgePipeline = knowledgeapi.NewKnowledgePipeline

@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Timwood0x10/ares/api/core"
-	"github.com/Timwood0x10/ares/api/tools"
+	tools "github.com/Timwood0x10/ares/internal/apitools"
 	ares_events "github.com/Timwood0x10/ares/internal/ares_events"
 	"github.com/Timwood0x10/ares/internal/detector"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 	memory "github.com/Timwood0x10/ares/internal/runtime/memory"
 	aresexp "github.com/Timwood0x10/ares/internal/runtime/memory/experience"
 )
@@ -35,7 +35,7 @@ func TestNewWithAllFeatures(t *testing.T) {
 		WithEvolution(),
 		WithAPIKey("test-key"),
 		WithBaseURL("http://localhost:11434"),
-		WithLLMConfig(&core.LLMConfig{Provider: "ollama", Model: "llama3.2"}),
+		WithLLMConfig(&llmcore.LLMConfig{Provider: "ollama", Model: "llama3.2"}),
 		WithTrace(false),
 	)
 	if err != nil {
@@ -312,33 +312,33 @@ var calcTool = tools.ToolFunc{
 // it can be assigned to Runtime.llmSvc. When responses are exhausted it returns
 // a fallback final answer so the loop terminates.
 type mockLLMSvc struct {
-	responses []*core.GenerateResponse
+	responses []*llmcore.GenerateResponse
 	calls     int
 }
 
-func (m *mockLLMSvc) Generate(_ context.Context, _ *core.GenerateRequest) (*core.GenerateResponse, error) {
+func (m *mockLLMSvc) Generate(_ context.Context, _ *llmcore.GenerateRequest) (*llmcore.GenerateResponse, error) {
 	idx := m.calls
 	m.calls++
 	if idx >= len(m.responses) {
-		return &core.GenerateResponse{Content: "mock fallback"}, nil
+		return &llmcore.GenerateResponse{Content: "mock fallback"}, nil
 	}
 	return m.responses[idx], nil
 }
 
-func (m *mockLLMSvc) GetProvider() core.LLMProvider { return core.LLMProviderOllama }
-func (m *mockLLMSvc) GetModel() string              { return "mock-model" }
-func (m *mockLLMSvc) Close()                        {}
+func (m *mockLLMSvc) GetProvider() llmcore.LLMProvider { return llmcore.LLMProviderOllama }
+func (m *mockLLMSvc) GetModel() string                 { return "mock-model" }
+func (m *mockLLMSvc) Close()                           {}
 
 // Compile-time check that mockLLMSvc satisfies the unexported llmService
 // interface used by Runtime.llmSvc.
 var _ llmService = (*mockLLMSvc)(nil)
 
-// mockToolCall builds a core.ToolCall for scripted LLM responses.
-func mockToolCall(id, name, args string) core.ToolCall {
-	return core.ToolCall{
+// mockToolCall builds a llmcore.ToolCall for scripted LLM responses.
+func mockToolCall(id, name, args string) llmcore.ToolCall {
+	return llmcore.ToolCall{
 		ID:   id,
 		Type: "function",
-		Function: core.FunctionCall{
+		Function: llmcore.FunctionCall{
 			Name:      name,
 			Arguments: args,
 		},
@@ -384,8 +384,8 @@ func (r *recordingMemMgr) snapshot() []memEntry {
 func TestAgentRun_EmitsTaskCompletedEvent(t *testing.T) {
 	rt := NewRuntime(WithOllama("llama3.2"), WithTrace(false))
 	defer rt.Close()
-	rt.llmSvc = &mockLLMSvc{responses: []*core.GenerateResponse{
-		{Content: "the answer is 4", Usage: core.TokenUsage{PromptTokens: 3, CompletionTokens: 5}},
+	rt.llmSvc = &mockLLMSvc{responses: []*llmcore.GenerateResponse{
+		{Content: "the answer is 4", Usage: llmcore.TokenUsage{PromptTokens: 3, CompletionTokens: 5}},
 	}}
 	// A non-nil distillSvc enables TaskCompleted emission (mirrors distillSvc != nil
 	// in the original Agent.Run). Set after New so no distillation subscriber runs.
@@ -437,8 +437,8 @@ func TestAgentRun_ToolCallEvents(t *testing.T) {
 	if err := rt.ToolRegistry().Register(calcTool); err != nil {
 		t.Fatal(err)
 	}
-	rt.llmSvc = &mockLLMSvc{responses: []*core.GenerateResponse{
-		{Content: "", ToolCalls: []core.ToolCall{mockToolCall("tc1", "calculator", `{}`)}},
+	rt.llmSvc = &mockLLMSvc{responses: []*llmcore.GenerateResponse{
+		{Content: "", ToolCalls: []llmcore.ToolCall{mockToolCall("tc1", "calculator", `{}`)}},
 		{Content: "computed"},
 	}}
 
@@ -496,7 +496,7 @@ func TestAgentRun_WithMemory_PersistsMessages(t *testing.T) {
 	defer rt.Close()
 	rec := &recordingMemMgr{MemoryManager: rt.memMgr}
 	rt.memMgr = rec
-	rt.llmSvc = &mockLLMSvc{responses: []*core.GenerateResponse{
+	rt.llmSvc = &mockLLMSvc{responses: []*llmcore.GenerateResponse{
 		{Content: "hello back"},
 	}}
 
@@ -545,8 +545,8 @@ func TestAgentRun_WithMemory_PersistsMessages(t *testing.T) {
 func TestAgentRun_DelegatesToEngine(t *testing.T) {
 	rt := NewRuntime(WithOllama("llama3.2"), WithTrace(false))
 	defer rt.Close()
-	rt.llmSvc = &mockLLMSvc{responses: []*core.GenerateResponse{
-		{Content: "delegated", Usage: core.TokenUsage{PromptTokens: 7, CompletionTokens: 11}},
+	rt.llmSvc = &mockLLMSvc{responses: []*llmcore.GenerateResponse{
+		{Content: "delegated", Usage: llmcore.TokenUsage{PromptTokens: 7, CompletionTokens: 11}},
 	}}
 
 	agent := rt.NewAgent("del-agent", WithInstruction("help"))

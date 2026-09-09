@@ -10,12 +10,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/Timwood0x10/ares/api/core"
-	"github.com/Timwood0x10/ares/api/mcp"
-	"github.com/Timwood0x10/ares/api/tools"
 	"github.com/Timwood0x10/ares/internal/agentloop"
+	tools "github.com/Timwood0x10/ares/internal/apitools"
 	"github.com/Timwood0x10/ares/internal/knowledge"
 	"github.com/Timwood0x10/ares/internal/knowledge/compiler"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
+	mcp "github.com/Timwood0x10/ares/internal/mcpclient"
 	"github.com/Timwood0x10/ares/internal/tools/toolsource"
 )
 
@@ -223,11 +223,11 @@ func traceLog(format string, args ...any) {
 
 // ---- internal helpers ----
 
-func (a *Agent) buildMessages(ctx context.Context, input, sessionID string) []*core.LLMMessage {
-	var msgs []*core.LLMMessage
+func (a *Agent) buildMessages(ctx context.Context, input, sessionID string) []*llmcore.LLMMessage {
+	var msgs []*llmcore.LLMMessage
 
 	if a.instruction != "" {
-		msgs = append(msgs, &core.LLMMessage{
+		msgs = append(msgs, &llmcore.LLMMessage{
 			Role:    roleSystem,
 			Content: a.instruction,
 		})
@@ -237,7 +237,7 @@ func (a *Agent) buildMessages(ctx context.Context, input, sessionID string) []*c
 	if a.runtime.memEnabled && a.runtime.memMgr != nil {
 		ctxStr, err := a.runtime.memMgr.BuildContext(ctx, input, sessionID)
 		if err == nil && ctxStr != "" {
-			msgs = append(msgs, &core.LLMMessage{
+			msgs = append(msgs, &llmcore.LLMMessage{
 				Role:    roleSystem,
 				Content: ctxStr,
 			})
@@ -261,7 +261,7 @@ func (a *Agent) buildMessages(ctx context.Context, input, sessionID string) []*c
 			})
 			if cErr == nil && compiled != nil {
 				if ctxStr, ok := compiled.Formats[compiler.FormatPrompt]; ok && ctxStr != "" {
-					msgs = append(msgs, &core.LLMMessage{
+					msgs = append(msgs, &llmcore.LLMMessage{
 						Role:    roleSystem,
 						Content: ctxStr,
 					})
@@ -270,7 +270,7 @@ func (a *Agent) buildMessages(ctx context.Context, input, sessionID string) []*c
 		}
 	}
 
-	msgs = append(msgs, &core.LLMMessage{
+	msgs = append(msgs, &llmcore.LLMMessage{
 		Role:    roleUser,
 		Content: input,
 	})
@@ -282,11 +282,11 @@ func (a *Agent) buildMessages(ctx context.Context, input, sessionID string) []*c
 	return msgs
 }
 
-func (a *Agent) toCoreTools(tt []tools.Tool) []core.Tool {
+func (a *Agent) toCoreTools(tt []tools.Tool) []llmcore.Tool {
 	if len(tt) == 0 {
 		return nil
 	}
-	out := make([]core.Tool, 0, len(tt))
+	out := make([]llmcore.Tool, 0, len(tt))
 	for _, t := range tt {
 		params := t.Parameters()
 		if params == nil {
@@ -295,9 +295,9 @@ func (a *Agent) toCoreTools(tt []tools.Tool) []core.Tool {
 				"properties": map[string]interface{}{},
 			}
 		}
-		out = append(out, core.Tool{
+		out = append(out, llmcore.Tool{
 			Type: "function",
-			Function: core.FunctionDefinition{
+			Function: llmcore.FunctionDefinition{
 				Name:        t.Name(),
 				Description: t.Description(),
 				Parameters:  params,

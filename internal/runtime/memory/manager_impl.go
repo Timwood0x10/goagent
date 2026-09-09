@@ -14,13 +14,13 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/Timwood0x10/ares/api/core"
-	apiembed "github.com/Timwood0x10/ares/api/embedding"
 	"github.com/Timwood0x10/ares/internal/agents/lease"
 	"github.com/Timwood0x10/ares/internal/ares_events"
 	"github.com/Timwood0x10/ares/internal/core/models"
+	apiembed "github.com/Timwood0x10/ares/internal/embedding"
 	"github.com/Timwood0x10/ares/internal/errors"
 	"github.com/Timwood0x10/ares/internal/knowledge/skills"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 	memctx "github.com/Timwood0x10/ares/internal/runtime/memory/context"
 	"github.com/Timwood0x10/ares/internal/runtime/memory/distillation"
 	memembed "github.com/Timwood0x10/ares/internal/runtime/memory/embedding"
@@ -855,7 +855,7 @@ func (m *memoryManager) buildCleanedDistillationMessages(ctx context.Context, ta
 
 	// Clean the session messages for meaningful distillation.
 	m.mu.RLock()
-	distillCleanOpts := core.DefaultCleanOptions()
+	distillCleanOpts := llmcore.DefaultCleanOptions()
 	if m.config.CleanOptions != nil {
 		distillCleanOpts = *m.config.CleanOptions
 	}

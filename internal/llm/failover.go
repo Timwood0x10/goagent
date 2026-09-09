@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/ares_ratelimit"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 	"github.com/Timwood0x10/ares/internal/runtime/observability"
 )
 
@@ -387,9 +387,9 @@ func (fc *FailoverClient) GenerateStream(ctx context.Context, prompt string) (<-
 //
 // Returns:
 //
-//	*core.GenerateResponse - the chat response including optional tool_calls.
+//	*llmcore.GenerateResponse - the chat response including optional tool_calls.
 //	error - all clients failed or no provider available.
-func (fc *FailoverClient) Chat(ctx context.Context, messages []*core.LLMMessage, tools []core.Tool, params map[string]any) (*core.GenerateResponse, error) {
+func (fc *FailoverClient) Chat(ctx context.Context, messages []*llmcore.LLMMessage, tools []llmcore.Tool, params map[string]any) (*llmcore.GenerateResponse, error) {
 	var lastErr error
 
 	for _, client := range fc.clients {
@@ -502,7 +502,7 @@ func (fc *FailoverClient) ActiveProviders() []string {
 var _ interface {
 	Generate(ctx context.Context, prompt string) (string, error)
 	GenerateStream(ctx context.Context, prompt string) (<-chan StreamChunk, error)
-	Chat(ctx context.Context, messages []*core.LLMMessage, tools []core.Tool, params map[string]any) (*core.GenerateResponse, error)
+	Chat(ctx context.Context, messages []*llmcore.LLMMessage, tools []llmcore.Tool, params map[string]any) (*llmcore.GenerateResponse, error)
 	IsEnabled() bool
 	GetProvider() string
 	GetModel() string

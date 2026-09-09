@@ -7,9 +7,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Timwood0x10/ares/api/core"
-	"github.com/Timwood0x10/ares/api/tools"
+	tools "github.com/Timwood0x10/ares/internal/apitools"
 	ares_events "github.com/Timwood0x10/ares/internal/ares_events"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 )
 
 // traceCapturer records every line forwarded to the engine's Tracer so tests
@@ -60,8 +60,8 @@ func TestEngine_MaxIterDefault(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			llm := &mockLLM{responses: []*core.GenerateResponse{
-				{Content: "", ToolCalls: []core.ToolCall{toolCall("tc", "calc", `{}`)}},
+			llm := &mockLLM{responses: []*llmcore.GenerateResponse{
+				{Content: "", ToolCalls: []llmcore.ToolCall{toolCall("tc", "calc", `{}`)}},
 			}}
 			eng := &Engine{
 				LLM: llm,
@@ -70,8 +70,8 @@ func TestEngine_MaxIterDefault(t *testing.T) {
 				}},
 			}
 			req := &Request{
-				Messages: []*core.LLMMessage{{Role: "user", Content: "hi"}},
-				Tools:    []core.Tool{{Type: "function", Function: core.FunctionDefinition{Name: "calc"}}},
+				Messages: []*llmcore.LLMMessage{{Role: "user", Content: "hi"}},
+				Tools:    []llmcore.Tool{{Type: "function", Function: llmcore.FunctionDefinition{Name: "calc"}}},
 				MaxIter:  tt.maxIter,
 			}
 			res, err := eng.Run(context.Background(), req)
@@ -97,15 +97,15 @@ func TestEngine_MaxIterDefault(t *testing.T) {
 // The loop must continue to the final answer.
 func TestEngine_ToolErrorAppendedToMessages(t *testing.T) {
 	sink := &fakeEventSink{}
-	llm := &mockLLM{responses: []*core.GenerateResponse{
-		{Content: "", ToolCalls: []core.ToolCall{toolCall("tc1", "calc", `{"a":1}`)}},
+	llm := &mockLLM{responses: []*llmcore.GenerateResponse{
+		{Content: "", ToolCalls: []llmcore.ToolCall{toolCall("tc1", "calc", `{"a":1}`)}},
 		{Content: "recovered answer"},
 	}}
 	toolEx := &mockToolExecutor{errs: map[string]error{"calc": errors.New("tool exploded")}}
 	eng := &Engine{LLM: llm, Tools: toolEx, Events: sink, DistillEnabled: true}
 	req := &Request{
-		Messages:  []*core.LLMMessage{{Role: "user", Content: "hi"}},
-		Tools:     []core.Tool{{Type: "function", Function: core.FunctionDefinition{Name: "calc"}}},
+		Messages:  []*llmcore.LLMMessage{{Role: "user", Content: "hi"}},
+		Tools:     []llmcore.Tool{{Type: "function", Function: llmcore.FunctionDefinition{Name: "calc"}}},
 		MaxIter:   5,
 		AgentName: "err-agent",
 		SessionID: "sess-err",
@@ -156,8 +156,8 @@ func TestEngine_HumanRejectSkipsTool(t *testing.T) {
 	sink := &fakeEventSink{}
 	var seenName string
 	var seenArgs map[string]any
-	llm := &mockLLM{responses: []*core.GenerateResponse{
-		{Content: "", ToolCalls: []core.ToolCall{toolCall("tc1", "calc", `{"x":1}`)}},
+	llm := &mockLLM{responses: []*llmcore.GenerateResponse{
+		{Content: "", ToolCalls: []llmcore.ToolCall{toolCall("tc1", "calc", `{"x":1}`)}},
 		{Content: "final answer"},
 	}}
 	toolEx := &mockToolExecutor{}
@@ -168,8 +168,8 @@ func TestEngine_HumanRejectSkipsTool(t *testing.T) {
 		DistillEnabled: false, // keep the event list empty for the rejection check
 	}
 	req := &Request{
-		Messages:  []*core.LLMMessage{{Role: "user", Content: "hi"}},
-		Tools:     []core.Tool{{Type: "function", Function: core.FunctionDefinition{Name: "calc"}}},
+		Messages:  []*llmcore.LLMMessage{{Role: "user", Content: "hi"}},
+		Tools:     []llmcore.Tool{{Type: "function", Function: llmcore.FunctionDefinition{Name: "calc"}}},
 		MaxIter:   5,
 		AgentName: "reject-agent",
 		SessionID: "sess-reject",
@@ -220,8 +220,8 @@ func TestEngine_HumanRejectSkipsTool(t *testing.T) {
 // must forward a trace line carrying the agent name.
 func TestEngine_TracerInvoked(t *testing.T) {
 	trc := &traceCapturer{}
-	llm := &mockLLM{responses: []*core.GenerateResponse{
-		{Content: "", ToolCalls: []core.ToolCall{toolCall("tc1", "calc", `{}`)}},
+	llm := &mockLLM{responses: []*llmcore.GenerateResponse{
+		{Content: "", ToolCalls: []llmcore.ToolCall{toolCall("tc1", "calc", `{}`)}},
 		{Content: "done"},
 	}}
 	eng := &Engine{
@@ -230,8 +230,8 @@ func TestEngine_TracerInvoked(t *testing.T) {
 		Tracer: trc.trace,
 	}
 	req := &Request{
-		Messages:  []*core.LLMMessage{{Role: "user", Content: "hi"}},
-		Tools:     []core.Tool{{Type: "function", Function: core.FunctionDefinition{Name: "calc"}}},
+		Messages:  []*llmcore.LLMMessage{{Role: "user", Content: "hi"}},
+		Tools:     []llmcore.Tool{{Type: "function", Function: llmcore.FunctionDefinition{Name: "calc"}}},
 		MaxIter:   5,
 		AgentName: "trace-agent",
 	}
@@ -252,11 +252,11 @@ func TestEngine_TracerInvoked(t *testing.T) {
 // expander, and keeps the active tool set unchanged while the run continues.
 func TestEngine_DiscoverToolsParseFailed(t *testing.T) {
 	trc := &traceCapturer{}
-	expander := &fakeToolExpander{tools: map[string]core.Tool{
-		"search": {Type: "function", Function: core.FunctionDefinition{Name: "search"}},
+	expander := &fakeToolExpander{tools: map[string]llmcore.Tool{
+		"search": {Type: "function", Function: llmcore.FunctionDefinition{Name: "search"}},
 	}}
-	llm := &mockLLM{responses: []*core.GenerateResponse{
-		{Content: "", ToolCalls: []core.ToolCall{toolCall("d1", DiscoverToolsName, `{}`)}},
+	llm := &mockLLM{responses: []*llmcore.GenerateResponse{
+		{Content: "", ToolCalls: []llmcore.ToolCall{toolCall("d1", DiscoverToolsName, `{}`)}},
 		{Content: "done"},
 	}}
 	toolEx := &mockToolExecutor{results: map[string]tools.Result{
@@ -264,8 +264,8 @@ func TestEngine_DiscoverToolsParseFailed(t *testing.T) {
 	}}
 	eng := &Engine{LLM: llm, Tools: toolEx, Tracer: trc.trace}
 	req := &Request{
-		Messages:     []*core.LLMMessage{{Role: "user", Content: "hi"}},
-		Tools:        []core.Tool{{Type: "function", Function: core.FunctionDefinition{Name: "calc"}}},
+		Messages:     []*llmcore.LLMMessage{{Role: "user", Content: "hi"}},
+		Tools:        []llmcore.Tool{{Type: "function", Function: llmcore.FunctionDefinition{Name: "calc"}}},
 		MaxIter:      5,
 		AgentName:    "parse-agent",
 		ToolExpander: expander,
@@ -294,8 +294,8 @@ func TestEngine_DiscoverToolsParseFailed(t *testing.T) {
 // run completes normally.
 func TestEngine_DiscoverToolsEmptyResult(t *testing.T) {
 	expander := &fakeToolExpander{}
-	llm := &mockLLM{responses: []*core.GenerateResponse{
-		{Content: "", ToolCalls: []core.ToolCall{toolCall("d1", DiscoverToolsName, `{}`)}},
+	llm := &mockLLM{responses: []*llmcore.GenerateResponse{
+		{Content: "", ToolCalls: []llmcore.ToolCall{toolCall("d1", DiscoverToolsName, `{}`)}},
 		{Content: "done"},
 	}}
 	toolEx := &mockToolExecutor{results: map[string]tools.Result{
@@ -303,8 +303,8 @@ func TestEngine_DiscoverToolsEmptyResult(t *testing.T) {
 	}}
 	eng := &Engine{LLM: llm, Tools: toolEx}
 	req := &Request{
-		Messages:     []*core.LLMMessage{{Role: "user", Content: "hi"}},
-		Tools:        []core.Tool{{Type: "function", Function: core.FunctionDefinition{Name: "calc"}}},
+		Messages:     []*llmcore.LLMMessage{{Role: "user", Content: "hi"}},
+		Tools:        []llmcore.Tool{{Type: "function", Function: llmcore.FunctionDefinition{Name: "calc"}}},
 		MaxIter:      5,
 		ToolExpander: expander,
 	}
@@ -327,13 +327,13 @@ func TestEngine_DiscoverToolsExpanderError(t *testing.T) {
 	const discoverResult = `[{"name":"search","description":"s"}]`
 	trc := &traceCapturer{}
 	expander := &fakeToolExpander{
-		tools: map[string]core.Tool{
-			"search": {Type: "function", Function: core.FunctionDefinition{Name: "search"}},
+		tools: map[string]llmcore.Tool{
+			"search": {Type: "function", Function: llmcore.FunctionDefinition{Name: "search"}},
 		},
 		err: errors.New("source down"),
 	}
-	llm := &mockLLM{responses: []*core.GenerateResponse{
-		{Content: "", ToolCalls: []core.ToolCall{toolCall("d1", DiscoverToolsName, `{}`)}},
+	llm := &mockLLM{responses: []*llmcore.GenerateResponse{
+		{Content: "", ToolCalls: []llmcore.ToolCall{toolCall("d1", DiscoverToolsName, `{}`)}},
 		{Content: "done"},
 	}}
 	toolEx := &mockToolExecutor{results: map[string]tools.Result{
@@ -341,8 +341,8 @@ func TestEngine_DiscoverToolsExpanderError(t *testing.T) {
 	}}
 	eng := &Engine{LLM: llm, Tools: toolEx, Tracer: trc.trace}
 	req := &Request{
-		Messages:     []*core.LLMMessage{{Role: "user", Content: "hi"}},
-		Tools:        []core.Tool{{Type: "function", Function: core.FunctionDefinition{Name: "calc"}}},
+		Messages:     []*llmcore.LLMMessage{{Role: "user", Content: "hi"}},
+		Tools:        []llmcore.Tool{{Type: "function", Function: llmcore.FunctionDefinition{Name: "calc"}}},
 		MaxIter:      5,
 		AgentName:    "expand-agent",
 		ToolExpander: expander,

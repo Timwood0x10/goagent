@@ -4,7 +4,7 @@
 // # Boundary
 //
 // toolsource discovers and selects executable tools (resources/core.Tool).
-// Conversion of those tools into LLM tool structs (api/core.Tool) happens in
+// Conversion of those tools into LLM tool structs (internal/llmcore.Tool) happens in
 // the sdk layer, not here. This keeps toolsource decoupled from the LLM API
 // and avoids an import cycle with agentloop.
 //

@@ -8,7 +8,7 @@
 package sdk
 
 import (
-	"github.com/Timwood0x10/ares/api/core"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 	memctx "github.com/Timwood0x10/ares/internal/runtime/memory/context"
 )
 
@@ -20,48 +20,48 @@ import (
 // Usage:
 //
 //	cleaner := sdk.NewContextCleaner()
-//	cleaned := cleaner.CleanWithTurns(messages, core.CleanOptions{...})
+//	cleaned := cleaner.CleanWithTurns(messages, llmcore.CleanOptions{...})
 //
 // Returns:
 //
-//	core.ContextCleaner - ready-to-use cleaner; never nil.
-func NewContextCleaner() core.ContextCleaner {
+//	llmcore.ContextCleaner - ready-to-use cleaner; never nil.
+func NewContextCleaner() llmcore.ContextCleaner {
 	return &contextCleanerAdapter{inner: memctx.NewContextCleaner()}
 }
 
 // contextCleanerAdapter bridges the internal memctx.ContextCleaner (whose
 // message type is the internal context.Message) onto the public
-// core.ContextCleaner interface (core.Message). CleanOptions and CleanerStats
+// llmcore.ContextCleaner interface (llmcore.Message). CleanOptions and CleanerStats
 // are shared aliases, so only the message slice needs conversion.
 type contextCleanerAdapter struct {
 	inner *memctx.ContextCleaner
 }
 
-// Clean implements core.ContextCleaner.
-func (a *contextCleanerAdapter) Clean(messages []core.Message, opts ...core.CleanOptions) []core.Message {
+// Clean implements llmcore.ContextCleaner.
+func (a *contextCleanerAdapter) Clean(messages []llmcore.Message, opts ...llmcore.CleanOptions) []llmcore.Message {
 	cleaned := a.inner.Clean(toInternalMessages(messages), opts...)
 	return toCoreMessages(cleaned)
 }
 
-// CleanWithTurns implements core.ContextCleaner.
-func (a *contextCleanerAdapter) CleanWithTurns(messages []core.Message, opts ...core.CleanOptions) []core.Message {
+// CleanWithTurns implements llmcore.ContextCleaner.
+func (a *contextCleanerAdapter) CleanWithTurns(messages []llmcore.Message, opts ...llmcore.CleanOptions) []llmcore.Message {
 	cleaned := a.inner.CleanWithTurns(toInternalMessages(messages), opts...)
 	return toCoreMessages(cleaned)
 }
 
-// Stats implements core.ContextCleaner.
-func (a *contextCleanerAdapter) Stats() core.CleanerStats {
+// Stats implements llmcore.ContextCleaner.
+func (a *contextCleanerAdapter) Stats() llmcore.CleanerStats {
 	return a.inner.Stats()
 }
 
-// ResetStats implements core.ContextCleaner.
+// ResetStats implements llmcore.ContextCleaner.
 func (a *contextCleanerAdapter) ResetStats() {
 	a.inner.ResetStats()
 }
 
-// toInternalMessages converts the public core.Message slice into the
+// toInternalMessages converts the public llmcore.Message slice into the
 // internal context.Message shape used by the cleaner.
-func toInternalMessages(messages []core.Message) []memctx.Message {
+func toInternalMessages(messages []llmcore.Message) []memctx.Message {
 	out := make([]memctx.Message, len(messages))
 	for i, m := range messages {
 		out[i] = memctx.Message{
@@ -78,13 +78,13 @@ func toInternalMessages(messages []core.Message) []memctx.Message {
 }
 
 // toCoreMessages converts cleaned internal messages back to the public
-// core.Message shape. ID/SessionID/Metadata are not carried by the internal
+// llmcore.Message shape. ID/SessionID/Metadata are not carried by the internal
 // message type; callers that need them should re-apply them after cleaning.
-func toCoreMessages(messages []memctx.Message) []core.Message {
-	out := make([]core.Message, len(messages))
+func toCoreMessages(messages []memctx.Message) []llmcore.Message {
+	out := make([]llmcore.Message, len(messages))
 	for i, m := range messages {
-		out[i] = core.Message{
-			Role:         core.MessageRole(m.Role),
+		out[i] = llmcore.Message{
+			Role:         llmcore.MessageRole(m.Role),
 			Content:      m.Content,
 			Time:         m.Time,
 			TurnID:       m.TurnID,

@@ -8,22 +8,22 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"github.com/Timwood0x10/ares/api/core"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 	truncpkg "github.com/Timwood0x10/ares/internal/truncate"
 )
 
-// CleanerStats, CleaningMode, CleanOptions are now defined in api/core.
+// CleanerStats, CleaningMode, CleanOptions are now defined in api/llmcore.
 // Re-export for backward compatibility within the package.
 type (
-	CleanerStats = core.CleanerStats
-	CleaningMode = core.CleaningMode
-	CleanOptions = core.CleanOptions
+	CleanerStats = llmcore.CleanerStats
+	CleaningMode = llmcore.CleaningMode
+	CleanOptions = llmcore.CleanOptions
 )
 
 const (
-	CleaningModeDefault      = core.CleaningModeDefault
-	CleaningModeConservative = core.CleaningModeConservative
-	CleaningModeAggressive   = core.CleaningModeAggressive
+	CleaningModeDefault      = llmcore.CleaningModeDefault
+	CleaningModeConservative = llmcore.CleaningModeConservative
+	CleaningModeAggressive   = llmcore.CleaningModeAggressive
 )
 
 // unknownURLSummary is the placeholder a tool-result summary shows when the
@@ -31,8 +31,8 @@ const (
 // better than a silently-empty field and keeps the summary shape stable.
 const unknownURLSummary = "<unknown-url>"
 
-// DefaultCleanOptions delegates to the canonical definition in api/core.
-func DefaultCleanOptions() CleanOptions { return core.DefaultCleanOptions() }
+// DefaultCleanOptions delegates to the canonical definition in api/llmcore.
+func DefaultCleanOptions() CleanOptions { return llmcore.DefaultCleanOptions() }
 
 // ContextCleaner intelligently cleans conversation context before LLM calls.
 // It applies differential compression based on message role:

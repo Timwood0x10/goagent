@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	"github.com/Timwood0x10/ares/internal/fabric/task"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 )
 
 // TestSDKAgentExecutorTypeCapabilityOverride verifies the scheduler-facing
@@ -79,14 +79,14 @@ func TestSDKSpawnedPeerExecutesSubTask(t *testing.T) {
 	ctx := context.Background()
 	rt := NewRuntime(WithOllama("llama3.2"), WithTrace(false))
 	defer rt.Close()
-	rt.llmSvc = &mockLLMSvc{responses: []*core.GenerateResponse{
+	rt.llmSvc = &mockLLMSvc{responses: []*llmcore.GenerateResponse{
 		// Coordinator iteration 0: decide to spawn a specialist peer.
 		// only L2-routable capabilities spawn executable peers.
-		{Content: "", ToolCalls: []core.ToolCall{
+		{Content: "", ToolCalls: []llmcore.ToolCall{
 			mockToolCall("tc1", "spawn_agent", `{"capability":"tool/researcher"}`),
 		}},
 		// Coordinator iteration 1: hand work to the peer via a sub-task.
-		{Content: "", ToolCalls: []core.ToolCall{
+		{Content: "", ToolCalls: []llmcore.ToolCall{
 			mockToolCall("tc2", "create_task",
 				`{"capability":"tool/researcher","payload":{"input":"analyse subsystem X"}}`),
 		}},

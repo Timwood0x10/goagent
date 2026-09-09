@@ -9,11 +9,11 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/agents"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	"github.com/Timwood0x10/ares/internal/fabric/task"
 	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 	resources "github.com/Timwood0x10/ares/internal/tools/resources/core"
 	"github.com/Timwood0x10/ares/internal/truncate"
 )
@@ -269,7 +269,7 @@ func (c *plannerCognition) ExecuteStep(ctx context.Context, task *models.Task) (
 	// Inject L1 prior hints as a system message (prompt-only, never a
 	// growth block). Deterministic order; absent when no priors are set.
 	if priors := c.l1Priors(); len(priors) > 0 {
-		prompt = append(prompt, &core.LLMMessage{
+		prompt = append(prompt, &llmcore.LLMMessage{
 			Role:    roleSystem,
 			Content: "evolution priors (hints only, tool choice stays with you):\n- " + strings.Join(priors, "\n- "),
 		})
@@ -283,7 +283,7 @@ func (c *plannerCognition) ExecuteStep(ctx context.Context, task *models.Task) (
 	llmParams := map[string]any{}
 	if st := c.activeStrategy(ctx); st != nil {
 		if strings.TrimSpace(st.Prompt) != "" {
-			prompt = append(prompt, &core.LLMMessage{
+			prompt = append(prompt, &llmcore.LLMMessage{
 				Role:    roleSystem,
 				Content: "evolution strategy (deployed " + st.ID + "):\n" + st.Prompt,
 			})
@@ -294,10 +294,10 @@ func (c *plannerCognition) ExecuteStep(ctx context.Context, task *models.Task) (
 	}
 
 	// Build the tool schemas for the LLM.
-	var llmTools []core.Tool
+	var llmTools []llmcore.Tool
 	if c.binder != nil {
 		schemas := c.binder.GetToolSchemas()
-		llmTools = make([]core.Tool, 0, len(schemas))
+		llmTools = make([]llmcore.Tool, 0, len(schemas))
 		for _, s := range schemas {
 			llmTools = append(llmTools, toCoreTool(s))
 		}
@@ -361,7 +361,7 @@ func (c *plannerCognition) activeStrategy(ctx context.Context) *agents.ActiveStr
 // path from root to this plan node. Outputs are read from the fabric task
 // envelopes by node ID = task ID join (nodes carry no Output of
 // their own).
-func (c *plannerCognition) assembleContext(ctx context.Context, task *models.Task, g *L2Graph) ([]*core.LLMMessage, error) {
+func (c *plannerCognition) assembleContext(ctx context.Context, task *models.Task, g *L2Graph) ([]*llmcore.LLMMessage, error) {
 	// Read the session prompt from the root task's envelope.
 	rootID := g.Root()
 	rootPrompt, err := c.readNodeOutput(rootID)
@@ -385,7 +385,7 @@ func (c *plannerCognition) assembleContext(ctx context.Context, task *models.Tas
 		rootPrompt = fallback
 	}
 
-	messages := []*core.LLMMessage{
+	messages := []*llmcore.LLMMessage{
 		{Role: "user", Content: rootPrompt},
 	}
 
@@ -423,7 +423,7 @@ func (c *plannerCognition) assembleContext(ctx context.Context, task *models.Tas
 	// as the FIRST message, ahead of the root prompt and the strategy
 	// template appended by ExecuteStep — early grounding, late steering.
 	if sys := c.experiencePriorSystemMessage(task); sys != nil {
-		messages = append([]*core.LLMMessage{sys}, messages...)
+		messages = append([]*llmcore.LLMMessage{sys}, messages...)
 	}
 
 	return messages, nil
@@ -449,7 +449,7 @@ func (c *plannerCognition) assembleContext(ctx context.Context, task *models.Tas
 // not a retriable quantum failure — the answer body falls back to the gap
 // body instead of letting the fabric burn retry budget on a failure no
 // retry can fix.
-func (c *plannerCognition) assembleAnswerMessages(ctx context.Context, task *models.Task) ([]*core.LLMMessage, bool) {
+func (c *plannerCognition) assembleAnswerMessages(ctx context.Context, task *models.Task) ([]*llmcore.LLMMessage, bool) {
 	g, err := c.sessions.GetSession(task.SessionID)
 	if err != nil {
 		// Most commonly the session was already released (duplicate
@@ -476,7 +476,7 @@ func (c *plannerCognition) assembleAnswerMessages(ctx context.Context, task *mod
 // (planner invoked directly), unknown agent, empty/unrenderable prior —
 // degrades to nil: a missing prior must change nothing (zero-value usable),
 // never fail the quantum.
-func (c *plannerCognition) experiencePriorSystemMessage(task *models.Task) *core.LLMMessage {
+func (c *plannerCognition) experiencePriorSystemMessage(task *models.Task) *llmcore.LLMMessage {
 	if c.agentFabric == nil {
 		return nil
 	}
@@ -496,7 +496,7 @@ func (c *plannerCognition) experiencePriorSystemMessage(task *models.Task) *core
 	if prior == "" {
 		return nil
 	}
-	return &core.LLMMessage{
+	return &llmcore.LLMMessage{
 		Role:    roleSystem,
 		Content: experiencePriorPrefix + prior,
 	}
@@ -536,7 +536,7 @@ func renderExperiencePrior(v any) string {
 // ReAct never has this problem because its history IS the live conversation
 // that produced the calls; the planner rebuilds history from the graph, so
 // it must rebuild the pairing too.
-func toolHistoryPair(step *engine.Step, nodeID, output string) []*core.LLMMessage {
+func toolHistoryPair(step *engine.Step, nodeID, output string) []*llmcore.LLMMessage {
 	tool := strings.TrimPrefix(step.AgentType, "tool/")
 	meta := make(map[string]any, len(step.Metadata))
 	for k, v := range step.Metadata {
@@ -546,14 +546,14 @@ func toolHistoryPair(step *engine.Step, nodeID, output string) []*core.LLMMessag
 	if err != nil {
 		argsJSON = []byte("{}")
 	}
-	return []*core.LLMMessage{
+	return []*llmcore.LLMMessage{
 		{
 			Role:    "assistant",
 			Content: "",
-			ToolCalls: []core.ToolCall{{
+			ToolCalls: []llmcore.ToolCall{{
 				ID:   nodeID,
 				Type: "function",
-				Function: core.FunctionCall{
+				Function: llmcore.FunctionCall{
 					Name:      tool,
 					Arguments: string(argsJSON),
 				},
@@ -604,7 +604,7 @@ func (c *plannerCognition) growToolNodes(
 	ctx context.Context,
 	g *L2Graph,
 	task *models.Task,
-	toolCalls []core.ToolCall,
+	toolCalls []llmcore.ToolCall,
 	sessionID string,
 ) (int, error) {
 	depth := g.PlanDepth()
@@ -773,7 +773,7 @@ func (c *plannerCognition) growAnswerNode(
 	g *L2Graph,
 	task *models.Task,
 	content string,
-	resp *core.GenerateResponse,
+	resp *llmcore.GenerateResponse,
 ) (*StepOutcome, error) {
 	depth := g.PlanDepth()
 	answerID := SessionNodeID(task.SessionID, depth+1, "answer", 0)
@@ -813,13 +813,13 @@ const (
 // (not inlined into the call sites) so the accounting point is grep-able and
 // future metrics hook one place. resp may be nil (defensive; every call site
 // has a non-nil response after the error check).
-func stampTokenUsage(resp *core.GenerateResponse) {}
+func stampTokenUsage(resp *llmcore.GenerateResponse) {}
 
 // tokenUsageMetadata extracts the response's token usage into result
 // metadata. A nil response or zero usage yields nil — the scheduler's
 // accumulate step treats a missing map as "nothing to add", so a provider
 // that reports no usage contributes nothing to the session total.
-func tokenUsageMetadata(resp *core.GenerateResponse) map[string]any {
+func tokenUsageMetadata(resp *llmcore.GenerateResponse) map[string]any {
 	if resp == nil {
 		return nil
 	}
@@ -869,7 +869,7 @@ func extractOutputContent(sc any) string {
 	return ""
 }
 
-// toCoreTool converts a resources.ToolSchema to a core.Tool for the LLM.
-func toCoreTool(s resources.ToolSchema) core.Tool {
+// toCoreTool converts a resources.ToolSchema to a llmcore.Tool for the LLM.
+func toCoreTool(s resources.ToolSchema) llmcore.Tool {
 	return resources.ToolSchemaToLLMTool(s)
 }

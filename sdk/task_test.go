@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Timwood0x10/ares/api/core"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 )
 
 // contains reports whether s contains substr.
@@ -22,8 +22,8 @@ func contains(s, substr string) bool {
 func TestSubmit_RegisteredAgent(t *testing.T) {
 	rt := NewRuntime(WithOllama("llama3.2"), WithTrace(false))
 	defer rt.Close()
-	rt.llmSvc = &mockLLMSvc{responses: []*core.GenerateResponse{
-		{Content: "handled by coder", Usage: core.TokenUsage{PromptTokens: 2, CompletionTokens: 4}},
+	rt.llmSvc = &mockLLMSvc{responses: []*llmcore.GenerateResponse{
+		{Content: "handled by coder", Usage: llmcore.TokenUsage{PromptTokens: 2, CompletionTokens: 4}},
 	}}
 
 	rt.RegisterAgent("coder", WithInstruction("you handle code tasks"))
@@ -42,7 +42,7 @@ func TestSubmit_RegisteredAgent(t *testing.T) {
 func TestSubmit_UnregisteredCapabilityAutoCreates(t *testing.T) {
 	rt := NewRuntime(WithOllama("llama3.2"), WithTrace(false))
 	defer rt.Close()
-	rt.llmSvc = &mockLLMSvc{responses: []*core.GenerateResponse{
+	rt.llmSvc = &mockLLMSvc{responses: []*llmcore.GenerateResponse{
 		{Content: "auto-created agent ran it"},
 	}}
 
@@ -61,7 +61,7 @@ func TestSubmit_UnregisteredCapabilityAutoCreates(t *testing.T) {
 func TestSubmit_EmptyCapabilityUsesAnyRegistered(t *testing.T) {
 	rt := NewRuntime(WithOllama("llama3.2"), WithTrace(false))
 	defer rt.Close()
-	rt.llmSvc = &mockLLMSvc{responses: []*core.GenerateResponse{
+	rt.llmSvc = &mockLLMSvc{responses: []*llmcore.GenerateResponse{
 		{Content: "any registered agent"},
 	}}
 
@@ -80,14 +80,14 @@ func TestSubmit_EmptyCapabilityUsesAnyRegistered(t *testing.T) {
 // agentloop.Engine.
 type blockingLLM struct{}
 
-func (b *blockingLLM) Generate(ctx context.Context, _ *core.GenerateRequest) (*core.GenerateResponse, error) {
+func (b *blockingLLM) Generate(ctx context.Context, _ *llmcore.GenerateRequest) (*llmcore.GenerateResponse, error) {
 	<-ctx.Done()
 	return nil, ctx.Err()
 }
 
-func (b *blockingLLM) GetProvider() core.LLMProvider { return core.LLMProviderOllama }
-func (b *blockingLLM) GetModel() string              { return "mock-blocking" }
-func (b *blockingLLM) Close()                        {}
+func (b *blockingLLM) GetProvider() llmcore.LLMProvider { return llmcore.LLMProviderOllama }
+func (b *blockingLLM) GetModel() string                 { return "mock-blocking" }
+func (b *blockingLLM) Close()                           {}
 
 // TestSubmit_TimeoutPropagates verifies that Task.Timeout bounds the
 // execution: a blocked LLM surfaces a deadline-exceeded cause from Submit

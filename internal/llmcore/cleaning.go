@@ -1,4 +1,4 @@
-package core
+package llmcore
 
 // CleaningMode controls how aggressively the context cleaner strips tool data.
 type CleaningMode int

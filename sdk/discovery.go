@@ -4,9 +4,9 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/Timwood0x10/ares/api/core"
-	"github.com/Timwood0x10/ares/api/tools"
 	"github.com/Timwood0x10/ares/internal/agentloop"
+	tools "github.com/Timwood0x10/ares/internal/apitools"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 	rescore "github.com/Timwood0x10/ares/internal/tools/resources/core"
 	"github.com/Timwood0x10/ares/internal/tools/toolsource"
 )
@@ -28,8 +28,8 @@ import (
 func (a *Agent) resolveTools(
 	ctx context.Context,
 	input string,
-) ([]core.Tool, agentloop.ToolExecutor, agentloop.ToolExpander) {
-	legacy := func() ([]core.Tool, agentloop.ToolExecutor, agentloop.ToolExpander) {
+) ([]llmcore.Tool, agentloop.ToolExecutor, agentloop.ToolExpander) {
+	legacy := func() ([]llmcore.Tool, agentloop.ToolExecutor, agentloop.ToolExpander) {
 		llmTools := a.toCoreTools(a.tools)
 		if a.runtime != nil {
 			llmTools = append(llmTools, a.runtime.syscallTools...)
@@ -108,14 +108,14 @@ func (a *Agent) selectTools(
 	return selector.Select(ctx, input, available)
 }
 
-// rescoreToolsToLLM converts a slice of internal core.Tool to api/core.Tool
-// LLM structs, mirroring core.Registry.GetLLMTools (build a ToolSchema per
+// rescoreToolsToLLM converts a slice of internal llmcore.Tool to api/llmcore.Tool
+// LLM structs, mirroring llmcore.Registry.GetLLMTools (build a ToolSchema per
 // tool and call ToolSchemaToLLMTool). Nil tools are skipped.
-func rescoreToolsToLLM(tt []rescore.Tool) []core.Tool {
+func rescoreToolsToLLM(tt []rescore.Tool) []llmcore.Tool {
 	if len(tt) == 0 {
 		return nil
 	}
-	out := make([]core.Tool, 0, len(tt))
+	out := make([]llmcore.Tool, 0, len(tt))
 	for _, t := range tt {
 		if t == nil {
 			continue
@@ -125,10 +125,10 @@ func rescoreToolsToLLM(tt []rescore.Tool) []core.Tool {
 	return out
 }
 
-// rescoreToolToLLM converts one internal core.Tool to an api/core.Tool LLM
+// rescoreToolToLLM converts one internal llmcore.Tool to an api/llmcore.Tool LLM
 // struct by building a ToolSchema and calling ToolSchemaToLLMTool (same path
-// as core.Registry.GetLLMTools).
-func rescoreToolToLLM(t rescore.Tool) core.Tool {
+// as llmcore.Registry.GetLLMTools).
+func rescoreToolToLLM(t rescore.Tool) llmcore.Tool {
 	schema := rescore.ToolSchema{
 		Name:        t.Name(),
 		Description: t.Description(),
@@ -156,7 +156,7 @@ type discoveringExecutor struct {
 // Execute dispatches discover_tools to the meta-tool. Every other name is first
 // looked up in the available snapshot (so StaticSource/MultiSource-only tools
 // are executable), then delegated to the registry as a fallback for
-// late-registered tools. The meta-tool's core.Result is converted to
+// late-registered tools. The meta-tool's llmcore.Result is converted to
 // tools.Result so the engine's ToolExecutor contract is satisfied.
 func (d *discoveringExecutor) Execute(
 	ctx context.Context,
@@ -186,7 +186,7 @@ func (d *discoveringExecutor) Execute(
 	return d.delegate.Execute(ctx, name, args)
 }
 
-// rescoreResultToToolsResult maps an internal core.Result to the public
+// rescoreResultToToolsResult maps an internal llmcore.Result to the public
 // tools.Result. When Success is false and Data is nil, the Error string is
 // promoted to Data so the engine's %v formatting surfaces a useful message
 // to the LLM (mirroring mcpToolAdapter.Execute error handling).
@@ -221,11 +221,11 @@ func newSourceExpander(available []rescore.Tool) *sourceExpander {
 
 // Expand resolves names into LLM tool defs from the pre-built index.
 // Each name is looked up by Name(); unknown names are skipped without error.
-func (e *sourceExpander) Expand(_ context.Context, names []string) ([]core.Tool, error) {
+func (e *sourceExpander) Expand(_ context.Context, names []string) ([]llmcore.Tool, error) {
 	if len(names) == 0 {
 		return nil, nil
 	}
-	out := make([]core.Tool, 0, len(names))
+	out := make([]llmcore.Tool, 0, len(names))
 	for _, n := range names {
 		if t, ok := e.byName[n]; ok {
 			out = append(out, rescoreToolToLLM(t))

@@ -7,11 +7,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	"github.com/Timwood0x10/ares/internal/fabric/planprojection"
 	taskfabric "github.com/Timwood0x10/ares/internal/fabric/task"
 	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 )
 
 // The M4 cost channel's cognition half: every LLM-carrying quantum reports
@@ -26,21 +26,21 @@ type usageChat struct {
 	calls int
 }
 
-func (c *usageChat) Chat(_ context.Context, _ []*core.LLMMessage, _ []core.Tool, _ map[string]any) (*core.GenerateResponse, error) {
+func (c *usageChat) Chat(_ context.Context, _ []*llmcore.LLMMessage, _ []llmcore.Tool, _ map[string]any) (*llmcore.GenerateResponse, error) {
 	c.calls++
 	if c.calls == 1 {
-		return &core.GenerateResponse{
-			ToolCalls: []core.ToolCall{{
+		return &llmcore.GenerateResponse{
+			ToolCalls: []llmcore.ToolCall{{
 				ID:       "tc-u1",
 				Type:     "function",
-				Function: core.FunctionCall{Name: "grep", Arguments: `{"query":"x"}`},
+				Function: llmcore.FunctionCall{Name: "grep", Arguments: `{"query":"x"}`},
 			}},
-			Usage: core.TokenUsage{PromptTokens: 100, CompletionTokens: 40, TotalTokens: 140},
+			Usage: llmcore.TokenUsage{PromptTokens: 100, CompletionTokens: 40, TotalTokens: 140},
 		}, nil
 	}
-	return &core.GenerateResponse{
+	return &llmcore.GenerateResponse{
 		Content: "done",
-		Usage:   core.TokenUsage{PromptTokens: 25, CompletionTokens: 15, TotalTokens: 40},
+		Usage:   llmcore.TokenUsage{PromptTokens: 25, CompletionTokens: 15, TotalTokens: 40},
 	}, nil
 }
 
@@ -92,8 +92,8 @@ func TestPlannerQuantumStampsTokenUsage(t *testing.T) {
 
 func TestTokenUsageMetadataDegraded(t *testing.T) {
 	assert.Nil(t, tokenUsageMetadata(nil), "nil response → nil metadata")
-	assert.Nil(t, tokenUsageMetadata(&core.GenerateResponse{}), "zero usage → nil metadata")
-	assert.NotNil(t, tokenUsageMetadata(&core.GenerateResponse{
-		Usage: core.TokenUsage{PromptTokens: 1},
+	assert.Nil(t, tokenUsageMetadata(&llmcore.GenerateResponse{}), "zero usage → nil metadata")
+	assert.NotNil(t, tokenUsageMetadata(&llmcore.GenerateResponse{
+		Usage: llmcore.TokenUsage{PromptTokens: 1},
 	}), "any positive usage → metadata present")
 }

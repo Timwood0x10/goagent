@@ -9,7 +9,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/Timwood0x10/ares/api/experience"
+	experience "github.com/Timwood0x10/ares/internal/llmexp"
 	"github.com/Timwood0x10/ares/internal/runtime/memory/embedding"
 )
 

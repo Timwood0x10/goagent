@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Timwood0x10/ares/api/tools"
+	tools "github.com/Timwood0x10/ares/internal/apitools"
 )
 
 // TestApplySearchDepth covers the boundary shapes of the search_depth →

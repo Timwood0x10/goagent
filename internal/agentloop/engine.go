@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Timwood0x10/ares/api/core"
-	"github.com/Timwood0x10/ares/api/service/llm"
-	"github.com/Timwood0x10/ares/api/tools"
+	tools "github.com/Timwood0x10/ares/internal/apitools"
 	ares_events "github.com/Timwood0x10/ares/internal/ares_events"
 	kctx "github.com/Timwood0x10/ares/internal/kernel/ctx"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
+	llm "github.com/Timwood0x10/ares/internal/llmsvcapi"
 	"github.com/Timwood0x10/ares/internal/logger"
 	memory "github.com/Timwood0x10/ares/internal/runtime/memory"
 	memctx "github.com/Timwood0x10/ares/internal/runtime/memory/context"
@@ -65,8 +65,8 @@ type HumanInputFunc func(ctx context.Context, toolName string, args map[string]a
 // LLMCaller is the subset of the LLM service the engine needs: generate a
 // completion and report the provider for friendly error hints.
 type LLMCaller interface {
-	Generate(ctx context.Context, req *core.GenerateRequest) (*core.GenerateResponse, error)
-	GetProvider() core.LLMProvider
+	Generate(ctx context.Context, req *llmcore.GenerateRequest) (*llmcore.GenerateResponse, error)
+	GetProvider() llmcore.LLMProvider
 }
 
 // ToolExecutor executes a registered tool by name. It matches
@@ -85,7 +85,7 @@ type ToolExecutor interface {
 // tool pool and converts them via toCoreTools); agentloop only depends on this
 // narrow interface to stay decoupled from toolsource.
 type ToolExpander interface {
-	Expand(ctx context.Context, names []string) ([]core.Tool, error)
+	Expand(ctx context.Context, names []string) ([]llmcore.Tool, error)
 }
 
 // EventSink appends events to an event stream. It is the minimal subset of
@@ -112,7 +112,7 @@ type structuredMemorySink interface {
 }
 
 // toMemToolCalls converts core tool calls into the memory-layer representation.
-func toMemToolCalls(calls []core.ToolCall) []memctx.ToolCall {
+func toMemToolCalls(calls []llmcore.ToolCall) []memctx.ToolCall {
 	out := make([]memctx.ToolCall, 0, len(calls))
 	for _, c := range calls {
 		out = append(out, memctx.ToolCall{
@@ -168,9 +168,9 @@ type Engine struct {
 type Request struct {
 	// Messages is the pre-built initial message list. The engine appends
 	// assistant and tool messages to a copy during the loop.
-	Messages []*core.LLMMessage
-	// Tools is the core.Tool definitions passed to the LLM for function calling.
-	Tools []core.Tool
+	Messages []*llmcore.LLMMessage
+	// Tools is the llmcore.Tool definitions passed to the LLM for function calling.
+	Tools []llmcore.Tool
 	// MaxIter caps the ReAct loop iterations; <=0 falls back to DefaultMaxIterations.
 	MaxIter int
 	// MaxTokens caps the cumulative prompt+completion tokens across all LLM
@@ -229,11 +229,11 @@ type Result struct {
 // iterState carries the mutable loop state so helper methods stay under the
 // parameter-count limit (rule: params <= 5).
 type iterState struct {
-	messages    []*core.LLMMessage
+	messages    []*llmcore.LLMMessage
 	toolCount   int
 	inputTok    int
 	outputTok   int
-	activeTools []core.Tool
+	activeTools []llmcore.Tool
 }
 
 // Run executes the ReAct loop against the pre-built messages and returns the
@@ -251,13 +251,13 @@ func (e *Engine) Run(ctx context.Context, req *Request) (*Result, error) {
 	// Copy req.Tools so runtime expansion never mutates the caller's slice.
 	// When no discover_tools call happens, activeTools stays equal to req.Tools
 	// and the GenerateRequest is identical to the pre-expansion behaviour.
-	activeTools := make([]core.Tool, len(req.Tools))
+	activeTools := make([]llmcore.Tool, len(req.Tools))
 	copy(activeTools, req.Tools)
 	// Copy req.Messages so that append does not write into the caller's
 	// backing array when the caller used append (cap > len). Without this
 	// copy, retry/multi-agent scenarios that reuse the same Messages slice
 	// would see messages from one run leak into another.
-	msgs := make([]*core.LLMMessage, len(req.Messages))
+	msgs := make([]*llmcore.LLMMessage, len(req.Messages))
 	copy(msgs, req.Messages)
 	st := &iterState{messages: msgs, activeTools: activeTools}
 	maxIter := req.MaxIter
@@ -281,7 +281,7 @@ func (e *Engine) Run(ctx context.Context, req *Request) (*Result, error) {
 		// means "all tools".
 		granted := st.activeTools
 		if len(req.ToolWhitelist) > 0 {
-			granted = make([]core.Tool, 0, len(st.activeTools))
+			granted = make([]llmcore.Tool, 0, len(st.activeTools))
 			for _, t := range st.activeTools {
 				if req.ToolWhitelist[t.Function.Name] {
 					granted = append(granted, t)
@@ -289,7 +289,7 @@ func (e *Engine) Run(ctx context.Context, req *Request) (*Result, error) {
 			}
 		}
 
-		resp, err := e.LLM.Generate(ctx, &core.GenerateRequest{
+		resp, err := e.LLM.Generate(ctx, &llmcore.GenerateRequest{
 			Messages: st.messages,
 			Tools:    granted,
 		})
@@ -331,7 +331,7 @@ func (e *Engine) Run(ctx context.Context, req *Request) (*Result, error) {
 		}
 
 		// Append the assistant message.
-		st.messages = append(st.messages, &core.LLMMessage{
+		st.messages = append(st.messages, &llmcore.LLMMessage{
 			Role:      roleAssistant,
 			Content:   resp.Content,
 			ToolCalls: resp.ToolCalls,
@@ -404,7 +404,7 @@ func (e *Engine) Run(ctx context.Context, req *Request) (*Result, error) {
 // executeToolCalls runs the human-in-the-loop check, event emission, and tool
 // execution for one batch of tool calls, appending tool messages to st.messages.
 // Returns an error only when HumanInput returns an error (aborting the run).
-func (e *Engine) executeToolCalls(ctx context.Context, req *Request, st *iterState, iter int, calls []core.ToolCall) error {
+func (e *Engine) executeToolCalls(ctx context.Context, req *Request, st *iterState, iter int, calls []llmcore.ToolCall) error {
 	for seq, tc := range calls {
 		args := parseArgs(tc.Function.Arguments)
 
@@ -417,7 +417,7 @@ func (e *Engine) executeToolCalls(ctx context.Context, req *Request, st *iterSta
 			if !approved {
 				e.trace("[ares:trace] %s → tool call REJECTED by human: %s",
 					req.AgentName, tc.Function.Name)
-				st.messages = append(st.messages, &core.LLMMessage{
+				st.messages = append(st.messages, &llmcore.LLMMessage{
 					Role:       roleTool,
 					ToolCallID: tc.ID,
 					Content: fmt.Sprintf("Tool call %s was rejected by human operator",
@@ -455,7 +455,7 @@ func (e *Engine) executeToolCalls(ctx context.Context, req *Request, st *iterSta
 			resultContent = fmt.Sprintf("%v", result.Data)
 		}
 
-		st.messages = append(st.messages, &core.LLMMessage{
+		st.messages = append(st.messages, &llmcore.LLMMessage{
 			Role:       roleTool,
 			ToolCallID: tc.ID,
 			Content:    resultContent,
@@ -538,7 +538,7 @@ func (e *Engine) expandDiscoveredTools(ctx context.Context, req *Request, st *it
 // toolNameInSet reports whether name already appears in tools by Function.Name.
 // Used for dedup during runtime tool expansion; the active set is small so a
 // linear scan is sufficient.
-func toolNameInSet(name string, tools []core.Tool) bool {
+func toolNameInSet(name string, tools []llmcore.Tool) bool {
 	for _, t := range tools {
 		if t.Function.Name == name {
 			return true
@@ -673,12 +673,12 @@ func parseArgs(raw string) map[string]any {
 // Exported so the sdk can reuse the same hint table (single source of truth)
 // for both New() and engine-driven runs. The message format matches the
 // original sdk.friendlyErr exactly.
-func FriendlyErr(scope string, provider core.LLMProvider, origErr error) error {
-	hints := map[core.LLMProvider]string{
-		core.LLMProviderOpenAI:     "→ Set OPENAI_API_KEY or check https://platform.openai.com/account/api-keys",
-		core.LLMProviderAnthropic:  "→ Set ANTHROPIC_API_KEY or check https://console.anthropic.com/",
-		core.LLMProviderOpenRouter: "→ Set OPENROUTER_API_KEY or check https://openrouter.ai/keys",
-		core.LLMProviderOllama:     "→ Run: ollama run llama3.2  (Ollama may not be running)",
+func FriendlyErr(scope string, provider llmcore.LLMProvider, origErr error) error {
+	hints := map[llmcore.LLMProvider]string{
+		llmcore.LLMProviderOpenAI:     "→ Set OPENAI_API_KEY or check https://platform.openai.com/account/api-keys",
+		llmcore.LLMProviderAnthropic:  "→ Set ANTHROPIC_API_KEY or check https://console.anthropic.com/",
+		llmcore.LLMProviderOpenRouter: "→ Set OPENROUTER_API_KEY or check https://openrouter.ai/keys",
+		llmcore.LLMProviderOllama:     "→ Run: ollama run llama3.2  (Ollama may not be running)",
 	}
 	msg := fmt.Sprintf("%s: %v", scope, origErr)
 	if hint, ok := hints[provider]; ok {

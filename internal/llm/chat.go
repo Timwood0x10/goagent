@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/ares_callbacks"
 	"github.com/Timwood0x10/ares/internal/errors"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 )
 
 // Chat sends a chat request with tool support to the LLM.
@@ -27,9 +27,9 @@ import (
 //
 // Returns:
 //
-//	*core.GenerateResponse - the chat response including optional tool_calls.
+//	*llmcore.GenerateResponse - the chat response including optional tool_calls.
 //	error - request, decode, or unsupported provider error.
-func (c *Client) Chat(ctx context.Context, messages []*core.LLMMessage, tools []core.Tool, params map[string]any) (*core.GenerateResponse, error) {
+func (c *Client) Chat(ctx context.Context, messages []*llmcore.LLMMessage, tools []llmcore.Tool, params map[string]any) (*llmcore.GenerateResponse, error) {
 	start := time.Now()
 	model := ""
 	if c.config != nil {
@@ -66,13 +66,13 @@ func (c *Client) Chat(ctx context.Context, messages []*core.LLMMessage, tools []
 		Model: model,
 	})
 
-	var result *core.GenerateResponse
+	var result *llmcore.GenerateResponse
 	var err error
 
 	// Run the provider call under the retry policy and circuit breaker:
 	// 429/5xx/transport errors are retried with exponential backoff, and the
 	// breaker fails fast while a provider is degraded.
-	result, err = withRetry(c, ctx, func() (*core.GenerateResponse, error) {
+	result, err = withRetry(c, ctx, func() (*llmcore.GenerateResponse, error) {
 		switch ProviderType(c.config.Provider) {
 		case ProviderOllama:
 			return c.chatOllama(ctx, messages, tools, overrides)
@@ -115,7 +115,7 @@ func (c *Client) Chat(ctx context.Context, messages []*core.LLMMessage, tools []
 }
 
 // summarizeMessages returns a brief summary of messages for logging/tracing.
-func summarizeMessages(messages []*core.LLMMessage) string {
+func summarizeMessages(messages []*llmcore.LLMMessage) string {
 	return fmt.Sprintf("chat(%d messages)", len(messages))
 }
 
@@ -130,9 +130,9 @@ func summarizeMessages(messages []*core.LLMMessage) string {
 //
 // Returns:
 //
-//	*core.GenerateResponse - the chat response, including tool_calls if present.
+//	*llmcore.GenerateResponse - the chat response, including tool_calls if present.
 //	error - request or decode error.
-func (c *Client) chatOllama(ctx context.Context, messages []*core.LLMMessage, tools []core.Tool, o requestOverrides) (*core.GenerateResponse, error) {
+func (c *Client) chatOllama(ctx context.Context, messages []*llmcore.LLMMessage, tools []llmcore.Tool, o requestOverrides) (*llmcore.GenerateResponse, error) {
 	body := map[string]any{
 		"model":    c.config.Model,
 		"messages": buildOpenAIChatMessages(messages),
@@ -202,14 +202,14 @@ func (c *Client) chatOllama(ctx context.Context, messages []*core.LLMMessage, to
 		return nil, errors.Wrap(err, "decode ollama chat response")
 	}
 
-	respCore := &core.GenerateResponse{
+	respCore := &llmcore.GenerateResponse{
 		Content: ollamaResp.Message.Content,
 	}
 	for _, tc := range ollamaResp.Message.ToolCalls {
-		respCore.ToolCalls = append(respCore.ToolCalls, core.ToolCall{
+		respCore.ToolCalls = append(respCore.ToolCalls, llmcore.ToolCall{
 			ID:   tc.ID,
 			Type: tc.Type,
-			Function: core.FunctionCall{
+			Function: llmcore.FunctionCall{
 				Name:      tc.Function.Name,
 				Arguments: string(tc.Function.Arguments),
 			},
@@ -229,9 +229,9 @@ func (c *Client) chatOllama(ctx context.Context, messages []*core.LLMMessage, to
 //
 // Returns:
 //
-//	*core.GenerateResponse - the chat response, including tool_calls if present.
+//	*llmcore.GenerateResponse - the chat response, including tool_calls if present.
 //	error - request or decode error.
-func (c *Client) chatOpenAI(ctx context.Context, messages []*core.LLMMessage, tools []core.Tool, o requestOverrides) (*core.GenerateResponse, error) {
+func (c *Client) chatOpenAI(ctx context.Context, messages []*llmcore.LLMMessage, tools []llmcore.Tool, o requestOverrides) (*llmcore.GenerateResponse, error) {
 	if c.config.APIKey == "" {
 		return nil, errors.New("API key is required for OpenAI/OpenRouter chat")
 	}
@@ -269,7 +269,7 @@ func (c *Client) chatOpenAI(ctx context.Context, messages []*core.LLMMessage, to
 }
 
 // decodeOpenAIChatResponse sends the request and decodes the OpenAI chat response.
-func (c *Client) decodeOpenAIChatResponse(ctx context.Context, req *http.Request) (*core.GenerateResponse, error) {
+func (c *Client) decodeOpenAIChatResponse(ctx context.Context, req *http.Request) (*llmcore.GenerateResponse, error) {
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("openai chat: %w", err)
@@ -324,15 +324,15 @@ func (c *Client) decodeOpenAIChatResponse(ctx context.Context, req *http.Request
 	}
 
 	choice := chatResp.Choices[0]
-	respCore := &core.GenerateResponse{
+	respCore := &llmcore.GenerateResponse{
 		Content:      choice.Message.Content,
 		FinishReason: choice.FinishReason,
 	}
 	for _, tc := range choice.Message.ToolCalls {
-		respCore.ToolCalls = append(respCore.ToolCalls, core.ToolCall{
+		respCore.ToolCalls = append(respCore.ToolCalls, llmcore.ToolCall{
 			ID:   tc.ID,
 			Type: tc.Type,
-			Function: core.FunctionCall{
+			Function: llmcore.FunctionCall{
 				Name:      tc.Function.Name,
 				Arguments: tc.Function.Arguments,
 			},
@@ -341,9 +341,9 @@ func (c *Client) decodeOpenAIChatResponse(ctx context.Context, req *http.Request
 	return respCore, nil
 }
 
-// buildOpenAIChatMessages converts core.LLMMessage slice to OpenAI chat format.
+// buildOpenAIChatMessages converts llmcore.LLMMessage slice to OpenAI chat format.
 // Handles tool-role and assistant messages with tool_calls.
-func buildOpenAIChatMessages(messages []*core.LLMMessage) []map[string]any {
+func buildOpenAIChatMessages(messages []*llmcore.LLMMessage) []map[string]any {
 	result := make([]map[string]any, 0, len(messages))
 	for _, msg := range messages {
 		switch {
@@ -386,8 +386,8 @@ func buildOpenAIChatMessages(messages []*core.LLMMessage) []map[string]any {
 	return result
 }
 
-// buildOpenAIChatTools converts core.Tool slice to OpenAI tools format.
-func buildOpenAIChatTools(tools []core.Tool) []map[string]any {
+// buildOpenAIChatTools converts llmcore.Tool slice to OpenAI tools format.
+func buildOpenAIChatTools(tools []llmcore.Tool) []map[string]any {
 	result := make([]map[string]any, 0, len(tools))
 	for _, t := range tools {
 		result = append(result, map[string]any{
@@ -413,9 +413,9 @@ func buildOpenAIChatTools(tools []core.Tool) []map[string]any {
 //
 // Returns:
 //
-//	*core.GenerateResponse - the chat response, including tool_calls if present.
+//	*llmcore.GenerateResponse - the chat response, including tool_calls if present.
 //	error - request or decode error.
-func (c *Client) chatAnthropic(ctx context.Context, messages []*core.LLMMessage, tools []core.Tool, o requestOverrides) (*core.GenerateResponse, error) {
+func (c *Client) chatAnthropic(ctx context.Context, messages []*llmcore.LLMMessage, tools []llmcore.Tool, o requestOverrides) (*llmcore.GenerateResponse, error) {
 	if c.config.APIKey == "" {
 		return nil, errors.New("API key is required for Anthropic chat")
 	}
@@ -461,7 +461,7 @@ func (c *Client) chatAnthropic(ctx context.Context, messages []*core.LLMMessage,
 }
 
 // decodeAnthropicChatResponse sends the request and decodes the Anthropic chat response.
-func (c *Client) decodeAnthropicChatResponse(ctx context.Context, req *http.Request) (*core.GenerateResponse, error) {
+func (c *Client) decodeAnthropicChatResponse(ctx context.Context, req *http.Request) (*llmcore.GenerateResponse, error) {
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("anthropic chat: %w", err)
@@ -503,8 +503,8 @@ func (c *Client) decodeAnthropicChatResponse(ctx context.Context, req *http.Requ
 		return nil, errors.Wrap(err, "decode anthropic chat response")
 	}
 
-	respCore := &core.GenerateResponse{
-		Usage: core.TokenUsage{
+	respCore := &llmcore.GenerateResponse{
+		Usage: llmcore.TokenUsage{
 			PromptTokens:     chatResp.Usage.InputTokens,
 			CompletionTokens: chatResp.Usage.OutputTokens,
 			TotalTokens:      chatResp.Usage.InputTokens + chatResp.Usage.OutputTokens,
@@ -520,10 +520,10 @@ func (c *Client) decodeAnthropicChatResponse(ctx context.Context, req *http.Requ
 				log.Error("llm: marshal tool call input", "error", err)
 				continue
 			}
-			respCore.ToolCalls = append(respCore.ToolCalls, core.ToolCall{
+			respCore.ToolCalls = append(respCore.ToolCalls, llmcore.ToolCall{
 				ID:   block.ID,
 				Type: "function",
-				Function: core.FunctionCall{
+				Function: llmcore.FunctionCall{
 					Name:      block.Name,
 					Arguments: string(argsJSON),
 				},
@@ -536,11 +536,11 @@ func (c *Client) decodeAnthropicChatResponse(ctx context.Context, req *http.Requ
 	return respCore, nil
 }
 
-// buildAnthropicChatMessages converts core.LLMMessage slice to Anthropic format.
+// buildAnthropicChatMessages converts llmcore.LLMMessage slice to Anthropic format.
 // System-role messages are extracted into a separate system prompt string.
 // Tool-result messages are converted to Anthropic's user+tool_result format.
 // Returns (messages, systemPrompt).
-func buildAnthropicChatMessages(messages []*core.LLMMessage) ([]map[string]any, string) {
+func buildAnthropicChatMessages(messages []*llmcore.LLMMessage) ([]map[string]any, string) {
 	var systemParts []string
 	result := make([]map[string]any, 0, len(messages))
 
@@ -602,10 +602,10 @@ func buildAnthropicChatMessages(messages []*core.LLMMessage) ([]map[string]any, 
 	return result, systemPrompt
 }
 
-// buildAnthropicChatTools converts core.Tool slice to Anthropic flat tool format.
+// buildAnthropicChatTools converts llmcore.Tool slice to Anthropic flat tool format.
 // Anthropic uses {name, description, input_schema} instead of OpenAI's
 // {type:"function", function:{name,description,parameters}} wrapper.
-func buildAnthropicChatTools(tools []core.Tool) []map[string]any {
+func buildAnthropicChatTools(tools []llmcore.Tool) []map[string]any {
 	result := make([]map[string]any, 0, len(tools))
 	for _, t := range tools {
 		result = append(result, map[string]any{

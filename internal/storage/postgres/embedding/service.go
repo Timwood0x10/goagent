@@ -1,17 +1,17 @@
 // Package embedding provides vector embedding functionality with caching.
 //
-// The EmbeddingService interface is defined in the public package
-// api/embedding. This internal package provides the EmbeddingClient
-// implementation, which satisfies api/embedding.EmbeddingService.
+// The EmbeddingService interface is defined in the canonical package
+// internal/embedding. This internal package provides the EmbeddingClient
+// implementation, which satisfies internal/embedding.EmbeddingService.
 //
-// Importing the public interface here lets internal callers depend on the
+// Importing the canonical interface here lets internal callers depend on the
 // storage-agnostic contract while still using the PostgreSQL-backed
 // implementation provided below.
 package embedding
 
 import (
-	"github.com/Timwood0x10/ares/api/embedding"
+	aresembed "github.com/Timwood0x10/ares/internal/embedding"
 )
 
-// Ensure EmbeddingClient implements the public EmbeddingService interface.
-var _ embedding.EmbeddingService = (*EmbeddingClient)(nil)
+// Ensure EmbeddingClient implements the canonical EmbeddingService interface.
+var _ aresembed.EmbeddingService = (*EmbeddingClient)(nil)

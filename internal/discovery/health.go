@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	api_mcp "github.com/Timwood0x10/ares/api/mcp"
+	api_mcp "github.com/Timwood0x10/ares/internal/mcpclient"
 )
 
 // allowedMCPBinaryDirs lists directories whose binaries are trusted to be

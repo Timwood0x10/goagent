@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/ares_events"
 	"github.com/Timwood0x10/ares/internal/core/models"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 	memctx "github.com/Timwood0x10/ares/internal/runtime/memory/context"
 )
 
@@ -126,7 +126,7 @@ type MemoryConfig struct {
 	UseStructuredCleaning bool
 
 	// CleanOptions configures context cleaning behavior. When nil, defaults are used.
-	CleanOptions *core.CleanOptions
+	CleanOptions *llmcore.CleanOptions
 
 	// EnableRAG enables retrieval-augmented generation: past experiences and
 	// distilled memories are retrieved and injected into the LLM prompt.
@@ -177,14 +177,14 @@ const (
 	RoleToolResult = memctx.RoleToolResult
 )
 
-// ToCoreMessage converts a memory Message to an api/core Message.
-func ToCoreMessage(sessionID string, msg Message) *core.Message {
-	return &core.Message{
+// ToCoreMessage converts a memory Message to an internal/llmcore Message.
+func ToCoreMessage(sessionID string, msg Message) *llmcore.Message {
+	return &llmcore.Message{
 		SessionID: sessionID,
-		Role:      core.MessageRole(msg.Role),
+		Role:      llmcore.MessageRole(msg.Role),
 		Content:   msg.Content,
 		Time:      msg.Time,
-		Metadata: core.Metadata{
+		Metadata: llmcore.Metadata{
 			"turn_id":      msg.TurnID,
 			"tool_call_id": msg.ToolCallID,
 			"tool_calls":   msg.ToolCalls,
@@ -192,20 +192,20 @@ func ToCoreMessage(sessionID string, msg Message) *core.Message {
 	}
 }
 
-// ToLLMMessage converts a memory Message to an api/core LLMMessage.
-func ToLLMMessage(msg Message) *core.LLMMessage {
-	tcs := make([]core.ToolCall, len(msg.ToolCalls))
+// ToLLMMessage converts a memory Message to an internal/llmcore LLMMessage.
+func ToLLMMessage(msg Message) *llmcore.LLMMessage {
+	tcs := make([]llmcore.ToolCall, len(msg.ToolCalls))
 	for i, tc := range msg.ToolCalls {
-		tcs[i] = core.ToolCall{
+		tcs[i] = llmcore.ToolCall{
 			ID:   tc.ID,
 			Type: tc.Type,
-			Function: core.FunctionCall{
+			Function: llmcore.FunctionCall{
 				Name:      tc.Function.Name,
 				Arguments: tc.Function.Arguments,
 			},
 		}
 	}
-	return &core.LLMMessage{
+	return &llmcore.LLMMessage{
 		Role:       msg.Role,
 		Content:    msg.Content,
 		ToolCalls:  tcs,
@@ -213,8 +213,8 @@ func ToLLMMessage(msg Message) *core.LLMMessage {
 	}
 }
 
-// FromCoreMessage converts an api/core Message to a memory Message.
-func FromCoreMessage(sessionID string, msg *core.Message) Message {
+// FromCoreMessage converts an internal/llmcore Message to a memory Message.
+func FromCoreMessage(sessionID string, msg *llmcore.Message) Message {
 	if msg == nil {
 		return Message{}
 	}
@@ -243,8 +243,8 @@ func FromCoreMessage(sessionID string, msg *core.Message) Message {
 	return m
 }
 
-// FromLLMMessage converts an api/core LLMMessage to a memory Message.
-func FromLLMMessage(msg *core.LLMMessage) Message {
+// FromLLMMessage converts an internal/llmcore LLMMessage to a memory Message.
+func FromLLMMessage(msg *llmcore.LLMMessage) Message {
 	if msg == nil {
 		return Message{}
 	}
@@ -342,7 +342,7 @@ func (c *MemoryConfig) validate() error {
 
 // DefaultMemoryConfig returns default configuration for MemoryManager.
 func DefaultMemoryConfig() *MemoryConfig {
-	opts := core.DefaultCleanOptions()
+	opts := llmcore.DefaultCleanOptions()
 	return &MemoryConfig{
 		Enabled:               true,
 		Storage:               StorageMemory,

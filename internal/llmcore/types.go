@@ -1,5 +1,5 @@
-// Package core provides core abstractions and interfaces for the ARES API layer.
-package core
+// Package llmcore provides core abstractions and interfaces for the ARES API layer.
+package llmcore
 
 import "time"
 

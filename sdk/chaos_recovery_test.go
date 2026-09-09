@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/agents/sub"
 	"github.com/Timwood0x10/ares/internal/aresrecovery"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	"github.com/Timwood0x10/ares/internal/fabric/task"
 	"github.com/Timwood0x10/ares/internal/kernel"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 )
 
 // yieldExecutor is the yield execution body: the first ExecuteStep yields
@@ -98,8 +98,8 @@ func TestSDKChaosRecoveryChain(t *testing.T) {
 	defer rt.Close()
 	// The yield/resume stubs below never invoke the LLM, but llmSvc must be
 	// non-nil for NewAgent wiring; a mock keeps the test hermetic.
-	rt.llmSvc = &mockLLMSvc{responses: []*core.GenerateResponse{
-		{Content: "unused", Usage: core.TokenUsage{PromptTokens: 1, CompletionTokens: 1}},
+	rt.llmSvc = &mockLLMSvc{responses: []*llmcore.GenerateResponse{
+		{Content: "unused", Usage: llmcore.TokenUsage{PromptTokens: 1, CompletionTokens: 1}},
 	}}
 
 	rt.RegisterAgent("coder") // capability = "coder"

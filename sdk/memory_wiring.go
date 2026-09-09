@@ -20,7 +20,7 @@ import (
 	"log/slog"
 	"time"
 
-	apiembed "github.com/Timwood0x10/ares/api/embedding"
+	apiembed "github.com/Timwood0x10/ares/internal/embedding"
 	"github.com/Timwood0x10/ares/internal/knowledge"
 	"github.com/Timwood0x10/ares/internal/knowledge/adapter"
 	khruntime "github.com/Timwood0x10/ares/internal/knowledge/runtime"

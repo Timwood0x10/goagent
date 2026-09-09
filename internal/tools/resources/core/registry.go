@@ -7,8 +7,8 @@ import (
 	"math"
 	"sync"
 
-	llmcore "github.com/Timwood0x10/ares/api/core"
 	gerr "github.com/Timwood0x10/ares/internal/errors"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 )
 
 // Registry manages tool registration and lookup.
@@ -286,7 +286,7 @@ func (r *Registry) GetSchemas() []ToolSchema {
 	return r.schemaCache
 }
 
-// GetLLMTools converts all registered tools to api/core.Tool format
+// GetLLMTools converts all registered tools to internal/llmcore.Tool format
 // for passing to the LLM Chat API. Uses ToolSchemaToLLMTool internally.
 func (r *Registry) GetLLMTools() []llmcore.Tool {
 	schemas := r.GetSchemas()

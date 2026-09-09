@@ -9,23 +9,23 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	"github.com/Timwood0x10/ares/internal/fabric/planprojection"
 	"github.com/Timwood0x10/ares/internal/fabric/task"
 	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 	resources "github.com/Timwood0x10/ares/internal/tools/resources/core"
 )
 
 // priorCapturingChat records the prompt it received and returns no tool calls
 // (final answer), so the test can assert on prompt contents.
 type priorCapturingChat struct {
-	gotPrompt []*core.LLMMessage
+	gotPrompt []*llmcore.LLMMessage
 }
 
-func (c *priorCapturingChat) Chat(_ context.Context, prompt []*core.LLMMessage, _ []core.Tool, _ map[string]any) (*core.GenerateResponse, error) {
+func (c *priorCapturingChat) Chat(_ context.Context, prompt []*llmcore.LLMMessage, _ []llmcore.Tool, _ map[string]any) (*llmcore.GenerateResponse, error) {
 	c.gotPrompt = prompt
-	return &core.GenerateResponse{Content: "done"}, nil
+	return &llmcore.GenerateResponse{Content: "done"}, nil
 }
 
 // buildPriorL1DAG builds an L1 DAG with a prior hint on the grep ToolClass.
@@ -111,22 +111,22 @@ type l1ChatGrepThenAnswerHint struct {
 	calls int
 }
 
-func (c *l1ChatGrepThenAnswerHint) Chat(ctx context.Context, prompt []*core.LLMMessage, tools []core.Tool, extra map[string]any) (*core.GenerateResponse, error) {
+func (c *l1ChatGrepThenAnswerHint) Chat(ctx context.Context, prompt []*llmcore.LLMMessage, tools []llmcore.Tool, extra map[string]any) (*llmcore.GenerateResponse, error) {
 	c.calls++
 	c.inner.gotPrompt = prompt
 	if c.calls == 1 {
-		return &core.GenerateResponse{
-			ToolCalls: []core.ToolCall{{
+		return &llmcore.GenerateResponse{
+			ToolCalls: []llmcore.ToolCall{{
 				ID:   "tc-grep-1",
 				Type: "function",
-				Function: core.FunctionCall{
+				Function: llmcore.FunctionCall{
 					Name:      "grep",
 					Arguments: `{"query":"first"}`,
 				},
 			}},
 		}, nil
 	}
-	return &core.GenerateResponse{Content: "done"}, nil
+	return &llmcore.GenerateResponse{Content: "done"}, nil
 }
 
 // TestL1HotUpdatedPriorIsPickedUp pins the hot-update path: a

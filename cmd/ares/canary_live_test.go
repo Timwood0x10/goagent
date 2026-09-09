@@ -33,7 +33,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
-	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/ares_bootstrap"
 	"github.com/Timwood0x10/ares/internal/ares_config"
 	"github.com/Timwood0x10/ares/internal/core/models"
@@ -42,6 +41,7 @@ import (
 	"github.com/Timwood0x10/ares/internal/fabric/task"
 	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
 	"github.com/Timwood0x10/ares/internal/llm"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 )
 
 // liveLLMClient loads the real model: base config from ./ares.yaml with the
@@ -89,7 +89,7 @@ func liveLLMClient(t *testing.T) *llm.Client {
 	// before touching the network.
 	pingCtx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	ping := []*core.LLMMessage{{Role: "user", Content: "Reply with exactly: OK"}}
+	ping := []*llmcore.LLMMessage{{Role: "user", Content: "Reply with exactly: OK"}}
 	if _, err := client.Chat(pingCtx, ping, nil, nil); err != nil {
 		t.Fatalf("live LLM preflight failed (key/endpoint/model): %v", err)
 	}

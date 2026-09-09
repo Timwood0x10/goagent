@@ -8,9 +8,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Timwood0x10/ares/api/core"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	"github.com/Timwood0x10/ares/internal/fabric/task/workflow/engine"
+	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
 )
 
 // L2Graph is the per-session execution plan of one agent run: a session-local
@@ -420,7 +420,7 @@ type answerSynthesizer struct {
 	// history, experience prior) from the answer task's predecessor
 	// chain. false = context unavailable (session released, unreadable
 	// root); the caller degrades to the gap body instead of failing.
-	assemble func(ctx context.Context, task *models.Task) ([]*core.LLMMessage, bool)
+	assemble func(ctx context.Context, task *models.Task) ([]*llmcore.LLMMessage, bool)
 }
 
 // answerCognition terminates the session on its terminal node. The normal
@@ -497,7 +497,7 @@ func (c *answerCognition) synthesizeAnswer(ctx context.Context, task *models.Tas
 	if !ok {
 		return "" // the assembler already logged why
 	}
-	msgs = append(msgs, &core.LLMMessage{Role: "user", Content: answerSynthesisInstruction})
+	msgs = append(msgs, &llmcore.LLMMessage{Role: "user", Content: answerSynthesisInstruction})
 	// No tool schemas and no param overrides: this is a plain completion
 	// over the session's history, not a planning call — the session is
 	// terminating, so a tool call could never execute, and strategy
