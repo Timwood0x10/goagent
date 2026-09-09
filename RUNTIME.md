@@ -130,20 +130,20 @@ SUSPENDED─(下轮 drain re-acquire)→LEASED；过期租约→CheckExpiredLeas
 | 内存 | **生产事件总线**（serve.go:191 MemoryEventStore——PG 版完整但未接线）、默认 evidence store、无 PG 时策略库 |
 | 文件 | round_N.json 归档（原子写+轮转）、~/.ares/experience.json |
 
-## 6. 断线台账（诚实清单，2026-09-08 M2 修缮后对账）
+## 6. 断线台账（诚实清单；2026-09-09 全清——17 项全 ✅，对账补遗见下）
 
 | # | 断线 | 证据 | 状态 |
 |---|---|---|---|
 | 1 | agentipc DualTrackDispatcher `.Dispatch()` 死方法：生产零调用，HTTP 直捅 fabric | agentipc/policy.go | ✅ 已删（死方法+snapshot/compareShadow/Mismatches 孤儿链；外观类型保留——协作主题仍用 bus.Send） |
-| 2 | peer 直连消息必失败：SendMessage 要求非 nil 队列而 peer 壳传 nil；仅 3 个协作主题能绕行 | evolution.go:412, agent.go:1799 | 开放（M3 处置） |
+| 2 | peer 直连消息必失败：SendMessage 要求非 nil 队列而 peer 壳传 nil；仅 3 个协作主题能绕行 | evolution.go:412, agent.go:1799 | ✅ 已修（M3.4，e1ae5ebc）：SendMessage/ReceiveMessage/messageQueue 路径删除（TODO(tech-debt) 留痕）；peer 主题改报错，三个协作主题（delegate/pipeline/orchestrate）保留为唯一通道 |
 | 3 | **生产并发度=1** | agent.go:1063, scheduler.go drainLimit | ✅ 已修：auto 模式取 max(静态注册表, fabric 空闲候选数)；新增 `kernel.max_concurrent` 配置 |
-| 4 | 事件不持久：serve 用 compactableStore（内存+归档，非裸 MemoryEventStore）→ 重启丢事件流与 fitness 证据 | serve.go:189 | 开放（M4 接 PostgresEventStore） |
+| 4 | 事件不持久：serve 用 compactableStore（内存+归档，非裸 MemoryEventStore）→ 重启丢事件流与 fitness 证据 | serve.go:189 | ✅ 已修（M4.1，前批）：`storage.enabled` 时 newServeEventStore 走 PostgresEventStore（fail-loud）；M4 三批补 `storage.events_retention_days` retention cleaner（默认 0 永不清除）。PG 无 round 归档/compaction 是设计使然（表即持久历史） |
 | 5 | answer 任务终态失败不释放会话 | l2graph.go | ✅ 已修：`task.failed`(state=FAILED, capability=ares/answer) 事件订阅即释放，reaper 正常收割 |
 | 6 | answer 无合成器：内容自持或报"no answer content"，不综合前驱输出 | l2graph.go:374 TODO | ✅ 已修（M4.2，e1ae5ebc）：answerSynthesizer 复用 assembleContext 前驱历史 + 无工具 LLM 调用合成终答，失败降级 gap body 不烧重试预算 |
 | 7 | 经验→spawn 先验只写不读 | lifecycle.go:116 | ✅ 已修（M4.3，e1ae5ebc）：executing_agent_id 盖章→planner 经验先验读侧（experiencePriorSystemMessage，注入先导 system 消息，4096 rune 截断） |
 | 8 | skill 置信只读不写（recorder 饿死） | bootstrap.go:317 | ✅ 已修（M4.4，2026-09-08 二批）：老 recorder 双重死结（sub_task.result 无发射方 + task_desc pattern 读侧永不查询）→ 换 taskfabric 终态事件流（recordLocked 盖 capability 键）→ skillOutcomeWriter 写 `Experience.Record(capability, capability, rate)`；连带修读侧遮蔽（tracker 中性 1.0 挤掉先验）——scheduler 对未测量候选置零让 `Fabric.Schedule` 填先验，测量值恒胜先验。闭环测试 skill_outcome_writer_test |
-| 9 | distilled_memories 表零生产调用（schema 幽灵） | tool_deps.go:19 | 开放（M3 建议删） |
-| 10 | IPC 无重试/死信 | agentipc/deadletter.go 空挂 | 开放（弹性缺口，非死线） |
+| 9 | distilled_memories 表零生产调用（schema 幽灵） | tool_deps.go:19 | ✅ 已修（M5 前小批）：repo interface/impl + distilled_memory_search 工具 + `db create-table`/`db check-rls` 幽灵 CLI 子命令下葬（`DistilledRepo` 全仓零生产赋值——表零读写坐实）；user_profile 保留（memoryMgr 路径是活的，蒸馏库分支删除）；DDL 留在 migrate_storage.go（存量库幂等，TODO(tech-debt) 留痕）。RAG 两路（experiences/knowledge_chunks）不受影响 |
+| 10 | IPC 无重试/死信 | agentipc/deadletter.go 空挂 | ✅ 已修（M5 前小批，观察侧）：实况修正——store 并非空挂（Send/Request/Broadcast 5 处失败路径已 Record），真缺口是**写而不读**。闭环：evolutionIPCBridge.DeadLetterCount() 访问器 + serve 30s 周期日志（计数变化时 Warn + reason 聚合）；不自动重投递（handler 拒绝非瞬态失败，重投是操作员决策）——测试 deadletter_visibility_test |
 | 11 | memory.finalize 事件：无发射方无订阅方 | types.go:70 | ✅ 已删（M3.3，含文档枚举清理） |
 | 12 | ~~死旋钮 dispatch_timeout~~ | — | ✅ 已删（常量+字段+解析+默认值） |
 | 13 | CanRetry 语义矛盾 | task.go | ✅ 已修：`Attempts < MaxRetries`，0/负=不重试；CompilePlan 未设预算默认 2 |

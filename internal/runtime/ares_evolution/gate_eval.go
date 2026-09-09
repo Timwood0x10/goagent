@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync/atomic"
 
 	"github.com/Timwood0x10/ares/internal/runtime/ares_evolution/mutation"
 	"github.com/Timwood0x10/ares/internal/runtime/eval"
@@ -56,7 +57,10 @@ type EvalGate struct {
 	cfg      EvalGateConfig
 	// skippedCount tracks how many times the gate was skipped due to
 	// missing infrastructure. Exposed via SkippedCount for observability.
-	skippedCount int
+	// Atomic: the lifecycle runs gates OUTSIDE its mutex (Submit unlocks
+	// before the gate loop), so two concurrent Submits can run Check
+	// concurrently — a plain increment would be a data race.
+	skippedCount atomic.Int64
 	// logger receives a structured warn on every skip so a
 	// misconfigured eval gate is operator-visible instead of a silent pass.
 	logger *slog.Logger
@@ -120,8 +124,8 @@ func (g *EvalGate) Name() string {
 // missing eval infrastructure (registry, runner, or empty suite). This
 // counter lets operators detect a misconfigured eval gate that would
 // otherwise silently pass every candidate.
-func (g *EvalGate) SkippedCount() int {
-	return g.skippedCount
+func (g *EvalGate) SkippedCount() int64 {
+	return g.skippedCount.Load()
 }
 
 // Check runs the candidate through the eval suite and returns pass=true when
@@ -131,7 +135,7 @@ func (g *EvalGate) SkippedCount() int {
 // silently allow every candidate through.
 func (g *EvalGate) Check(ctx context.Context, cand *mutation.Strategy, _ *mutation.Strategy) (bool, float64, string) {
 	if g.registry == nil || g.runner == nil || len(g.suite.TestCases) == 0 {
-		g.skippedCount++
+		g.skippedCount.Add(1)
 		// Identify the specific missing component for the log.
 		var missing []string
 		if g.registry == nil {
@@ -147,7 +151,7 @@ func (g *EvalGate) Check(ctx context.Context, cand *mutation.Strategy, _ *mutati
 		g.logger.WarnContext(ctx, "eval gate skipped: eval infrastructure missing",
 			"missing", strings.Join(missing, ","),
 			"strict_mode", g.cfg.StrictMode,
-			"skipped_count", g.skippedCount)
+			"skipped_count", g.skippedCount.Load())
 		if g.cfg.StrictMode {
 			return false, 0, fmt.Sprintf("strict mode: %s — rejected", reason)
 		}
@@ -187,11 +191,11 @@ func (g *EvalGate) Check(ctx context.Context, cand *mutation.Strategy, _ *mutati
 		evalCount++
 	}
 	if evalCount == 0 {
-		g.skippedCount++
+		g.skippedCount.Add(1)
 		reason := "no evaluators produced results, skipping"
 		g.logger.WarnContext(ctx, "eval gate skipped: no evaluator results",
 			"strict_mode", g.cfg.StrictMode,
-			"skipped_count", g.skippedCount)
+			"skipped_count", g.skippedCount.Load())
 		if g.cfg.StrictMode {
 			return false, 0, fmt.Sprintf("strict mode: %s — rejected", reason)
 		}

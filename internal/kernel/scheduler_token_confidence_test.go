@@ -135,6 +135,54 @@ func TestQuantumWithoutUsageKeepsEnvelopeClean(t *testing.T) {
 	assert.Equal(t, 0, dc.OutputTokens)
 }
 
+// The done-path re-wrap must carry SessionID: CompleteWithCheckpoint stores
+// the new envelope BEFORE recordLocked reads the session scope off it, so a
+// dropped field here strips session_id from every task.completed event
+// payload (the contract RUNTIME.md documents: session_id rides on every
+// persisted event).
+func TestDonePathEnvelopePreservesSessionID(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	store := ares_events.NewMemoryEventStore()
+	fabric := taskfabric.NewFabric().WithEventStore(store)
+	tracker := NewLoadTracker()
+	exec := &probingExecutor{id: "coder-sess", typ: models.AgentType("code")}
+	sched := New(fabric, map[string]CapabilityExecutor{"coder-sess": exec}, tracker)
+
+	// Submit the task WITH a session-scoped envelope (how session traffic
+	// arrives: planprojection stamps SessionID at Create).
+	require.NoError(t, fabric.Create(&taskfabric.Task{
+		ID:         "t-sess",
+		Capability: "code",
+		Checkpoint: taskfabric.EncodeCheckpoint(taskfabric.DecodedCheckpoint{
+			SessionID: "sess-42",
+		}),
+	}))
+	require.NoError(t, sched.executeUnbound(ctx, "t-sess"))
+
+	// The COMPLETED task's envelope keeps the session scope.
+	tk, err := fabric.Task("t-sess")
+	require.NoError(t, err)
+	require.Equal(t, taskfabric.StateCompleted, tk.State)
+	dc, err := taskfabric.DecodeCheckpoint(tk.Checkpoint)
+	require.NoError(t, err)
+	assert.Equal(t, "sess-42", dc.SessionID, "done-path re-wrap must not drop SessionID")
+
+	// The terminal task.completed event carries the session_id payload key.
+	evs, err := store.Read(ctx, "t-sess", ares_events.ReadOptions{})
+	require.NoError(t, err)
+	var terminal *ares_events.Event
+	for _, ev := range evs {
+		if ev.Type == ares_events.EventTaskCompleted {
+			terminal = ev
+		}
+	}
+	require.NotNil(t, terminal)
+	assert.Equal(t, "sess-42", terminal.Payload["session_id"],
+		"the terminal event must stamp session_id (read from the envelope recordLocked is about to persist)")
+}
+
 // The M4.4 read side: a history-less candidate's confidence yields to the
 // wired experience prior; a measured tracker value (or the neutral default
 // with no prior) is untouched.

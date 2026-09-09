@@ -1,8 +1,10 @@
 // Command mock-db provides a local sqlite mock database for tests that need a
 // storage table without a PostgreSQL instance. It creates a sqlite file with a
-// single mock table (mirroring the distilled_memories shape: id, tenant,
-// content, embedding, memory_type, created_at), inserts a sample row, and
-// prints the row back — a self-contained smoke test for the storage layer.
+// single mock table (historically mirroring the distilled_memories shape: id,
+// tenant, content, embedding, memory_type, created_at — that table's
+// repository was removed as a schema ghost, but the mock keeps the generic
+// column shape), inserts a sample row, and prints the row back — a
+// self-contained smoke test for the storage layer.
 //
 // Usage:
 //

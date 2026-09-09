@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Timwood0x10/ares/internal/ares_config"
+	"github.com/Timwood0x10/ares/internal/ares_events"
 	"github.com/Timwood0x10/ares/internal/logger"
 	"github.com/Timwood0x10/ares/internal/storage/postgres"
 	"github.com/Timwood0x10/ares/internal/storage/postgres/repositories"
@@ -43,6 +44,42 @@ type NamedExpiryCleaner struct {
 // rarely-touched chunks from accumulating forever while preserving anything
 // recently read or written.
 const knowledgeRetention = 90 * 24 * time.Hour
+
+// eventsRetentionCleaner adapts *ares_events.PostgresEventStore (whose
+// CleanupExpiredBefore takes an explicit cutoff) to the parameterless
+// ExpiryCleaner interface with a rolling now-days cutoff — the same pattern
+// as knowledgeCleanerAdapter. PG mode has no archive and no compaction
+// trim, so this cleaner is the events table's only growth bound.
+type eventsRetentionCleaner struct {
+	store *ares_events.PostgresEventStore
+	days  int
+}
+
+// CleanupExpired deletes event rows older than the configured retention.
+// Satisfies ExpiryCleaner.
+func (c eventsRetentionCleaner) CleanupExpired(ctx context.Context) (int64, error) {
+	return c.store.CleanupExpiredBefore(ctx, time.Now().AddDate(0, 0, -c.days))
+}
+
+// eventsRetentionCleanerFor decides whether an events retention cleaner
+// applies to the given store: only a *PostgresEventStore with a positive
+// retention (days > 0) gets one. The decision is a pure type+value check so
+// it is unit-testable without a live database; the memory-mode compactable
+// store already has its own archive+trim lifecycle, and zero retention is
+// the deliberate keep-forever default.
+func eventsRetentionCleanerFor(store ares_events.EventStore, days int) (NamedExpiryCleaner, bool) {
+	if days <= 0 {
+		return NamedExpiryCleaner{}, false
+	}
+	pg, ok := store.(*ares_events.PostgresEventStore)
+	if !ok {
+		return NamedExpiryCleaner{}, false
+	}
+	return NamedExpiryCleaner{
+		Name:    "events",
+		Cleaner: eventsRetentionCleaner{store: pg, days: days},
+	}, true
+}
 
 // knowledgeCleanerAdapter bridges *KnowledgeRepository (whose CleanupExpired
 // takes an explicit cutoff) to the parameterless ExpiryCleaner interface by

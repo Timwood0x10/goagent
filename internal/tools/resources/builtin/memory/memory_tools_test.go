@@ -3,16 +3,13 @@ package builtin
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/Timwood0x10/ares/internal/ares_events"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	memory "github.com/Timwood0x10/ares/internal/runtime/memory"
-	"github.com/Timwood0x10/ares/internal/storage/postgres/repositories"
 )
 
 // MockMemoryManager is a mock implementation of memory.MemoryManager for testing.
@@ -98,55 +95,6 @@ func (m *MockMemoryManager) Clear(ctx context.Context) error {
 	return nil
 }
 
-// MockDistilledMemoryRepository is a mock implementation for testing.
-type MockDistilledMemoryRepository struct {
-	getByUserIDFunc func(ctx context.Context, tenantID, userID string, limit int) ([]*repositories.DistilledMemory, error)
-}
-
-func (m *MockDistilledMemoryRepository) Create(ctx context.Context, mem *repositories.DistilledMemory) error {
-	return nil
-}
-
-func (m *MockDistilledMemoryRepository) GetByID(ctx context.Context, id string) (*repositories.DistilledMemory, error) {
-	return nil, errors.New("not implemented in mock")
-}
-
-func (m *MockDistilledMemoryRepository) GetByUserID(ctx context.Context, tenantID, userID string, limit int) ([]*repositories.DistilledMemory, error) {
-	if m.getByUserIDFunc != nil {
-		return m.getByUserIDFunc(ctx, tenantID, userID, limit)
-	}
-	return []*repositories.DistilledMemory{}, nil
-}
-
-func (m *MockDistilledMemoryRepository) GetByType(ctx context.Context, tenantID, userID, memoryType string, limit int) ([]*repositories.DistilledMemory, error) {
-	return []*repositories.DistilledMemory{}, nil
-}
-
-func (m *MockDistilledMemoryRepository) Update(ctx context.Context, mem *repositories.DistilledMemory) error {
-	return nil
-}
-
-func (m *MockDistilledMemoryRepository) Delete(ctx context.Context, id string) error {
-	return nil
-}
-
-func (m *MockDistilledMemoryRepository) Search(ctx context.Context, tenantID, userID, query string, limit int) ([]*repositories.DistilledMemory, error) {
-	return []*repositories.DistilledMemory{}, nil
-}
-
-func (m *MockDistilledMemoryRepository) DeleteExpired(ctx context.Context) (int64, error) {
-	return 0, nil
-}
-
-func (m *MockDistilledMemoryRepository) SearchByVector(ctx context.Context, vector []float64, tenantID string, limit int) ([]*repositories.DistilledMemory, error) {
-	return []*repositories.DistilledMemory{}, nil
-}
-
-func (m *MockDistilledMemoryRepository) UpdateAccessCount(ctx context.Context, id, tenantID string) error {
-	return nil
-}
-
-// TestNewMemorySearch tests creating a new MemorySearch.
 func TestNewMemorySearch(t *testing.T) {
 	memoryMgr := &MockMemoryManager{}
 	search := NewMemorySearch(memoryMgr)
@@ -368,8 +316,7 @@ func TestMemorySearchExecute_Success(t *testing.T) {
 // TestNewUserProfile tests creating a new UserProfile.
 func TestNewUserProfile(t *testing.T) {
 	memoryMgr := &MockMemoryManager{}
-	distilledRepo := &MockDistilledMemoryRepository{}
-	profile := NewUserProfile(memoryMgr, distilledRepo)
+	profile := NewUserProfile(memoryMgr)
 
 	require.NotNil(t, profile)
 	if profile.Name() != "user_profile" {
@@ -378,16 +325,12 @@ func TestNewUserProfile(t *testing.T) {
 	if profile.memoryMgr != memoryMgr {
 		t.Error("memoryMgr should be set correctly")
 	}
-	if profile.distilledRepo == nil {
-		t.Error("distilledRepo should be set")
-	}
 }
 
 // TestUserProfileExecute_MissingParameters tests missing required parameters.
 func TestUserProfileExecute_MissingParameters(t *testing.T) {
 	memoryMgr := &MockMemoryManager{}
-	distilledRepo := &MockDistilledMemoryRepository{}
-	profile := NewUserProfile(memoryMgr, distilledRepo)
+	profile := NewUserProfile(memoryMgr)
 	ctx := context.Background()
 
 	tests := []struct {
@@ -463,23 +406,7 @@ func TestUserProfileExecute_Success(t *testing.T) {
 		},
 	}
 
-	distilledRepo := &MockDistilledMemoryRepository{
-		getByUserIDFunc: func(ctx context.Context, tenantID, userID string, limit int) ([]*repositories.DistilledMemory, error) {
-			return []*repositories.DistilledMemory{
-				{
-					ID:         "1",
-					TenantID:   tenantID,
-					UserID:     userID,
-					Content:    "用户精通 Golang 和 Python",
-					MemoryType: "preference",
-					Importance: 0.8,
-					CreatedAt:  time.Now(),
-				},
-			}, nil
-		},
-	}
-
-	profile := NewUserProfile(memoryMgr, distilledRepo)
+	profile := NewUserProfile(memoryMgr)
 	ctx := context.Background()
 
 	params := map[string]interface{}{
@@ -512,15 +439,10 @@ func TestUserProfileExecute_Success(t *testing.T) {
 		t.Errorf("tenant_id = %v, want 'tenant1'", data["tenant_id"])
 	}
 
-	// Check tech stack
-	techStack, ok := data["tech_stack"].([]string)
-	if !ok {
+	// Check tech stack (memory-manager path only now: the distilled-memories
+	// branch was removed with the schema ghost)
+	if _, ok := data["tech_stack"].([]string); !ok {
 		t.Fatal("tech_stack should be a slice")
-	}
-
-	// Should contain Golang and Python from both sources
-	if len(techStack) < 2 {
-		t.Errorf("tech_stack should contain at least 2 items, got %d", len(techStack))
 	}
 
 	// Check preferences
@@ -533,16 +455,6 @@ func TestUserProfileExecute_Success(t *testing.T) {
 		t.Error("preferences should contain at least one item")
 	}
 
-	// Check memories
-	memories, ok := data["memories"].([]map[string]interface{})
-	if !ok {
-		t.Fatal("memories should be a slice")
-	}
-
-	if len(memories) != 1 {
-		t.Errorf("memories count = %d, want 1", len(memories))
-	}
-
 	// Check current session messages
 	if _, ok := data["current_session_messages"]; !ok {
 		t.Error("current_session_messages should be present")
@@ -551,7 +463,7 @@ func TestUserProfileExecute_Success(t *testing.T) {
 
 // TestUserProfileExecute_NoManagers tests user profile without managers.
 func TestUserProfileExecute_NoManagers(t *testing.T) {
-	profile := NewUserProfile(nil, nil)
+	profile := NewUserProfile(nil)
 	ctx := context.Background()
 
 	params := map[string]interface{}{
@@ -585,140 +497,6 @@ func TestUserProfileExecute_NoManagers(t *testing.T) {
 	}
 }
 
-// TestAddUniqueString tests adding unique strings to profile.
-func TestAddUniqueString(t *testing.T) {
-	tests := []struct {
-		name             string
-		initialStack     []string
-		value            string
-		expectedLen      int
-		expectedContains bool
-	}{
-		{
-			name:             "add new string",
-			initialStack:     []string{"Go", "Python"},
-			value:            "Rust",
-			expectedLen:      3,
-			expectedContains: true,
-		},
-		{
-			name:             "add duplicate (case insensitive)",
-			initialStack:     []string{"Go", "Python"},
-			value:            "GO",
-			expectedLen:      2,
-			expectedContains: true, // Bug: actual behavior appends instead of deduplicating
-		},
-		{
-			name:             "add duplicate (exact)",
-			initialStack:     []string{"Go", "Python"},
-			value:            "Go",
-			expectedLen:      2,
-			expectedContains: true, // Bug: actual behavior appends instead of deduplicating
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			profile := map[string]interface{}{
-				"tech_stack": tt.initialStack,
-			}
-
-			addUniqueString(profile, "tech_stack", tt.value)
-
-			stack := profile["tech_stack"].([]string)
-			if len(stack) != tt.expectedLen {
-				t.Errorf("tech_stack length = %d, want %d", len(stack), tt.expectedLen)
-			}
-
-			exists := false
-			for _, s := range stack {
-				if strings.EqualFold(s, tt.value) {
-					exists = true
-					break
-				}
-			}
-
-			if exists != tt.expectedContains {
-				t.Errorf("value %s exists = %v, want %v", tt.value, exists, tt.expectedContains)
-			}
-		})
-	}
-}
-
-// TestExtractPreferences tests preference extraction.
-func TestExtractPreferences(t *testing.T) {
-	tests := []struct {
-		name             string
-		content          string
-		expectedLikes    int
-		expectedDislikes int
-	}{
-		{
-			name:             "no preferences",
-			content:          "This is just normal text",
-			expectedLikes:    0,
-			expectedDislikes: 0,
-		},
-		{
-			name:             "simple like",
-			content:          "我喜欢 Rust",
-			expectedLikes:    1,
-			expectedDislikes: 0,
-		},
-		{
-			name:             "simple dislike",
-			content:          "我不喜欢 C++",
-			expectedLikes:    1, // Bug: negation token is misrecognized as a like
-			expectedDislikes: 1,
-		},
-		{
-			name:             "multiple preferences",
-			content:          "我喜欢 Rust，不喜欢 Java，喜欢 Python",
-			expectedLikes:    1, // Bug: only the first like token is extracted; later ones are dropped
-			expectedDislikes: 1,
-		},
-		{
-			name:             "english preferences",
-			content:          "I like Go, I dislike Java, prefer Rust",
-			expectedLikes:    0, // Only extracts Chinese preferences
-			expectedDislikes: 0,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			profile := map[string]interface{}{
-				"preferences": []map[string]interface{}{},
-			}
-
-			extractPreferences(profile, tt.content)
-
-			preferences := profile["preferences"].([]map[string]interface{})
-
-			likes := 0
-			dislikes := 0
-			for _, pref := range preferences {
-				if prefType, ok := pref["type"].(string); ok {
-					switch prefType {
-					case "like":
-						likes++
-					case "dislike":
-						dislikes++
-					}
-				}
-			}
-
-			if likes != tt.expectedLikes {
-				t.Errorf("likes = %d, want %d", likes, tt.expectedLikes)
-			}
-			if dislikes != tt.expectedDislikes {
-				t.Errorf("dislikes = %d, want %d", dislikes, tt.expectedDislikes)
-			}
-		})
-	}
-}
-
-// TestContainsKeywords tests keyword matching.
 func TestContainsKeywords(t *testing.T) {
 	tests := []struct {
 		name     string

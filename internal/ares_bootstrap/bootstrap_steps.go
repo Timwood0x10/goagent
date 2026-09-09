@@ -433,6 +433,31 @@ func wireGAEvolution(ctx context.Context, cfg *ares_config.Config, comp *Compone
 				"suite", suitePath, "min_score", minScore, "strict_mode", strict,
 				"skipped_count", evalGate.SkippedCount())
 		}
+
+		// Arena regression gate (the M4 "回归门 arena 接线"): the RELATIVE
+		// complement to the G3 absolute-score gate — candidate vs active
+		// strategy A/B over the same preserved-case suite, rejecting only a
+		// statistically significant drop. Opt-in via
+		// evolution.gates.regression_enabled (each check costs 2×runs LLM
+		// scoring rounds); enabling it without a suite or LLM client fails
+		// bootstrap (fail closed — a configured gate must not silently skip).
+		regGate, rgerr := buildRegressionGate(
+			cfg.Evolution.Gates.RegressionEnabled,
+			comp.Evolution.EvalLLMClient,
+			cfg.Evolution.Gates,
+		)
+		if rgerr != nil && !errors.Is(rgerr, errRegressionGateNotConfigured) {
+			// An ARMED but broken gate fails bootstrap (fail closed); an
+			// intentionally absent gate just skips the wiring.
+			return rgerr
+		}
+		if regGate != nil {
+			evolution.WithLifecycleGates(regGate)(wired.Lifecycle)
+			log.InfoContext(ctx, "bootstrap: arena regression gate wired",
+				"suite", cfg.Evolution.Gates.EvalSuite,
+				"runs", cfg.Evolution.Gates.RegressionRuns,
+			)
+		}
 	}
 
 	// Wire the lifecycle's evidence store and start its watch loop so

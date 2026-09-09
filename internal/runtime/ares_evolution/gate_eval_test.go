@@ -145,13 +145,13 @@ func TestEvalGate_StrictModeRejectsWhenUnconfigured(t *testing.T) {
 // missing-component scenarios.
 func TestEvalGate_SkippedCountIncrements(t *testing.T) {
 	g := NewEvalGate(nil, nil, eval.TestSuite{}, DefaultEvalGateConfig())
-	assert.Equal(t, 0, g.SkippedCount())
+	assert.Equal(t, int64(0), g.SkippedCount())
 
 	g.Check(context.Background(), &mutation.Strategy{}, nil)
-	assert.Equal(t, 1, g.SkippedCount(), "first skip should increment counter")
+	assert.Equal(t, int64(1), g.SkippedCount(), "first skip should increment counter")
 
 	g.Check(context.Background(), &mutation.Strategy{}, nil)
-	assert.Equal(t, 2, g.SkippedCount(), "second skip should increment counter")
+	assert.Equal(t, int64(2), g.SkippedCount(), "second skip should increment counter")
 }
 
 func TestEvalGate_ScoringPath(t *testing.T) {

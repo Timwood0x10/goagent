@@ -773,7 +773,7 @@ func TestSetupPeerRegistryRetainsOnKernel(t *testing.T) {
 	kernel := &kernelHandle{}
 
 	// No evolution wired: the plain direct peer registry path is used.
-	reg, err := setupPeerRegistry(nil, &comp, kernel)
+	reg, err := setupPeerRegistry(context.Background(), nil, nil, &comp, kernel)
 	require.NoError(t, err)
 	require.NotNil(t, reg, "setupPeerRegistry must return a usable registry")
 	// The construction site must retain the registry on the kernel handle

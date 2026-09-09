@@ -38,7 +38,6 @@ var allowedTables = map[string]struct{}{
 	storage_models.TaskResultsTable:     {},
 	"tools":                             {},
 	"strategies":                        {},
-	"distilled_memories":                {},
 	"conversations":                     {},
 	"agent_checkpoints":                 {},
 }

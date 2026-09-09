@@ -299,7 +299,7 @@ func SummarizeToolResultWithCall(msg Message, toolName string, argumentsJSON str
 		return summarizeHTTPRequestResult(msg, args)
 	case toolName == "web_scraper":
 		return summarizeWebScraperResult(msg, args)
-	case toolName == "knowledge_search" || toolName == "memory_search" || toolName == "distilled_memory_search":
+	case toolName == "knowledge_search" || toolName == "memory_search":
 		return summarizeSearchResult(msg, args)
 	case strings.HasPrefix(toolName, "file_"):
 		return summarizeFileToolResult(msg, args)

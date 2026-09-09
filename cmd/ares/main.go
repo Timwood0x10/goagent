@@ -22,8 +22,6 @@
 //	ARES init / run / bench            Scaffold, start dev runtime, run benchmarks
 //	ARES mcp-null serve                Start minimal MCP null server (stdio)
 //	ARES db migrate                    Run full DB migration
-//	ARES db create-table               Create distilled_memories table
-//	ARES db check-rls                  Check RLS policies
 //	ARES version                       Show version
 //	ARES doctor                        Diagnose environment
 //	ARES status                        Show runtime status at a glance

@@ -552,3 +552,31 @@ func buildSubscribeQuery(filter EventFilter, cursor time.Time) (string, []any) {
 
 	return query, args
 }
+
+// CleanupExpiredBefore deletes every event row created strictly before the
+// cutoff and reports how many were removed. It is the events-table
+// retention primitive for PG mode: the table is the durable history (no
+// round_N.json archive, no compaction trim), so unbounded growth is bounded
+// ONLY by this cleaner. Idempotent and safe to call repeatedly.
+//
+// The caller owns the retention policy. Deleting events destroys the task
+// fabric's cross-restart restore window for any task whose lifecycle events
+// fall before the cutoff — a retention shorter than the operator's recovery
+// horizon silently breaks old-task recovery, so wiring layers must keep it
+// opt-in with a deliberately long default (see bootstrap's
+// storage.events_retention_days).
+func (s *PostgresEventStore) CleanupExpiredBefore(ctx context.Context, cutoff time.Time) (int64, error) {
+	if s == nil || s.pool == nil {
+		return 0, ErrEventStoreClosed
+	}
+	res, err := s.pool.Exec(ctx,
+		`DELETE FROM events WHERE created_at < $1`, cutoff)
+	if err != nil {
+		return 0, apperrors.Wrap(err, "delete expired events")
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, apperrors.Wrap(err, "count deleted events")
+	}
+	return n, nil
+}

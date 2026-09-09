@@ -370,7 +370,7 @@ func runServe() error {
 	// collaboration-topic execution through the fabric DAG. The
 	// registry is retained on the kernel handle so it stays reachable for
 	// direct peer messaging / capability discovery instead of being discarded.
-	reg, err := setupPeerRegistry(subAgents, comp, peerKernel)
+	reg, err := setupPeerRegistry(ctx, g, subAgents, comp, peerKernel)
 	if err != nil {
 		return err
 	}
@@ -437,18 +437,19 @@ func normalizeShutdownErr(err error) error {
 // silent fallback would make the persistence feature lie (the operator
 // believes events survive restarts while they evaporate on exit).
 //
-// TODO(tech-debt): PG mode consciously drops the memory-mode archive
-// (round_N.json) and compaction/trim. Archive: the compactable wrapper's
-// round/lastArchivedVersion boundaries are in-memory and would re-archive the
+// TODO(tech-debt) partially resolved: PG mode consciously keeps dropping the
+// memory-mode round_N.json archive and compaction/trim. Archive: the compactable
+// wrapper's round/lastArchivedVersion boundaries are in-memory and would re-archive the
 // whole restored history over existing round files after a restart; and the
 // archive exists to preserve rounds before TRIM deletes them, which never
-// happens in PG mode (the table itself is the durable history). Compaction:
-// PostgresEventStore implements no TrimAwareStore and no PG
-// SummaryRepository exists, so the wrapper would summarize into a repo that
-// dies on restart while never trimming — pure overhead on the append path.
-// Follow-up: a TTL/retention cleaner for the events table (the evidence
-// store's ExpiryCleaners pattern) and durable archive boundaries if round
-// files are wanted in PG mode.
+// happens in PG mode (the table itself is the durable history — a round file
+// would be a redundant copy, not a preservation). Compaction: PostgresEventStore
+// implements no TrimAwareStore and no PG SummaryRepository exists, so the wrapper
+// would summarize into a repo that dies on restart while never trimming — pure
+// overhead on the append path. The retention follow-up IS wired:
+// storage.events_retention_days registers an events-table retention cleaner
+// with the bootstrap maintenance worker (the evidence store's ExpiryCleaners
+// pattern), bounding the table's growth without an archive.
 //
 // Returns:
 //   - store: the event store to inject via BootstrapDeps.EventStore.
@@ -1224,6 +1225,8 @@ func buildPeerRegistry(subAgents []sub.Agent) *peer.Registry {
 // evolution-aware IPC; otherwise the plain direct peer channel
 // is used.
 func setupPeerRegistry(
+	ctx context.Context,
+	g *errgroup.Group,
 	subAgents []sub.Agent,
 	comp *ares_bootstrap.Components,
 	kernel *kernelHandle,
@@ -1236,6 +1239,36 @@ func setupPeerRegistry(
 			return nil, fmt.Errorf("wire evolution IPC: %w", err)
 		}
 		reg = bridge.reg
+		// Dead-letter observability (RUNTIME.md #10 closure): the bus records
+		// every undeliverable/failed request, but the store had no reader —
+		// failures vanished at the error-return boundary. A background loop
+		// surfaces the count (and a sample of recent reasons) periodically so
+		// messaging failures are operator-visible. Deliberately observe-only:
+		// auto-redelivery of handler-rejected messages would retry
+		// non-transient failures — redelivery stays an operator decision.
+		g.Go(func() error {
+			ticker := time.NewTicker(30 * time.Second)
+			defer ticker.Stop()
+			last := 0
+			for {
+				select {
+				case <-ctx.Done():
+					return nil
+				case <-ticker.C:
+					cur := bridge.DeadLetterCount()
+					if cur > 0 && cur != last {
+						dl := bridge.ipc.Bus().DeadLetters().Snapshot()
+						reasons := make(map[string]int, 4)
+						for _, e := range dl {
+							reasons[e.Reason]++
+						}
+						slog.WarnContext(ctx, "peer mode: IPC dead letters retained (undeliverable/failed requests)",
+							"count", cur, "reasons", reasons)
+					}
+					last = cur
+				}
+			}
+		})
 		// Arm the collaboration perception channel. Attaching here
 		// (rather than inside wireEvolutionIPC) keeps the bridge builder free
 		// of an evolution-observer parameter, and this is the only production

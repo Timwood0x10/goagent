@@ -14,6 +14,10 @@ import (
 // migrate_storage.go (storageMigrations) which defines them with full
 // Row-Level Security policies and complete indexes. They must NOT be
 // duplicated here to avoid schema drift between the two definitions.
+// distilled_memories' DDL is retained deliberately for existing databases
+// (CREATE TABLE IF NOT EXISTS is idempotent), but the repository and tools
+// that read/wrote it were removed (schema ghost, RUNTIME.md #9): no code
+// path touches the table anymore.
 var coreMigrationStatements = []string{
 	`CREATE TABLE IF NOT EXISTS user_profiles (
 			user_id VARCHAR(255) PRIMARY KEY,

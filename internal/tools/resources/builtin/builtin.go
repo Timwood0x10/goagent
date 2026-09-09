@@ -59,8 +59,6 @@ type GeneralToolsDeps struct {
 	KnowledgeService builtin_knowledge.KnowledgeService
 	// KnowledgeRepo backs correct_knowledge.
 	KnowledgeRepo repositories.KnowledgeRepositoryInterface
-	// DistilledRepo backs distilled_memory_search and user_profile.
-	DistilledRepo repositories.DistilledMemoryRepositoryInterface
 	// MemoryMgr backs memory_search and user_profile.
 	MemoryMgr memory.MemoryManager
 	// LLMClient backs task_planner.
@@ -224,14 +222,8 @@ func RegisterGeneralTools(reg *core.Registry, deps ...GeneralToolsDeps) error {
 			"side_effects": "false",
 		}))
 	}
-	if d.MemoryMgr != nil && d.DistilledRepo != nil {
-		tools = append(tools, base.WithToolTags(builtin_memory.NewUserProfile(d.MemoryMgr, d.DistilledRepo), map[string]string{
-			"domain": "memory", "input_type": "text", "output_type": "json",
-			"side_effects": "false",
-		}))
-	}
-	if d.DistilledRepo != nil {
-		tools = append(tools, base.WithToolTags(builtin_memory.NewDistilledMemorySearch(d.DistilledRepo), map[string]string{
+	if d.MemoryMgr != nil {
+		tools = append(tools, base.WithToolTags(builtin_memory.NewUserProfile(d.MemoryMgr), map[string]string{
 			"domain": "memory", "input_type": "text", "output_type": "json",
 			"side_effects": "false",
 		}))

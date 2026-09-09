@@ -325,6 +325,19 @@ type evolutionIPCBridge struct {
 	reg *peer.Registry
 }
 
+// DeadLetterCount reports how many undeliverable/failed IPC requests the
+// bus's bounded dead-letter store currently retains (RUNTIME.md #10
+// closure: the store was written on every failure path but nothing read
+// it). The count surfaces in serve's observability log so messaging
+// failures are operator-visible instead of vanishing at the error-return
+// boundary.
+func (b *evolutionIPCBridge) DeadLetterCount() int {
+	if b == nil || b.ipc == nil {
+		return 0
+	}
+	return b.ipc.Bus().DeadLetters().Count()
+}
+
 // wireEvolutionIPC builds the evolution-aware peer bridge: a Bus whose Send
 // applies the active evolution IPC policy, with one bus handler per agent that
 // decodes the wire payload and forwards the original AHPMessage to the agent's

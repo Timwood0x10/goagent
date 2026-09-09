@@ -443,6 +443,16 @@ type StorageConfig struct {
 	Database string         `yaml:"database"`
 	SSLMode  string         `yaml:"ssl_mode"`
 	PGVector PGVectorConfig `yaml:"pgvector"`
+
+	// EventsRetentionDays bounds the PG events table's growth: when > 0,
+	// the maintenance worker periodically deletes event rows older than
+	// this many days. Default 0 = keep forever. PG mode has no
+	// round_N.json archive and no compaction trim — the table IS the
+	// durable history — so this cleaner is the only bound on growth.
+	// WARNING: deleting events narrows the task fabric's cross-restart
+	// restore window to the retention horizon; choose it well past any
+	// plausible recovery horizon.
+	EventsRetentionDays int `yaml:"events_retention_days"`
 }
 
 // PGVectorConfig holds pgvector specific configuration.
@@ -1050,6 +1060,22 @@ type EvolutionGateConfig struct {
 	// production should set it true so an unwired gate cannot silently
 	// pass every candidate.
 	EvalStrict bool `yaml:"eval_strict"`
+	// RegressionEnabled arms the arena preserved-case regression gate
+	// (candidate vs active strategy A/B over the eval suite's cases, Welch
+	// significance; rejects only on a significant drop). Opt-in because
+	// each check runs 2×regression_runs LLM scoring rounds. Requires
+	// eval_suite and the eval LLM client; enabling without them fails
+	// bootstrap (fail closed — a configured gate must not silently skip).
+	// Default: false.
+	RegressionEnabled bool `yaml:"regression_enabled"`
+	// RegressionRuns is the per-strategy run count for the regression gate
+	// (baseline and compare each run the preserved cases this many times).
+	// Default 5 when zero.
+	RegressionRuns int `yaml:"regression_runs"`
+	// RegressionMinWinRate is the informational win-rate floor surfaced in
+	// the gate's pass reason. The REJECT decision is significance-based,
+	// not win-rate-based. Default 0.55 when zero.
+	RegressionMinWinRate float64 `yaml:"regression_min_win_rate"`
 }
 
 // LLMScoringConfig configures the opt-in LLM-backed strategy scorer for the

@@ -34,7 +34,7 @@ func TestEvalGate_SkipEmitsWarnPerMissingComponent(t *testing.T) {
 		g, buf := newWarnCapturingGate(t, nil, nil, eval.TestSuite{})
 		pass, _, _ := g.Check(ctx, &mutation.Strategy{}, nil)
 		assert.True(t, pass, "non-strict keeps the pass-through contract")
-		assert.Equal(t, 1, g.SkippedCount())
+		assert.Equal(t, int64(1), g.SkippedCount())
 		assert.Contains(t, buf.String(), "registry")
 	})
 
@@ -46,7 +46,7 @@ func TestEvalGate_SkipEmitsWarnPerMissingComponent(t *testing.T) {
 		_, _ = runner, runner
 		pass, _, _ := g.Check(ctx, &mutation.Strategy{}, nil)
 		assert.True(t, pass)
-		assert.Equal(t, 1, g.SkippedCount())
+		assert.Equal(t, int64(1), g.SkippedCount())
 		assert.Contains(t, buf.String(), "runner")
 	})
 
@@ -57,7 +57,7 @@ func TestEvalGate_SkipEmitsWarnPerMissingComponent(t *testing.T) {
 		g, buf := newWarnCapturingGate(t, registry, runner, eval.TestSuite{})
 		pass, _, _ := g.Check(ctx, &mutation.Strategy{}, nil)
 		assert.True(t, pass)
-		assert.Equal(t, 1, g.SkippedCount())
+		assert.Equal(t, int64(1), g.SkippedCount())
 		assert.Contains(t, buf.String(), "test suite")
 	})
 }

@@ -550,7 +550,7 @@ func (f *Fabric) Schedule(taskID string, candidates []Candidate, ttl time.Durati
 	// ConfidenceFor (an explicit value, or the NEUTRAL 1.0 when the agent
 	// has no execution history). A neutral 1.0 is "no opinion", not a
 	// measurement, so it must NOT mask a recorded experience prior — but a
-	// <= 0 check can never distinguish them. ConfidenceNoHistory on the
+	// <= 0 check can never distinguish them. ConfidenceForMeasured on the
 	// tracker reports whether the value is measured; the scheduler zeroes
 	// unmeasured candidates so the prior fills them here. A MEASURED value
 	// (>= or < prior) always wins: live feedback outranks stale priors.

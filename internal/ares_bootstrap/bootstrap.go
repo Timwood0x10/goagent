@@ -261,6 +261,21 @@ func Bootstrap(ctx context.Context, cfg *ares_config.Config, deps *BootstrapDeps
 		comp.EventStore = ares_events.NewMemoryEventStore()
 	}
 
+	// 1b. Events-table retention (PG mode only): the serve PG event store
+	// is the durable history — no round_N.json archive, no compaction trim
+	// — so an explicitly configured storage.events_retention_days is the
+	// only bound on its growth. Opt-in (0 = keep forever): deleting events
+	// narrows the task fabric's cross-restart restore window, so the
+	// default must stay "never delete". A non-PG store or a zero retention
+	// simply registers no cleaner.
+	if cleaner, ok := eventsRetentionCleanerFor(comp.EventStore, cfg.Storage.EventsRetentionDays); ok {
+		comp.ExpiryCleaners = append(comp.ExpiryCleaners, cleaner)
+		log.Info("bootstrap: events retention cleaner wired",
+			"retention_days", cfg.Storage.EventsRetentionDays,
+			"warning", "events older than the retention are deleted; the restore window shrinks accordingly",
+		)
+	}
+
 	// 2. Runtime — always created (accepts nil eventStore)
 	rt, err := ProvideRuntime(comp.EventStore)
 	if err != nil {

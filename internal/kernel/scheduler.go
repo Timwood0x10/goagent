@@ -1040,12 +1040,17 @@ func (s *Scheduler) buildQuantumStep(
 		// outcomeFromFabric unwraps it on COMPLETED (same as pre-quantum).
 		// Token usage accumulates across quanta (the session total, not the
 		// last quantum's) — the terminal task.completed event carries it for
-		// the RuntimeObserver's cost channel.
+		// the RuntimeObserver's cost channel. SessionID rides like the yield
+		// path: CompleteWithCheckpoint stores this envelope BEFORE recording
+		// the terminal event, so dropping it here would strip session_id
+		// from every task.completed payload (recordLocked reads the session
+		// scope from the checkpoint it is about to persist).
 		return taskfabric.EncodeCheckpoint(taskfabric.DecodedCheckpoint{
 			UserProfile:      meta.UserProfile,
 			Payload:          meta.Payload,
 			UsedExperienceID: meta.UsedExperienceID,
 			StrategyID:       meta.StrategyID,
+			SessionID:        meta.SessionID,
 			StepCheckpoint:   outMap,
 			InputTokens:      meta.InputTokens + tokenUsageFromResult(out.Result, "input"),
 			OutputTokens:     meta.OutputTokens + tokenUsageFromResult(out.Result, "output"),
