@@ -11,14 +11,16 @@
 //  2. New ARES capabilities do not belong here. They belong in internal/ with
 //     compat adapters added only when a third party needs to plug in.
 //
-// # What is actually wired in production (audited 2026-09-01)
+// # What is actually wired in production (audited 2026-09-01; updated
+// 2026-09-09)
 //
-// Exactly one production consumer exists:
-// internal/ares_bootstrap/provide_llm.go registers the LLM provider via
-// compat.RegisterLLM, dispatching to compat/llm/{ollama,openai}. Registration
-// failure is logged and ignored — the runtime does not depend on it succeeding.
+// ZERO production consumers. The last one —
+// internal/ares_bootstrap/provide_llm.go's compat.RegisterLLM call — was
+// removed on 2026-09-09: the registration was write-only (the registry had
+// no readers anywhere in this repo, examples included), so bootstrap was
+// populating a registry nobody queried.
 //
-// Every other subtree has NO production reference:
+// Every subtree has NO production reference:
 //
 //	compat/loader/    (markdown, pdf, html)
 //	compat/protocol/  (mcp, openai_api)

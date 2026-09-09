@@ -27,9 +27,7 @@ func (e *panickingExecutor) RegisterFallback(_ models.AgentType, _ FallbackHandl
 func TestSubAgent_ProcessStream_PanicDoesNotCrash(t *testing.T) {
 	store := ares_events.NewMemoryEventStore()
 	exec := &panickingExecutor{}
-	handler := NewMessageHandler("sub-panic")
-
-	agent := New("sub-panic", models.AgentTypeTop, exec, handler, nil, nil,
+	agent := New("sub-panic", models.AgentTypeTop, exec, nil,
 		WithEventStore(store))
 
 	require.NoError(t, agent.Start(context.Background()))
@@ -70,9 +68,7 @@ func TestSubAgent_ProcessStream_PanicDoesNotCrash(t *testing.T) {
 // works even when no event store is configured (emit is a no-op).
 func TestSubAgent_ProcessStream_Panic_NilEventStore_NoCrash(t *testing.T) {
 	exec := &panickingExecutor{}
-	handler := NewMessageHandler("sub-panic2")
-
-	agent := New("sub-panic2", models.AgentTypeTop, exec, handler, nil, nil)
+	agent := New("sub-panic2", models.AgentTypeTop, exec, nil)
 
 	require.NoError(t, agent.Start(context.Background()))
 

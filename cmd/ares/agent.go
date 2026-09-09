@@ -1535,19 +1535,15 @@ func newPeerExecutor(
 	capability models.AgentType,
 	cog agentfabric.Cognition,
 ) sub.Agent {
-	handler := sub.NewMessageHandler(agentID)
 	return sub.New(
 		agentID,
 		capability,
 		&cognitionExecutor{id: agentID, typ: capability, cog: cog},
-		handler,
-		nil,
 		&sub.SubAgentConfig{
 			Config: base.Config{
 				ID:   agentID,
 				Type: capability,
 			},
-			EnableTools: true,
 		},
 	)
 }
@@ -1915,19 +1911,15 @@ func createPeerSubAgents(
 		if len(p.Capabilities) > 0 {
 			typ = p.Capabilities[0]
 		}
-		handler := sub.NewMessageHandler(p.ID)
 		agent := sub.New(
 			p.ID,
 			models.AgentType(typ),
 			&cognitionExecutor{id: p.ID},
-			handler,
-			nil, // heartbeat monitor: no Process/Launch lifecycle in peer mode
 			&sub.SubAgentConfig{
 				Config: base.Config{
 					ID:   p.ID,
 					Type: models.AgentType(typ),
 				},
-				EnableTools: true,
 			},
 			sub.WithEventStore(store),
 		)

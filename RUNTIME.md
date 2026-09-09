@@ -156,8 +156,8 @@ SUSPENDED─(下轮 drain re-acquire)→LEASED；过期租约→CheckExpiredLeas
 
 ## 7. 旁观者模块（不在热路径）
 
-- sub.Agent 壳（agents/sub）：纯身份层，注册进 runtime.Manager 只服务 HTTP kill/resume legacy 回退。
+- sub.Agent（agents/sub）：身份层 + recovery 保险执行面（newPeerExecutor 走 cognitionExecutor 驱动 L2 router）。死面（messageHandler/heartbeatSender/actionLog/tools 字段/EnableTools/SubAgentCognition）已随 M5 收官批下葬。
 - runtime.Manager（leader 运行时）：注册表+HTTP 操作面，"agents are scheduled, not orchestrated"（serve.go:382）。
 - PluginBus 能力插件：只注册 LoopPlugin（轮次时钟），CapCheckpoint/CapMemory/CapEvolution 无生产注册者。
 - legacy evolution scheduler / dream cycle：config gate 关闭。
-- compat/、api/（deprecated，等 provide_llm 解耦）、arena、dashboard 遗留面。
+- compat/（内部引用已清零，目录留待 0.4.x release-note 决策）、api/（纯转发层，examples 在用）、arena、dashboard 遗留面。

@@ -7,8 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Timwood0x10/ares/internal/agents/base"
-	"github.com/Timwood0x10/ares/internal/agents/sub"
 	"github.com/Timwood0x10/ares/internal/core/models"
 )
 
@@ -125,72 +123,6 @@ func TestSpawnedAgentWithoutCognitionNotExecutable(t *testing.T) {
 	}
 }
 
-// fakeSubAgent is a minimal sub.Agent for the migration test. It implements
-// the full sub.Agent interface (base.Agent + Execute/ExecuteStep) so the
-// SubAgentCognition adapter can be exercised against a deterministic outcome.
-type fakeSubAgent struct {
-	id    string
-	typ   models.AgentType
-	out   *sub.StepOutcome
-	err   error
-	calls int
-}
-
-func (a *fakeSubAgent) ID() string                  { return a.id }
-func (a *fakeSubAgent) Type() models.AgentType      { return a.typ }
-func (a *fakeSubAgent) Status() models.AgentStatus  { return models.AgentStatusReady }
-func (a *fakeSubAgent) Start(context.Context) error { return nil }
-func (a *fakeSubAgent) Stop(context.Context) error  { return nil }
-func (a *fakeSubAgent) Process(context.Context, any) (any, error) {
-	return nil, nil
-}
-func (a *fakeSubAgent) ProcessStream(context.Context, any) (<-chan base.AgentEvent, error) {
-	return nil, nil
-}
-func (a *fakeSubAgent) Execute(context.Context, *models.Task) (*models.TaskResult, error) {
-	return nil, nil
-}
-func (a *fakeSubAgent) ExecuteStep(_ context.Context, _ *models.Task) (*sub.StepOutcome, error) {
-	a.calls++
-	return a.out, a.err
-}
-
-// TestSubAgentCognitionSemanticsParity is the migration test: the default
-// agentfabric Cognition (SubAgentCognition) delegates to the production sub
-// executor and preserves the StepOutcome semantics (Done/Checkpoint/Result)
-// exactly — a resumed outcome from the wrapped sub agent surfaces unchanged.
-func TestSubAgentCognitionSemanticsParity(t *testing.T) {
-	subOut := &sub.StepOutcome{
-		Done:       false,
-		Checkpoint: map[string]any{"round": 2},
-		Result:     nil,
-	}
-	inner := &fakeSubAgent{id: "sub-1", typ: "code", out: subOut}
-	cog := NewSubAgentCognition(inner)
-
-	res, err := cog.ExecuteStep(context.Background(), models.NewTask("t4", "code", nil))
-	if err != nil {
-		t.Fatalf("ExecuteStep: %v", err)
-	}
-	if inner.calls != 1 {
-		t.Fatalf("adapter must delegate to the wrapped sub agent, got %d calls", inner.calls)
-	}
-	if res.Done != subOut.Done || res.Checkpoint == nil || res.Result != nil {
-		t.Fatalf("outcome must match sub semantics, got Done=%v Checkpoint=%v Result=%v",
-			res.Done, res.Checkpoint, res.Result)
-	}
-	if ck, ok := res.Checkpoint.(map[string]any); !ok || ck["round"] != 2 {
-		t.Fatalf("checkpoint payload must pass through unchanged, got %v", res.Checkpoint)
-	}
-
-	// Completed outcome with a result also passes through.
-	done := &sub.StepOutcome{Done: true, Result: models.NewTaskResult("t4", "code")}
-	cog2 := NewSubAgentCognition(&fakeSubAgent{id: "sub-2", typ: "code", out: done})
-	res2, err := cog2.ExecuteStep(context.Background(), models.NewTask("t4", "code", nil))
-	if err != nil {
-		t.Fatalf("ExecuteStep (done): %v", err)
-	}
-	if !res2.Done || res2.Result == nil || res2.Result.TaskID != "t4" {
-		t.Fatalf("completed outcome must carry the result, got %+v", res2)
-	}
-}
+// SubAgentCognition and its parity test were removed with the migration
+// adapter's retirement (production zero callers — peer execution lives in
+// the L2 router; TODO(tech-debt) 留痕 in sub_cognition.go's removal).

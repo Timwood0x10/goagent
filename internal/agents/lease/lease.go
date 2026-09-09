@@ -2,8 +2,10 @@
 // (ares-vs-prime-agent 5.3, medium-high priority). A lease is an exclusive
 // hold on a session owned by one agent/daemon for a bounded TTL; other
 // workers cannot modify the session while the lease is held. This prevents
-// concurrent writers from clobbering each other on long-lived sessions, and
-// pairs with the action store for replay/audit (see package actionlog).
+// concurrent writers from clobbering each other on long-lived sessions.
+// (The action store it once paired with for replay/audit,
+// agents/actionlog, was removed as dead — it had zero production
+// constructors.)
 package lease
 
 import (

@@ -78,8 +78,8 @@ M2-b 修缮批 ✅（同日，源自全仓深审 DEEP_CODE_REVIEW）：持久化
 
 ### M5 — api/、agents/ 下葬（前置 M1-M3；口径已修正）
 - **api/ 内部化 ✅（2026-09-09，M5 三批并行落地）**：真实定义全部迁入 internal/（api/core→internal/llmcore、api/embedding→internal/embedding、api/experience→internal/llmexp、api/knowledge→internal/knowledgeapi、api/tools→internal/apitools、api/mcp→internal/mcpclient、api/service/llm→internal/llmsvcapi）；api/ 侧七包降级为纯转发层（type alias+函数委托，go doc 符号前后 diff 验证 + test/apifwd 编译期钉死 37 符号）。**internal/sdk/cmd/compat 的 api/ import 清零（grep 0 条）**；examples/ 17 文件经转发层继续编译。剩：api/ 转发层本体 + api/discovery|evolution（无 internal 消费者）+ examples 迁移，才能物理删除目录。
-- agents/ 只留 StrategySource 等活符号，sub 壳下葬。
-- compat/ 仅 1 个外部引用（ares_bootstrap/provide_llm.go），标准日落目标；删除时按惯例留 `TODO(tech-debt)`。
+- agents/ 下葬 ✅（M5 收官批，2026-09-09）：sub 壳死面切除——messageHandler（Handle 零调用点的协议 ACK 空转）+ heartbeatSender（零构造）+ MessageHandler 接口 + WithActionLog（零调用）+ tools/actionLog/heartbeatMon 死字段 + SubAgentConfig.EnableTools（只写不读）+ SubAgentCognition parity fixture（生产零调用，随 sub_cognition.go 删除留痕）全部下葬；New 签名收缩 6 参→4 参。**保留**（活路径）：executor 驱动体（Execute/ExecuteStep 是 recovery wiring 保险路径 newPeerExecutor 的执行面）、生命周期事件发射（Manager HTTP kill/resume 消费）、StepOutcome/ChatClient/ToolBinder 等契约（7 文件生产消费）。
+- compat/ 日落第一步 ✅（2026-09-09）：内部引用清零——provide_llm.go 的 RegisterLLM 注册块切除（write-only：注册表全仓零读者，bootstrap 在填一个没人查询的注册表）。目录本体（23 文件）按 compat/doc.go 既定政策留待 0.4.x（patch 线删导出包是 breaking change，属 release-note 决策）；doc.go 审计注已更新为"零生产引用"。
 
 ### 完成状态总表（历史收敛，一行化）
 - Phase 0 冻结巡查 ✅（scripts/check_convergence_freeze.sh + freeze-manifest）

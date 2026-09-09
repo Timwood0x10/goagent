@@ -12,7 +12,6 @@ import (
 
 	"github.com/Timwood0x10/ares/internal/ares_events"
 	"github.com/Timwood0x10/ares/internal/core/models"
-	"github.com/Timwood0x10/ares/internal/runtime/protocol/ahp"
 )
 
 // Test constants
@@ -43,23 +42,6 @@ func (e *stubExecutor) Execute(context.Context, *models.Task) (*models.TaskResul
 func (e *stubExecutor) RegisterFallback(models.AgentType, FallbackHandler) {
 }
 
-func TestMessageHandler_Handle(t *testing.T) {
-	handler := NewMessageHandler("test_agent")
-
-	// Test nil message
-	err := handler.Handle(context.Background(), nil)
-	if err == nil {
-		t.Error("Handle() should return error for nil message")
-	}
-
-	// Test valid message
-	msg := ahp.NewHeartbeatMessage("test")
-	err = handler.Handle(context.Background(), msg)
-	if err != nil {
-		t.Errorf("Handle() error = %v", err)
-	}
-}
-
 func TestToolBinder_BindAndCall(t *testing.T) {
 	binder := NewToolBinder()
 
@@ -88,24 +70,10 @@ func TestToolBinder_CallNonExistentTool(t *testing.T) {
 	}
 }
 
-func TestHeartbeatSender_StartStop(t *testing.T) {
-	sender := NewHeartbeatSender("test_agent", 100, nil)
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	go sender.Start(ctx)
-
-	// Let it run briefly
-	cancel()
-
-	sender.Stop()
-}
-
 func TestSubAgent_New(t *testing.T) {
 	executor := newStubExecutor()
-	handler := NewMessageHandler(TestAgentID)
 
-	agent := New(TestAgentID, models.AgentTypeTop, executor, handler, nil, nil)
+	agent := New(TestAgentID, models.AgentTypeTop, executor, nil)
 
 	if agent.ID() != TestAgentID {
 		t.Errorf("expected %s, got %s", TestAgentID, agent.ID())
@@ -125,9 +93,8 @@ func TestSubAgent_DefaultConfig(t *testing.T) {
 
 func TestSubAgent_StartStop(t *testing.T) {
 	executor := newStubExecutor()
-	handler := NewMessageHandler(TestAgentID)
 
-	agent := New(TestAgentID, models.AgentTypeTop, executor, handler, nil, nil)
+	agent := New(TestAgentID, models.AgentTypeTop, executor, nil)
 
 	// Start
 	err := agent.Start(context.Background())
@@ -164,9 +131,8 @@ func TestSubAgent_StartStop(t *testing.T) {
 
 func TestSubAgent_Process(t *testing.T) {
 	executor := newStubExecutor()
-	handler := NewMessageHandler(TestAgentID)
 
-	agent := New(TestAgentID, models.AgentTypeTop, executor, handler, nil, nil)
+	agent := New(TestAgentID, models.AgentTypeTop, executor, nil)
 
 	// Process without starting should auto-start
 	task := models.NewTask("task_1", models.AgentTypeTop, &models.UserProfile{})
@@ -178,35 +144,28 @@ func TestSubAgent_Process(t *testing.T) {
 }
 
 func TestSubAgent_Heartbeat(t *testing.T) {
-	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
-	hbMon := ahp.NewHeartbeatMonitor(ahp.DefaultHeartbeatConfig())
-
+	// The heartbeat monitor wiring was removed as dead (production always
+	// constructed it nil); Heartbeat is the base.Heartbeater no-op and
+	// liveness is judged by IsAlive alone.
 	sub := &subAgent{
-		id:           TestAgentID,
-		agentType:    models.AgentTypeTop,
-		status:       models.AgentStatusReady,
-		executor:     executor,
-		handler:      handler,
-		tools:        make(map[string]func(ctx context.Context, args map[string]any) (any, error)),
-		heartbeatMon: hbMon,
+		id:        TestAgentID,
+		agentType: models.AgentTypeTop,
+		status:    models.AgentStatusReady,
 	}
 
-	err := sub.Heartbeat(context.Background())
-	if err != nil {
+	if err := sub.Heartbeat(context.Background()); err != nil {
 		t.Errorf("Heartbeat() error = %v", err)
 	}
 
 	if !sub.IsAlive() {
-		t.Error("IsAlive() should return true after heartbeat")
+		t.Error("IsAlive() should return true when Ready")
 	}
 }
 
 func TestSubAgent_Execute(t *testing.T) {
 	executor := newStubExecutor()
-	handler := NewMessageHandler(TestAgentID)
 
-	agent := New(TestAgentID, models.AgentTypeTop, executor, handler, nil, nil)
+	agent := New(TestAgentID, models.AgentTypeTop, executor, nil)
 
 	task := models.NewTask("task_1", models.AgentTypeTop, &models.UserProfile{})
 	result, err := agent.Execute(context.Background(), task)
@@ -242,40 +201,14 @@ func TestToolBinder_ListTools(t *testing.T) {
 	}
 }
 
-func TestMessageHandler_HandleTaskMessage(t *testing.T) {
-	handler := NewMessageHandler("test_agent")
-
-	// Create a task message
-	msg := ahp.NewTaskMessage("leader", "test_agent", "task1", "session1", map[string]any{"key": "value"})
-
-	// Handle the task message - will fail since executor is nil
-	err := handler.Handle(context.Background(), msg)
-	// Error expected since there's no executor
-	_ = err
-}
-
-func TestMessageHandler_HandleAckMessage(t *testing.T) {
-	handler := NewMessageHandler("test_agent")
-
-	// Create an ACK message
-	msg := ahp.NewACKMessage("test_agent", "leader", "task1", "session1")
-
-	// Handle the ACK message
-	err := handler.Handle(context.Background(), msg)
-	if err != nil {
-		t.Errorf("Handle() error = %v", err)
-	}
-}
-
 // --- StatefulAgent implementation tests ---
 
 func TestSubAgent_ImplementsStatefulAgent(t *testing.T) {
 	// Compile-time check is enforced by the package-level var declaration.
 	// This test verifies the interface at runtime as well.
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
-	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil)
+	agent := New("sub1", models.AgentTypeTop, executor, nil)
 
 	_, ok := agent.(interface {
 		RestoreState(map[string]any) error
@@ -287,9 +220,8 @@ func TestSubAgent_ImplementsStatefulAgent(t *testing.T) {
 
 func TestSubAgent_RestoreState_NilState(t *testing.T) {
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
-	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil)
+	agent := New("sub1", models.AgentTypeTop, executor, nil)
 	a := agent.(*subAgent)
 
 	err := a.RestoreState(nil)
@@ -299,9 +231,8 @@ func TestSubAgent_RestoreState_NilState(t *testing.T) {
 
 func TestSubAgent_RestoreState_ValidStatus(t *testing.T) {
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
-	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil)
+	agent := New("sub1", models.AgentTypeTop, executor, nil)
 	a := agent.(*subAgent)
 
 	err := a.RestoreState(map[string]any{
@@ -313,9 +244,8 @@ func TestSubAgent_RestoreState_ValidStatus(t *testing.T) {
 
 func TestSubAgent_RestoreState_EmptyStatusIgnored(t *testing.T) {
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
-	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil)
+	agent := New("sub1", models.AgentTypeTop, executor, nil)
 	a := agent.(*subAgent)
 
 	err := a.RestoreState(map[string]any{
@@ -328,9 +258,8 @@ func TestSubAgent_RestoreState_EmptyStatusIgnored(t *testing.T) {
 
 func TestSubAgent_RestoreState_IgnoresNonStringStatus(t *testing.T) {
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
-	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil)
+	agent := New("sub1", models.AgentTypeTop, executor, nil)
 	a := agent.(*subAgent)
 
 	err := a.RestoreState(map[string]any{
@@ -343,9 +272,8 @@ func TestSubAgent_RestoreState_IgnoresNonStringStatus(t *testing.T) {
 
 func TestSubAgent_RestoreState_IgnoresExtraKeys(t *testing.T) {
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
-	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil)
+	agent := New("sub1", models.AgentTypeTop, executor, nil)
 	a := agent.(*subAgent)
 
 	err := a.RestoreState(map[string]any{
@@ -358,9 +286,8 @@ func TestSubAgent_RestoreState_IgnoresExtraKeys(t *testing.T) {
 
 func TestSubAgent_RestoreState_EmptyMap(t *testing.T) {
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
-	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil)
+	agent := New("sub1", models.AgentTypeTop, executor, nil)
 	a := agent.(*subAgent)
 
 	err := a.RestoreState(map[string]any{})
@@ -370,9 +297,8 @@ func TestSubAgent_RestoreState_EmptyMap(t *testing.T) {
 
 func TestSubAgent_ReplayEvents_Empty(t *testing.T) {
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
-	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil)
+	agent := New("sub1", models.AgentTypeTop, executor, nil)
 	a := agent.(*subAgent)
 
 	err := a.ReplayEvents(nil)
@@ -384,9 +310,8 @@ func TestSubAgent_ReplayEvents_Empty(t *testing.T) {
 
 func TestSubAgent_ReplayEvents_NilEventSkipped(t *testing.T) {
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
-	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil)
+	agent := New("sub1", models.AgentTypeTop, executor, nil)
 	a := agent.(*subAgent)
 
 	err := a.ReplayEvents([]*ares_events.Event{nil, nil})
@@ -395,9 +320,8 @@ func TestSubAgent_ReplayEvents_NilEventSkipped(t *testing.T) {
 
 func TestSubAgent_ReplayEvents_TaskCompleted(t *testing.T) {
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
-	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil)
+	agent := New("sub1", models.AgentTypeTop, executor, nil)
 	a := agent.(*subAgent)
 
 	evts := []*ares_events.Event{
@@ -421,9 +345,8 @@ func TestSubAgent_ReplayEvents_TaskCompleted(t *testing.T) {
 
 func TestSubAgent_ReplayEvents_UnknownEventTypeIgnored(t *testing.T) {
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
-	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil)
+	agent := New("sub1", models.AgentTypeTop, executor, nil)
 	a := agent.(*subAgent)
 
 	evts := []*ares_events.Event{
@@ -445,9 +368,8 @@ func TestSubAgent_ReplayEvents_UnknownEventTypeIgnored(t *testing.T) {
 
 func TestSubAgent_Snapshot_OfflineStatus(t *testing.T) {
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
-	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil)
+	agent := New("sub1", models.AgentTypeTop, executor, nil)
 	a := agent.(*subAgent)
 
 	snap, err := a.Snapshot()
@@ -458,9 +380,8 @@ func TestSubAgent_Snapshot_OfflineStatus(t *testing.T) {
 
 func TestSubAgent_Snapshot_ReadyStatus(t *testing.T) {
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
-	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil)
+	agent := New("sub1", models.AgentTypeTop, executor, nil)
 	a := agent.(*subAgent)
 
 	_ = a.Start(context.Background())
@@ -473,9 +394,8 @@ func TestSubAgent_Snapshot_ReadyStatus(t *testing.T) {
 
 func TestSubAgent_Snapshot_ReturnsCopy(t *testing.T) {
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
-	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil)
+	agent := New("sub1", models.AgentTypeTop, executor, nil)
 	a := agent.(*subAgent)
 
 	snap1, _ := a.Snapshot()
@@ -490,9 +410,8 @@ func TestSubAgent_Snapshot_ReturnsCopy(t *testing.T) {
 func TestSubAgent_WithEventStore(t *testing.T) {
 	store := ares_events.NewMemoryEventStore()
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
-	agent := New(TestAgentID, models.AgentTypeTop, executor, handler, nil, nil,
+	agent := New(TestAgentID, models.AgentTypeTop, executor, nil,
 		WithEventStore(store))
 	a := agent.(*subAgent)
 
@@ -502,9 +421,8 @@ func TestSubAgent_WithEventStore(t *testing.T) {
 func TestSubAgent_EmitEvent_WithStore(t *testing.T) {
 	store := ares_events.NewMemoryEventStore()
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
-	agent := New(TestAgentID, models.AgentTypeTop, executor, handler, nil, nil,
+	agent := New(TestAgentID, models.AgentTypeTop, executor, nil,
 		WithEventStore(store))
 	a := agent.(*subAgent)
 
@@ -523,9 +441,8 @@ func TestSubAgent_EmitEvent_WithStore(t *testing.T) {
 
 func TestSubAgent_EmitEvent_NilStore(t *testing.T) {
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
-	agent := New(TestAgentID, models.AgentTypeTop, executor, handler, nil, nil)
+	agent := New(TestAgentID, models.AgentTypeTop, executor, nil)
 	a := agent.(*subAgent)
 
 	// Should not panic when eventStore is nil.
@@ -537,9 +454,8 @@ func TestSubAgent_EmitEvent_NilStore(t *testing.T) {
 func TestSubAgent_EmitEvent_NilPayload(t *testing.T) {
 	store := ares_events.NewMemoryEventStore()
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
-	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil,
+	agent := New("sub1", models.AgentTypeTop, executor, nil,
 		WithEventStore(store))
 	a := agent.(*subAgent)
 
@@ -555,9 +471,8 @@ func TestSubAgent_EmitEvent_NilPayload(t *testing.T) {
 
 func TestSubAgent_RestoreAndSnapshot_Roundtrip(t *testing.T) {
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
-	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil)
+	agent := New("sub1", models.AgentTypeTop, executor, nil)
 	a := agent.(*subAgent)
 
 	// Restore state.
@@ -576,9 +491,8 @@ func TestSubAgent_RestoreAndSnapshot_Roundtrip(t *testing.T) {
 func TestSubAgent_StatefulAgent_ConcurrentAccess(t *testing.T) {
 	store := ares_events.NewMemoryEventStore()
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
-	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil,
+	agent := New("sub1", models.AgentTypeTop, executor, nil,
 		WithEventStore(store))
 	a := agent.(*subAgent)
 
@@ -619,9 +533,8 @@ func (e *failingExecutor) RegisterFallback(_ models.AgentType, _ FallbackHandler
 func TestSubAgent_Start_EmitsAgentStartedEvent(t *testing.T) {
 	store := ares_events.NewMemoryEventStore()
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
-	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil,
+	agent := New("sub1", models.AgentTypeTop, executor, nil,
 		WithEventStore(store))
 
 	err := agent.Start(context.Background())
@@ -638,9 +551,8 @@ func TestSubAgent_Start_EmitsAgentStartedEvent(t *testing.T) {
 func TestSubAgent_Stop_EmitsAgentStoppedEvent(t *testing.T) {
 	store := ares_events.NewMemoryEventStore()
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
-	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil,
+	agent := New("sub1", models.AgentTypeTop, executor, nil,
 		WithEventStore(store))
 
 	require.NoError(t, agent.Start(context.Background()))
@@ -660,9 +572,8 @@ func TestSubAgent_Stop_EmitsAgentStoppedEvent(t *testing.T) {
 func TestSubAgent_Execute_Success_EmitsTaskEvents(t *testing.T) {
 	store := ares_events.NewMemoryEventStore()
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
-	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil,
+	agent := New("sub1", models.AgentTypeTop, executor, nil,
 		WithEventStore(store))
 
 	task := models.NewTask("task-1", models.AgentTypeTop, &models.UserProfile{})
@@ -685,9 +596,8 @@ func TestSubAgent_Execute_Success_EmitsTaskEvents(t *testing.T) {
 func TestSubAgent_Execute_Failure_EmitsTaskFailedEvent(t *testing.T) {
 	store := ares_events.NewMemoryEventStore()
 	exec := &failingExecutor{err: assert.AnError}
-	handler := NewMessageHandler("sub1")
 
-	agent := New("sub1", models.AgentTypeTop, exec, handler, nil, nil,
+	agent := New("sub1", models.AgentTypeTop, exec, nil,
 		WithEventStore(store))
 
 	task := models.NewTask("task-1", models.AgentTypeTop, &models.UserProfile{})
@@ -710,9 +620,8 @@ func TestSubAgent_Execute_Failure_EmitsTaskFailedEvent(t *testing.T) {
 func TestSubAgent_ProcessStream_EmitsTaskEvents(t *testing.T) {
 	store := ares_events.NewMemoryEventStore()
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
-	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil,
+	agent := New("sub1", models.AgentTypeTop, executor, nil,
 		WithEventStore(store))
 
 	// Start agent first so ProcessStream does not auto-start (which adds an extra event).
@@ -746,9 +655,8 @@ func TestSubAgent_ProcessStream_EmitsTaskEvents(t *testing.T) {
 func TestSubAgent_ProcessStream_Failure_EmitsTaskFailedEvent(t *testing.T) {
 	store := ares_events.NewMemoryEventStore()
 	exec := &failingExecutor{err: assert.AnError}
-	handler := NewMessageHandler("sub1")
 
-	agent := New("sub1", models.AgentTypeTop, exec, handler, nil, nil,
+	agent := New("sub1", models.AgentTypeTop, exec, nil,
 		WithEventStore(store))
 
 	// Start agent first so ProcessStream does not auto-start (which adds an extra event).
@@ -778,10 +686,9 @@ func TestSubAgent_ProcessStream_Failure_EmitsTaskFailedEvent(t *testing.T) {
 
 func TestSubAgent_Execute_NilEventStore_NoPanic(t *testing.T) {
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
 	// No WithEventStore — eventStore is nil.
-	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil)
+	agent := New("sub1", models.AgentTypeTop, executor, nil)
 
 	task := models.NewTask("task-1", models.AgentTypeTop, &models.UserProfile{})
 	_, err := agent.Execute(context.Background(), task)
@@ -791,9 +698,8 @@ func TestSubAgent_Execute_NilEventStore_NoPanic(t *testing.T) {
 func TestSubAgent_FullLifecycle_EmitsAllEvents(t *testing.T) {
 	store := ares_events.NewMemoryEventStore()
 	executor := newStubExecutor()
-	handler := NewMessageHandler("sub1")
 
-	agent := New("sub1", models.AgentTypeTop, executor, handler, nil, nil,
+	agent := New("sub1", models.AgentTypeTop, executor, nil,
 		WithEventStore(store))
 
 	// Start.

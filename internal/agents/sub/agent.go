@@ -5,14 +5,12 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/Timwood0x10/ares/internal/agents/actionlog"
 	"github.com/Timwood0x10/ares/internal/agents/base"
 	"github.com/Timwood0x10/ares/internal/agents/outputguard"
 	"github.com/Timwood0x10/ares/internal/ares_events"
 	"github.com/Timwood0x10/ares/internal/core/models"
 	"github.com/Timwood0x10/ares/internal/errors"
 	llmcore "github.com/Timwood0x10/ares/internal/llmcore"
-	"github.com/Timwood0x10/ares/internal/runtime/protocol/ahp"
 	resources "github.com/Timwood0x10/ares/internal/tools/resources/core"
 )
 
@@ -72,11 +70,6 @@ type TaskExecutor interface {
 // the TaskExecutor contract.)
 type FallbackHandler func(ctx context.Context, task *models.Task) ([]*models.RecommendItem, string, error)
 
-// MessageHandler handles incoming messages.
-type MessageHandler interface {
-	Handle(ctx context.Context, msg *ahp.AHPMessage) error
-}
-
 // ChatClient is the minimal LLM chat surface an executor needs (interface
 // at the consumer). The optional params map carries per-call
 // overrides (temperature, max_tokens, top_k) from the active evolution
@@ -113,31 +106,15 @@ func WithEventStore(store ares_events.EventStore) SubAgentOption {
 	}
 }
 
-// WithActionLog attaches an append-only action store. When set, every task
-// executed via Execute (the Kernel's RunQuantum step) records an
-// actionlog.Entry (task result, success/failure) for audit and replay
-// (ares-vs-prime-agent 5.3: action store).
-func WithActionLog(store *actionlog.Store) SubAgentOption {
-	return func(a *subAgent) {
-		a.actionLog = store
-	}
-}
-
 // subAgent implements a Sub Agent.
 type subAgent struct {
-	mu           sync.RWMutex
-	id           string
-	agentType    models.AgentType
-	status       models.AgentStatus
-	config       *SubAgentConfig
-	executor     TaskExecutor
-	handler      MessageHandler
-	tools        map[string]func(ctx context.Context, args map[string]any) (any, error)
-	heartbeatMon *ahp.HeartbeatMonitor
-	eventStore   ares_events.EventStore
-	// actionLog, when non-nil, records every executed task as an
-	// actionlog.Entry for audit/replay. Set via WithActionLog.
-	actionLog *actionlog.Store
+	mu         sync.RWMutex
+	id         string
+	agentType  models.AgentType
+	status     models.AgentStatus
+	config     *SubAgentConfig
+	executor   TaskExecutor
+	eventStore ares_events.EventStore
 
 	// Lifecycle management
 	stopCh   chan struct{}  // Signals goroutines to stop.
@@ -147,7 +124,6 @@ type subAgent struct {
 // SubAgentConfig holds configuration for SubAgent.
 type SubAgentConfig struct {
 	base.Config
-	EnableTools bool
 }
 
 // New creates a new SubAgent instance.
@@ -156,12 +132,16 @@ type SubAgentConfig struct {
 // ReceiveMessage surface it backed) was removed as dead: production peers
 // were always constructed with a nil queue, so peer direct messaging never
 // delivered — only the kernel-session collaboration topics are live.
+// The handler and hbMon parameters (and the messageHandler /
+// heartbeatSender files they backed) were removed the same way: the
+// handler's Handle had zero call sites (protocol-ACK stubs only) and the
+// heartbeat monitor was always constructed with nil in production.
+// WithActionLog and the agents/actionlog package went with them: the store
+// had zero production constructors, so the audit path never executed.
 func New(
 	id string,
 	agentType models.AgentType,
 	executor TaskExecutor,
-	handler MessageHandler,
-	hbMon *ahp.HeartbeatMonitor,
 	cfg *SubAgentConfig,
 	opts ...SubAgentOption,
 ) Agent {
@@ -172,14 +152,11 @@ func New(
 	cfg.Type = agentType
 
 	a := &subAgent{
-		id:           id,
-		agentType:    agentType,
-		status:       models.AgentStatusOffline,
-		config:       cfg,
-		executor:     executor,
-		handler:      handler,
-		tools:        make(map[string]func(ctx context.Context, args map[string]any) (any, error)),
-		heartbeatMon: hbMon,
+		id:        id,
+		agentType: agentType,
+		status:    models.AgentStatusOffline,
+		config:    cfg,
+		executor:  executor,
 	}
 
 	for _, opt := range opts {
@@ -192,8 +169,7 @@ func New(
 // DefaultSubAgentConfig returns default configuration.
 func DefaultSubAgentConfig(agentType models.AgentType) *SubAgentConfig {
 	return &SubAgentConfig{
-		Config:      *base.DefaultConfig(agentType),
-		EnableTools: true,
+		Config: *base.DefaultConfig(agentType),
 	}
 }
 
@@ -311,12 +287,10 @@ func (a *subAgent) Process(ctx context.Context, input any) (any, error) {
 	return a.executor.Execute(ctx, task)
 }
 
-// Heartbeat sends a heartbeat signal.
+// Heartbeat is the base.Heartbeater surface. It is a no-op since the
+// heartbeatSender/monitor wiring was removed as dead (production always
+// constructed the agent with a nil monitor); liveness is judged by IsAlive.
 func (a *subAgent) Heartbeat(ctx context.Context) error {
-	if a.heartbeatMon == nil {
-		return nil
-	}
-	a.heartbeatMon.RecordHeartbeat(a.id)
 	return nil
 }
 
@@ -399,7 +373,6 @@ func (a *subAgent) finalizeErr(ctx context.Context, task *models.Task, result *m
 			ares_events.EventKeyUsedExperienceID: task.UsedExperienceID,
 			ares_events.EventKeyStrategyID:       task.StrategyID,
 		})
-		a.recordAction(ctx, task, false, execErr.Error())
 		return nil, execErr
 	}
 
@@ -417,7 +390,6 @@ func (a *subAgent) finalizeErr(ctx context.Context, task *models.Task, result *m
 			ares_events.EventKeyUsedExperienceID: task.UsedExperienceID,
 			ares_events.EventKeyStrategyID:       task.StrategyID,
 		})
-		a.recordAction(ctx, task, false, guardErr.Error())
 		return result, fmt.Errorf("sub agent %s output guard rejected result: %w", a.id, guardErr)
 	}
 
@@ -430,38 +402,8 @@ func (a *subAgent) finalizeErr(ctx context.Context, task *models.Task, result *m
 		ares_events.EventKeyUsedExperienceID: task.UsedExperienceID,
 		ares_events.EventKeyStrategyID:       task.StrategyID,
 	})
-	a.recordAction(ctx, task, result.Success, "")
 
 	return result, nil
-}
-
-// recordAction appends an actionlog entry for a finished task, when an action
-// store is configured (ares-vs-prime-agent 5.3: action store). Append errors
-// are logged and non-fatal: audit must never break the execution path.
-//
-// The entry's SessionID comes from models.Task.SessionID: upstream
-// sources that know the owning conversation session populate it (e.g.
-// DistillTask via agent_checkpoints); session-less sources leave it empty,
-// and such entries are only reachable through List(""). Callers that need
-// per-session replay must therefore dispatch tasks carrying a SessionID.
-func (a *subAgent) recordAction(ctx context.Context, task *models.Task, success bool, errMsg string) {
-	if a.actionLog == nil {
-		return
-	}
-	entry := actionlog.Entry{
-		ID:        "task:" + task.TaskID,
-		SessionID: task.SessionID,
-		AgentID:   a.id,
-		Action:    "task.result",
-		Payload: map[string]any{
-			"success": success,
-			"error":   errMsg,
-		},
-	}
-	if appendErr := a.actionLog.Append(ctx, entry); appendErr != nil {
-		log.Error("sub agent action log append failed",
-			KeyAgentID, a.id, KeyTaskID, task.TaskID, "error", appendErr)
-	}
 }
 
 // ProcessStream handles input and returns a stream of ares_events.
